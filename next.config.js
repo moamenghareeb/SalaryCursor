@@ -9,7 +9,6 @@ const nextConfig = {
   experimental: {
     outputFileTracingRoot: process.env.NODE_ENV === 'production' ? undefined : __dirname,
   },
-  output: 'export',
   images: {
     unoptimized: true
   }
