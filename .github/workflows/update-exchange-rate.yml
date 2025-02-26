@@ -15,4 +15,4 @@ jobs:
           curl -X POST \
             -H "x-api-key: ${{ secrets.UPDATE_API_KEY }}" \
             -H "Content-Type: application/json" \
-            ${{ secrets.VERCEL_URL }}/api/exchange-rate 
+            "${{ secrets.VERCEL_URL }}/api/exchange-rate" 
