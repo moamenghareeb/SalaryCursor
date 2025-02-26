@@ -220,10 +220,20 @@ export default function Salary() {
     try {
       console.log('Attempting to update rate...');
       
+      // First check if user is still authenticated
+      const { data: { session }, error: authError } = await supabase.auth.getSession();
+      
+      if (authError || !session) {
+        alert('Authentication error. Please sign in again.');
+        return;
+      }
+      
       const response = await fetch('/api/admin/update-exchange-rate', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          // Include the session token in the request
+          'Authorization': `Bearer ${session.access_token}`
         }
       });
       
@@ -232,8 +242,16 @@ export default function Salary() {
       if (response.ok) {
         const data = await response.json();
         console.log('Update successful, new rate:', data.rate);
+        setExchangeRate(data.rate);
+        const now = new Date();
+        setRateLastUpdated(now.toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        }));
         alert(`Rate updated successfully to: ${data.rate}`);
-        window.location.reload();
       } else {
         let errorMessage = 'Failed to update rate';
         try {
