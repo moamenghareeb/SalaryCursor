@@ -1,8 +1,5 @@
 {
-  "builds": [
-    {
-      "src": "package.json",
-      "use": "@vercel/next"
-    }
-  ]
+  "github": {
+    "silent": true
+  }
 } 

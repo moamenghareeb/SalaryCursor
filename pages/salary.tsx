@@ -9,7 +9,8 @@ export default function Salary() {
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [loading, setLoading] = useState(true);
   const [calculationLoading, setCalculationLoading] = useState(false);
-  const [exchangeRate, setExchangeRate] = useState<number | null>(null);
+  const [exchangeRate, setExchangeRate] = useState(31.50); // Default fallback
+  const [rateLastUpdated, setRateLastUpdated] = useState('');
   const [month, setMonth] = useState(new Date().toISOString().substring(0, 7));
   const [salaryHistory, setSalaryHistory] = useState<any[]>([]);
 
@@ -32,7 +33,8 @@ export default function Salary() {
         
         try {
           console.log("Fetching exchange rate...");
-          const rateResponse = await fetch('/api/exchange-rate');
+          const timestamp = new Date().getTime();
+          const rateResponse = await fetch(`/api/exchange-rate?t=${timestamp}`);
           
           if (rateResponse.ok) {
             const rateData = await rateResponse.json();
@@ -73,6 +75,26 @@ export default function Salary() {
           if (historyError) throw historyError;
           setSalaryHistory(historyData || []);
         }
+
+        // Fetch the exchange rate when the component mounts
+        fetch('/api/exchange-rate')
+          .then(response => response.json())
+          .then(data => {
+            setExchangeRate(data.rate);
+            
+            // Format the last updated date for display
+            const lastUpdated = new Date(data.lastUpdated);
+            setRateLastUpdated(lastUpdated.toLocaleDateString('en-US', {
+              year: 'numeric',
+              month: 'short',
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            }));
+          })
+          .catch(error => {
+            console.error('Error fetching exchange rate:', error);
+          });
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {
@@ -192,8 +214,10 @@ export default function Salary() {
       <div className="bg-white shadow rounded-lg p-6 mb-6">
         <h2 className="text-xl font-semibold mb-4">Current Exchange Rate</h2>
         <p className="text-lg">
-          1 USD = <span className="font-bold text-green-600">{exchangeRate ? exchangeRate.toFixed(2) : '...'} EGP</span>
+          1 USD = <span className="font-bold text-green-600">{exchangeRate.toFixed(2)} EGP</span>
         </p>
+        {rateLastUpdated && <p className="text-xs text-gray-500">Last updated: {rateLastUpdated}</p>}
+        <p className="text-xs text-gray-500">* 30-day average, updated daily at 18:00 Cairo time</p>
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
