@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase';
 import { SalaryCalculation, Employee } from '../types';
 import { PDFDownloadLink, Document, Page, Text, View, StyleSheet, BlobProvider } from '@react-pdf/renderer';
 import SalaryPDF from '../components/SalaryPDF';
+import { User } from '@supabase/supabase-js';
 
 export default function Salary() {
   const [employee, setEmployee] = useState<Employee | null>(null);
@@ -15,6 +16,7 @@ export default function Salary() {
   const [month, setMonth] = useState(new Date().toISOString().substring(0, 7));
   const [salaryHistory, setSalaryHistory] = useState<any[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   const [salaryCalc, setSalaryCalc] = useState<SalaryCalculation>({
     basicSalary: 0,
@@ -30,6 +32,8 @@ export default function Salary() {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        setAuthError(null);
+        
         // Fetch exchange rate with fallback
         let exchangeRateValue = 31.5; // Default fallback
         
@@ -51,67 +55,65 @@ export default function Salary() {
         }
         
         // Always set the exchange rate regardless of API success
-        console.log("Setting exchange rate:", exchangeRateValue);
         setExchangeRate(exchangeRateValue);
 
         // Fetch employee data
-        const { data: userData } = await supabase.auth.getUser();
+        const { data: userData, error: authError } = await supabase.auth.getUser();
         
-        if (userData.user) {
-          const { data: employeeData, error: employeeError } = await supabase
-            .from('employees')
-            .select('*')
-            .eq('id', userData.user.id)
-            .single();
+        if (authError) {
+          setAuthError('Authentication failed. Please try logging in again.');
+          return;
+        }
 
-          if (employeeError) throw employeeError;
-          setEmployee(employeeData);
+        if (!userData?.user) {
+          setAuthError('No user found. Please log in.');
+          return;
+        }
 
-          // Fetch salary history
-          const { data: historyData, error: historyError } = await supabase
-            .from('salaries')
-            .select('*')
-            .eq('employee_id', userData.user.id)
-            .order('month', { ascending: false });
+        const { data: employeeData, error: employeeError } = await supabase
+          .from('employees')
+          .select('*')
+          .eq('id', userData.user.id)
+          .single();
 
-          if (historyError) throw historyError;
+        if (employeeError) {
+          if (employeeError.code === 'PGRST116') {
+            setAuthError('Employee record not found. Please contact your administrator.');
+          } else {
+            setAuthError(`Error fetching employee data: ${employeeError.message}`);
+          }
+          return;
+        }
+
+        setEmployee(employeeData);
+
+        // Fetch salary history
+        const { data: historyData, error: historyError } = await supabase
+          .from('salaries')
+          .select('*')
+          .eq('employee_id', userData.user.id)
+          .order('month', { ascending: false });
+
+        if (historyError) {
+          console.error('Error fetching salary history:', historyError);
+        } else {
           setSalaryHistory(historyData || []);
         }
 
-        // Fetch the exchange rate when the component mounts
-        fetch('/api/exchange-rate')
-          .then(response => response.json())
-          .then(data => {
-            setExchangeRate(data.rate);
-            
-            // Format the last updated date for display
-            const lastUpdated = new Date(data.lastUpdated);
-            setRateLastUpdated(lastUpdated.toLocaleDateString('en-US', {
-              year: 'numeric',
-              month: 'short',
-              day: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit'
-            }));
-          })
-          .catch(error => {
-            console.error('Error fetching exchange rate:', error);
-          });
-
         // Check if user is admin
-        const checkAdminStatus = async () => {
-          const { data: employeeData } = await supabase
-            .from('employees')
-            .select('is_admin')
-            .eq('id', userData.user.id)
-            .single();
-          
-          setIsAdmin(employeeData?.is_admin || false);
-        };
+        const { data: adminData, error: adminError } = await supabase
+          .from('employees')
+          .select('is_admin')
+          .eq('id', userData.user.id)
+          .single();
         
-        checkAdminStatus();
+        if (!adminError && adminData) {
+          setIsAdmin(adminData.is_admin || false);
+        }
+
       } catch (error) {
         console.error('Error fetching data:', error);
+        setAuthError('An unexpected error occurred. Please try again later.');
       } finally {
         setLoading(false);
       }
@@ -255,6 +257,22 @@ export default function Salary() {
     return (
       <Layout>
         <div className="flex justify-center items-center h-64">Loading...</div>
+      </Layout>
+    );
+  }
+
+  if (authError) {
+    return (
+      <Layout>
+        <div className="flex flex-col justify-center items-center h-64">
+          <div className="text-red-600 mb-4">{authError}</div>
+          <button
+            onClick={() => window.location.reload()}
+            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+          >
+            Try Again
+          </button>
+        </div>
       </Layout>
     );
   }
