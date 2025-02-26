@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { supabase } from '../lib/supabase';
 import { Employee } from '../types';
-import { Leave as LeaveType } from '../types';
+import type { Leave } from '../types/models';
 import { PDFDownloadLink, Document, Page, Text, View, StyleSheet, BlobProvider } from '@react-pdf/renderer';
 
 // Create styles for PDF
@@ -188,7 +188,7 @@ export default function Leave() {
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [days, setDays] = useState<number | null>(null);
   const [savingLeave, setSavingLeave] = useState(false);
-  const [leaveData, setLeaveData] = useState<LeaveType[]>([]);
+  const [leaveData, setLeaveData] = useState<Leave[]>([]);
   const [totalLeaveBalance, setTotalLeaveBalance] = useState(0);
   const [leaveTaken, setLeaveTaken] = useState(0);
   const [remainingLeave, setRemainingLeave] = useState(0);
