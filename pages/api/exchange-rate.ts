@@ -15,18 +15,17 @@ const ensureDirectoryExists = () => {
 // Get the 30-day average exchange rate
 async function get30DayAverageRate() {
   try {
-    // You'll need to use an API key for most exchange rate APIs that offer historical data
-    // This example uses exchangerate-api.com (you'll need to sign up for an API key)
-    const API_KEY = process.env.EXCHANGE_RATE_API_KEY;
-    const today = new Date();
+    const API_KEY = "e8287e34bce27377331a738e";
+    console.log('Using API key:', API_KEY ? 'Key exists' : 'No key found');
     
-    // Calculate date 30 days ago
+    // Log the API URL (redact the actual key)
+    const today = new Date();
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(today.getDate() - 30);
-    
-    // Format dates for API
     const endDate = today.toISOString().split('T')[0];
     const startDate = thirtyDaysAgo.toISOString().split('T')[0];
+    
+    console.log(`Fetching rates from ${startDate} to ${endDate}`);
     
     // For this example, I'm using exchangerate-api.com's time series endpoint
     // You may need to adjust based on your chosen API
@@ -55,9 +54,11 @@ async function get30DayAverageRate() {
     const averageRate = sum / count;
     
     // Return the average rate with 2 decimal places
-    return parseFloat(averageRate.toFixed(2));
+    const rate = parseFloat(averageRate.toFixed(2));
+    
+    return rate;
   } catch (error) {
-    console.error('Error fetching exchange rate:', error);
+    console.error('Error details:', error);
     return null;
   }
 }
