@@ -27,24 +27,28 @@ export default function Salary() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch exchange rate
-        console.log("Fetching exchange rate...");
-        const rateResponse = await fetch('/api/exchange-rate');
+        // Fetch exchange rate with fallback
+        let exchangeRateValue = 31.5; // Default fallback
         
-        if (!rateResponse.ok) {
-          console.error("Exchange rate API error:", rateResponse.status);
-          throw new Error(`API error: ${rateResponse.status}`);
+        try {
+          console.log("Fetching exchange rate...");
+          const rateResponse = await fetch('/api/exchange-rate');
+          
+          if (rateResponse.ok) {
+            const rateData = await rateResponse.json();
+            if (rateData.exchangeRate) {
+              exchangeRateValue = rateData.exchangeRate;
+            }
+          } else {
+            console.warn("API failed, using fallback rate");
+          }
+        } catch (err) {
+          console.warn("Exchange rate API error, using fallback", err);
         }
         
-        const rateData = await rateResponse.json();
-        console.log("Exchange rate data:", rateData);
-        
-        if (rateData.exchangeRate) {
-          console.log("Setting exchange rate:", rateData.exchangeRate);
-          setExchangeRate(rateData.exchangeRate);
-        } else if (rateData.error) {
-          console.error("Exchange rate error:", rateData.error, rateData.message);
-        }
+        // Always set the exchange rate regardless of API success
+        console.log("Setting exchange rate:", exchangeRateValue);
+        setExchangeRate(exchangeRateValue);
 
         // Fetch employee data
         const { data: userData } = await supabase.auth.getUser();
