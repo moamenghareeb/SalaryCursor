@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  swcMinify: false,
+  swcMinify: true,
   trailingSlash: true,
   poweredByHeader: false,
   productionBrowserSourceMaps: false,
@@ -9,6 +9,10 @@ const nextConfig = {
   experimental: {
     outputFileTracingRoot: process.env.NODE_ENV === 'production' ? undefined : __dirname,
   },
+  output: 'export',
+  images: {
+    unoptimized: true
+  }
 }
 
 module.exports = nextConfig 
