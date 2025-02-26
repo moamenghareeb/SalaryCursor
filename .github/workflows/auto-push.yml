@@ -3,7 +3,7 @@ name: Auto Update Repository
 on:
   push:
     branches:
-      - master  # or main, depending on your default branch
+      - main
   schedule:
     - cron: '0 0 * * *'  # Runs daily at midnight
 
@@ -35,4 +35,5 @@ jobs:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
           vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
           vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          working-directory: ./ 
+          working-directory: ./
+          vercel-args: '--prod' 
