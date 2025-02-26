@@ -2,7 +2,8 @@ import React from 'react';
 import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { supabase } from '../lib/supabase';
-import { Employee, Leave } from '../types';
+import { Employee } from '../types';
+import type { Leave } from '../types';
 import { PDFDownloadLink, Document, Page, Text, View, StyleSheet, BlobProvider } from '@react-pdf/renderer';
 
 // Create styles for PDF

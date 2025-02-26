@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { supabase } from '../lib/supabase';
 import { SalaryCalculation, Employee } from '../types';
-import { PDFDownloadLink } from '@react-pdf/renderer';
+import { PDFDownloadLink, Document, Page, Text, View, StyleSheet, BlobProvider } from '@react-pdf/renderer';
 import SalaryPDF from '../components/SalaryPDF';
 
 export default function Salary() {
@@ -277,13 +277,23 @@ export default function Salary() {
           
           {salaryCalc.totalSalary > 0 && employee && (
             <div className="mt-6">
-              <PDFDownloadLink
-                document={<SalaryPDF salary={salaryCalc} employee={employee} month={month} />}
-                fileName={`salary-${month}-${employee.name}.pdf`}
-                className="inline-block bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
-              >
-                {({ loading }) => (loading ? 'Generating PDF...' : 'Download PDF')}
-              </PDFDownloadLink>
+              <BlobProvider document={
+                <SalaryPDF 
+                  salary={salaryCalc}
+                  employee={employee}
+                  month={month}
+                />
+              }>
+                {({ blob, url, loading, error }) => (
+                  <a 
+                    href={url || undefined} 
+                    download={`salary-slip-${month}-${employee.name}.pdf`}
+                    className="inline-block bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
+                  >
+                    {loading ? 'Generating PDF...' : 'Download PDF'}
+                  </a>
+                )}
+              </BlobProvider>
             </div>
           )}
         </div>
@@ -320,28 +330,32 @@ export default function Salary() {
                     <td className="px-6 py-4 whitespace-nowrap">{salary.variable_pay.toFixed(2)}</td>
                     <td className="px-6 py-4 whitespace-nowrap font-bold">{salary.total_salary.toFixed(2)}</td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <PDFDownloadLink
-                        document={
-                          <SalaryPDF 
-                            salary={{
-                              basicSalary: salary.basic_salary,
-                              costOfLiving: salary.cost_of_living,
-                              shiftAllowance: salary.shift_allowance,
-                              overtimeHours: salary.overtime_hours,
-                              overtimePay: salary.overtime_pay,
-                              variablePay: salary.variable_pay,
-                              totalSalary: salary.total_salary,
-                              exchangeRate: salary.exchange_rate,
-                            }} 
-                            employee={employee as Employee} 
-                            month={new Date(salary.month).toISOString().substring(0, 7)} 
-                          />
-                        }
-                        fileName={`salary-${new Date(salary.month).toISOString().substring(0, 7)}-${employee?.name}.pdf`}
-                        className="text-red-600 hover:text-red-800"
-                      >
-                        {({ loading }) => (loading ? 'Loading...' : 'Download PDF')}
-                      </PDFDownloadLink>
+                      <BlobProvider document={
+                        <SalaryPDF 
+                          salary={{
+                            basicSalary: salary.basic_salary,
+                            costOfLiving: salary.cost_of_living,
+                            shiftAllowance: salary.shift_allowance,
+                            overtimeHours: salary.overtime_hours,
+                            overtimePay: salary.overtime_pay,
+                            variablePay: salary.variable_pay,
+                            totalSalary: salary.total_salary,
+                            exchangeRate: salary.exchange_rate,
+                          }} 
+                          employee={employee as Employee} 
+                          month={new Date(salary.month).toISOString().substring(0, 7)} 
+                        />
+                      }>
+                        {({ blob, url, loading, error }) => (
+                          <a 
+                            href={url || undefined} 
+                            download={`salary-${new Date(salary.month).toISOString().substring(0, 7)}-${employee?.name}.pdf`}
+                            className="text-red-600 hover:text-red-800"
+                          >
+                            {loading ? 'Loading...' : 'Download PDF'}
+                          </a>
+                        )}
+                      </BlobProvider>
                     </td>
                   </tr>
                 ))}
