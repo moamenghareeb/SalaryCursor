@@ -14,6 +14,7 @@ export default function Salary() {
   const [rateLastUpdated, setRateLastUpdated] = useState('');
   const [month, setMonth] = useState(new Date().toISOString().substring(0, 7));
   const [salaryHistory, setSalaryHistory] = useState<any[]>([]);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const [salaryCalc, setSalaryCalc] = useState<SalaryCalculation>({
     basicSalary: 0,
@@ -96,6 +97,19 @@ export default function Salary() {
           .catch(error => {
             console.error('Error fetching exchange rate:', error);
           });
+
+        // Check if user is admin
+        const checkAdminStatus = async () => {
+          const { data: employeeData } = await supabase
+            .from('employees')
+            .select('is_admin')
+            .eq('id', userData.user.id)
+            .single();
+          
+          setIsAdmin(employeeData?.is_admin || false);
+        };
+        
+        checkAdminStatus();
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {
@@ -202,25 +216,37 @@ export default function Salary() {
 
   const manuallyUpdateRate = async () => {
     try {
-      const response = await fetch('/api/exchange-rate', {
+      console.log('Attempting to update rate...');
+      
+      const response = await fetch('/api/admin/update-exchange-rate', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': 'your-update-api-key'  // Use your actual update API key
+          'Content-Type': 'application/json'
         }
       });
       
+      console.log('Response status:', response.status);
+      
       if (response.ok) {
         const data = await response.json();
+        console.log('Update successful, new rate:', data.rate);
         alert(`Rate updated successfully to: ${data.rate}`);
-        
-        // Refresh the page to show new rate
         window.location.reload();
       } else {
-        const error = await response.json();
-        alert(`Failed to update rate: ${error.error || 'Unknown error'}`);
+        let errorMessage = 'Failed to update rate';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch (e) {
+          // If JSON parsing fails, fall back to text
+          const errorText = await response.text();
+          errorMessage = errorText || errorMessage;
+        }
+        console.error('Update failed:', errorMessage);
+        alert(`Failed to update rate: ${errorMessage}`);
       }
     } catch (error) {
+      console.error('Error in update function:', error);
       alert(`Error updating rate: ${error}`);
     }
   };
@@ -244,12 +270,14 @@ export default function Salary() {
         </p>
         {rateLastUpdated && <p className="text-xs text-gray-500">Last updated: {rateLastUpdated}</p>}
         <p className="text-xs text-gray-500">* 30-day average, updated daily at 18:00 Cairo time</p>
-        <button 
-          onClick={manuallyUpdateRate}
-          className="text-xs text-blue-600 hover:text-blue-800 mt-1"
-        >
-          Update Now (Admin Only)
-        </button>
+        {isAdmin && (
+          <button 
+            onClick={manuallyUpdateRate}
+            className="text-xs text-blue-600 hover:text-blue-800 mt-1"
+          >
+            Update Now (Admin Only)
+          </button>
+        )}
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
