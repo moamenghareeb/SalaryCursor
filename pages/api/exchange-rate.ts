@@ -1,11 +1,16 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { loadExchangeRate, saveExchangeRate, get30DayAverageRate } from '../../lib/exchange-rate';
+import { getCurrentExchangeRate, saveExchangeRate, get30DayAverageRate } from '../../lib/exchange-rate';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === 'GET') {
-    // Return the stored rate
-    const storedData = loadExchangeRate();
-    return res.status(200).json(storedData);
+    try {
+      // Return the cached/stored rate
+      const rateData = await getCurrentExchangeRate();
+      return res.status(200).json(rateData);
+    } catch (error) {
+      console.error('Error fetching exchange rate:', error);
+      return res.status(500).json({ error: 'Failed to fetch exchange rate' });
+    }
   } else if (req.method === 'POST') {
     // Log keys for debugging
     console.log('Received key:', req.headers['x-api-key']);

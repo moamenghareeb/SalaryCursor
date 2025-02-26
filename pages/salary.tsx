@@ -34,18 +34,23 @@ export default function Salary() {
       try {
         setAuthError(null);
         
-        // Fetch exchange rate with fallback
-        let exchangeRateValue = 31.5; // Default fallback
-        
+        // Fetch exchange rate from cached endpoint
         try {
           console.log("Fetching exchange rate...");
-          const timestamp = new Date().getTime();
-          const rateResponse = await fetch(`/api/exchange-rate?t=${timestamp}`);
+          const rateResponse = await fetch('/api/exchange-rate');
           
           if (rateResponse.ok) {
             const rateData = await rateResponse.json();
-            if (rateData.exchangeRate) {
-              exchangeRateValue = rateData.exchangeRate;
+            if (rateData.rate) {
+              setExchangeRate(rateData.rate);
+              const lastUpdated = new Date(rateData.lastUpdated);
+              setRateLastUpdated(lastUpdated.toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+              }));
             }
           } else {
             console.warn("API failed, using fallback rate");
@@ -53,9 +58,6 @@ export default function Salary() {
         } catch (err) {
           console.warn("Exchange rate API error, using fallback", err);
         }
-        
-        // Always set the exchange rate regardless of API success
-        setExchangeRate(exchangeRateValue);
 
         // Fetch employee data
         const { data: userData, error: authError } = await supabase.auth.getUser();
@@ -232,7 +234,6 @@ export default function Salary() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          // Include the session token in the request
           'Authorization': `Bearer ${session.access_token}`
         }
       });
@@ -242,6 +243,8 @@ export default function Salary() {
       if (response.ok) {
         const data = await response.json();
         console.log('Update successful, new rate:', data.rate);
+        
+        // Update local state
         setExchangeRate(data.rate);
         const now = new Date();
         setRateLastUpdated(now.toLocaleDateString('en-US', {
@@ -251,6 +254,7 @@ export default function Salary() {
           hour: '2-digit',
           minute: '2-digit'
         }));
+        
         alert(`Rate updated successfully to: ${data.rate}`);
       } else {
         let errorMessage = 'Failed to update rate';
@@ -258,7 +262,6 @@ export default function Salary() {
           const errorData = await response.json();
           errorMessage = errorData.error || errorMessage;
         } catch (e) {
-          // If JSON parsing fails, fall back to text
           const errorText = await response.text();
           errorMessage = errorText || errorMessage;
         }
