@@ -28,11 +28,22 @@ export default function Salary() {
     const fetchData = async () => {
       try {
         // Fetch exchange rate
+        console.log("Fetching exchange rate...");
         const rateResponse = await fetch('/api/exchange-rate');
+        
+        if (!rateResponse.ok) {
+          console.error("Exchange rate API error:", rateResponse.status);
+          throw new Error(`API error: ${rateResponse.status}`);
+        }
+        
         const rateData = await rateResponse.json();
+        console.log("Exchange rate data:", rateData);
         
         if (rateData.exchangeRate) {
+          console.log("Setting exchange rate:", rateData.exchangeRate);
           setExchangeRate(rateData.exchangeRate);
+        } else if (rateData.error) {
+          console.error("Exchange rate error:", rateData.error, rateData.message);
         }
 
         // Fetch employee data
@@ -73,8 +84,10 @@ export default function Salary() {
   };
 
   const calculateSalary = () => {
+    console.log('Calculate button clicked');
+    
     if (!exchangeRate) return;
-
+    
     const { basicSalary, costOfLiving, shiftAllowance, overtimeHours } = salaryCalc;
     
     // Calculate overtime pay: D = ((A+B)/210)*overtimeHours
