@@ -2,7 +2,11 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import fs from 'fs';
 import path from 'path';
 
-const DATA_FILE_PATH = path.join(process.cwd(), 'data', 'exchange-rate.json');
+const DATA_FILE_PATH = path.join(
+  process.env.NODE_ENV === 'production' ? '/tmp' : process.cwd(), 
+  'data', 
+  'exchange-rate.json'
+);
 
 // Ensure data directory exists
 const ensureDirectoryExists = () => {
@@ -12,53 +16,53 @@ const ensureDirectoryExists = () => {
   }
 }
 
-// Get the 30-day average exchange rate
+// Get the current exchange rate with fallback to free API
 async function get30DayAverageRate() {
   try {
+    console.log('Fetching exchange rate...');
+    
+    // First try using your API key
     const API_KEY = "e8287e34bce27377331a738e";
-    console.log('Using API key:', API_KEY ? 'Key exists' : 'No key found');
     
-    // Log the API URL (redact the actual key)
-    const today = new Date();
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(today.getDate() - 30);
-    const endDate = today.toISOString().split('T')[0];
-    const startDate = thirtyDaysAgo.toISOString().split('T')[0];
-    
-    console.log(`Fetching rates from ${startDate} to ${endDate}`);
-    
-    // For this example, I'm using exchangerate-api.com's time series endpoint
-    // You may need to adjust based on your chosen API
+    // Try a simpler endpoint that just returns the current rate
     const response = await fetch(
-      `https://api.exchangerate-api.com/v4/time-series/${API_KEY}/USD/EGP/${startDate}/${endDate}`
+      `https://v6.exchangerate-api.com/v6/${API_KEY}/latest/USD`
     );
     
     if (!response.ok) {
-      throw new Error('Failed to fetch exchange rate data');
+      throw new Error(`API request failed with status ${response.status}`);
     }
     
     const data = await response.json();
+    console.log('API response received:', JSON.stringify(data).substring(0, 200) + '...');
     
-    // Calculate average from the returned rates
-    // The structure will depend on your chosen API
-    let sum = 0;
-    let count = 0;
-    
-    // This structure is based on exchangerate-api.com's response format
-    // Adjust as needed for your chosen API
-    for (const date in data.rates) {
-      sum += data.rates[date].EGP;
-      count++;
+    if (data.result === 'success' && data.conversion_rates && data.conversion_rates.EGP) {
+      const rate = parseFloat(data.conversion_rates.EGP.toFixed(2));
+      console.log('Successfully fetched rate:', rate);
+      return rate;
+    } else {
+      throw new Error('Invalid API response format');
     }
-    
-    const averageRate = sum / count;
-    
-    // Return the average rate with 2 decimal places
-    const rate = parseFloat(averageRate.toFixed(2));
-    
-    return rate;
   } catch (error) {
     console.error('Error details:', error);
+    
+    // Fallback to free API if primary fails
+    try {
+      console.log('Trying fallback API...');
+      const fallbackResponse = await fetch('https://open.er-api.com/v6/latest/USD');
+      
+      if (fallbackResponse.ok) {
+        const fallbackData = await fallbackResponse.json();
+        if (fallbackData.rates && fallbackData.rates.EGP) {
+          const fallbackRate = parseFloat(fallbackData.rates.EGP.toFixed(2));
+          console.log('Successfully fetched fallback rate:', fallbackRate);
+          return fallbackRate;
+        }
+      }
+    } catch (fallbackError) {
+      console.error('Fallback API also failed:', fallbackError);
+    }
+    
     return null;
   }
 }

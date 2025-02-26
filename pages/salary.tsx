@@ -200,6 +200,31 @@ export default function Salary() {
     }
   };
 
+  const manuallyUpdateRate = async () => {
+    try {
+      const response = await fetch('/api/exchange-rate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': 'your-update-api-key'  // Use your actual update API key
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        alert(`Rate updated successfully to: ${data.rate}`);
+        
+        // Refresh the page to show new rate
+        window.location.reload();
+      } else {
+        const error = await response.json();
+        alert(`Failed to update rate: ${error.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      alert(`Error updating rate: ${error}`);
+    }
+  };
+
   if (loading) {
     return (
       <Layout>
@@ -219,6 +244,12 @@ export default function Salary() {
         </p>
         {rateLastUpdated && <p className="text-xs text-gray-500">Last updated: {rateLastUpdated}</p>}
         <p className="text-xs text-gray-500">* 30-day average, updated daily at 18:00 Cairo time</p>
+        <button 
+          onClick={manuallyUpdateRate}
+          className="text-xs text-blue-600 hover:text-blue-800 mt-1"
+        >
+          Update Now (Admin Only)
+        </button>
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
