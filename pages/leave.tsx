@@ -360,17 +360,31 @@ export default function Leave() {
 
   const handleDelete = async (leave: Leave) => {
     try {
+      const { data: user } = await supabase.auth.getUser();
+      
+      if (!user.user) {
+        setError('User not authenticated');
+        return;
+      }
+
       const { error: deleteError } = await supabase
         .from('leaves')
         .delete()
-        .eq('id', leave.id);
+        .eq('id', leave.id)
+        .eq('employee_id', user.user.id);  // Add employee_id check for security
 
-      if (deleteError) throw deleteError;
+      if (deleteError) {
+        console.error('Supabase Delete Error:', deleteError);
+        setError(`Failed to delete leave: ${deleteError.message}`);
+        return;
+      }
 
       // Refresh data
       await fetchData();
-    } catch (error) {
+      setSuccess('Leave deleted successfully');
+    } catch (error: any) {
       console.error('Error deleting leave:', error);
+      setError(error.message || 'Failed to delete leave request');
     }
   };
 
