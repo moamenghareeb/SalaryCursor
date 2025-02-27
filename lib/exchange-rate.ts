@@ -2,9 +2,9 @@ import { cache } from './cache';
 import { supabase } from './supabase';
 
 const EXCHANGE_RATE_CACHE_KEY = 'current_exchange_rate';
-const CACHE_TTL = 12 * 60 * 60 * 1000; // 12 hours in milliseconds
+const CACHE_TTL = 1 * 60 * 60 * 1000; // 1 hour in milliseconds
 
-// Get the current exchange rate with cache and fallback
+// Get the current exchange rate with auto-update
 export async function getCurrentExchangeRate(): Promise<{ rate: number; lastUpdated: string }> {
   try {
     // Try to get from cache first
@@ -13,30 +13,20 @@ export async function getCurrentExchangeRate(): Promise<{ rate: number; lastUpda
       return cachedRate;
     }
 
-    // If not in cache, try to get from database
-    const { data: rateData, error } = await supabase
-      .from('exchange_rates')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
-
-    if (error) {
-      console.error('Error fetching rate from database:', error);
-      return { rate: 31.50, lastUpdated: new Date().toISOString() };
-    }
-
-    if (rateData) {
+    // If not in cache, fetch new rate
+    const newRate = await get30DayAverageRate();
+    
+    if (newRate) {
       const data = {
-        rate: rateData.rate,
-        lastUpdated: rateData.created_at
+        rate: newRate,
+        lastUpdated: new Date().toISOString()
       };
       // Cache the rate
       cache.set(EXCHANGE_RATE_CACHE_KEY, data, CACHE_TTL);
       return data;
     }
 
-    // If no rate in database, return default
+    // If API fails, return default rate
     return { rate: 31.50, lastUpdated: new Date().toISOString() };
   } catch (error) {
     console.error('Error in getCurrentExchangeRate:', error);
@@ -44,7 +34,7 @@ export async function getCurrentExchangeRate(): Promise<{ rate: number; lastUpda
   }
 }
 
-// Get the current exchange rate with fallback to free API
+// Get the current exchange rate from API
 export async function get30DayAverageRate() {
   try {
     console.log('Fetching exchange rate...');
