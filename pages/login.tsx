@@ -124,13 +124,6 @@ export default function Login() {
                   Remember me
                 </label>
               </div>
-              <button
-                type="button"
-                onClick={() => setIsResetMode(true)}
-                className="text-sm text-blue-600 hover:text-blue-500 font-medium underline"
-              >
-                Forgot your password?
-              </button>
             </div>
           )}
 
@@ -138,7 +131,7 @@ export default function Login() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+              className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
             >
               {loading ? (
                 <span className="flex items-center">
@@ -155,13 +148,21 @@ export default function Login() {
               )}
             </button>
 
-            {isResetMode && (
+            {isResetMode ? (
               <button
                 type="button"
                 onClick={() => setIsResetMode(false)}
                 className="w-full text-center text-sm text-gray-600 hover:text-gray-500 font-medium"
               >
                 Back to login
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setIsResetMode(true)}
+                className="w-full text-center text-sm text-blue-600 hover:text-blue-500 font-medium"
+              >
+                Forgot your password?
               </button>
             )}
           </div>

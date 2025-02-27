@@ -55,7 +55,11 @@ export default function Dashboard() {
           .eq('year', currentYear);
 
         if (!leaveError && leaveData) {
-          const total = leaveData.reduce((sum, item) => sum + item.days_taken, 0);
+          const currentYearLeaves = leaveData.filter(leave => {
+            const leaveStartYear = new Date(leave.start_date).getFullYear();
+            return leaveStartYear === currentYear;
+          });
+          const total = currentYearLeaves.reduce((sum, item) => sum + item.days_taken, 0);
           setLeaveTaken(total);
         }
       } catch (error) {

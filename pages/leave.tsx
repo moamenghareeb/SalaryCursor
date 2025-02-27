@@ -222,8 +222,7 @@ export default function Leave() {
       const totalLeave = employeeData.years_of_service >= 10 ? 24.67 : 18.67;
       setLeaveBalance(totalLeave);
 
-      // Fetch leaves for current year
-      const currentYear = new Date().getFullYear();
+      // Fetch all leaves
       const { data: leaveData, error: leaveError } = await supabase
         .from('leaves')
         .select('*')
@@ -235,7 +234,12 @@ export default function Leave() {
       setLeaves(leaveData || []);
 
       // Calculate total days taken for current year
-      const currentYearLeaves = (leaveData || []).filter(leave => leave.year === currentYear);
+      const currentYear = new Date().getFullYear();
+      const currentYearLeaves = (leaveData || []).filter(leave => {
+        const leaveStartYear = new Date(leave.start_date).getFullYear();
+        return leaveStartYear === currentYear;
+      });
+      
       const total = currentYearLeaves.reduce((sum, item) => sum + item.days_taken, 0);
       setLeaveTaken(total);
     } catch (error) {
