@@ -357,6 +357,22 @@ export default function Leave() {
     }
   };
 
+  const handleDelete = async (leave: Leave) => {
+    try {
+      const { error: deleteError } = await supabase
+        .from('leaves')
+        .delete()
+        .eq('id', leave.id);
+
+      if (deleteError) throw deleteError;
+
+      // Refresh data
+      await fetchData();
+    } catch (error) {
+      console.error('Error deleting leave:', error);
+    }
+  };
+
   if (loading) {
     return (
       <Layout>
@@ -561,12 +577,20 @@ export default function Leave() {
                             </td>
                             <td className="px-3 py-3 text-sm">
                               {!isPast && (
-                                <button
-                                  onClick={() => handleEdit(leave)}
-                                  className="text-blue-600 hover:text-blue-800 font-medium"
-                                >
-                                  Edit
-                                </button>
+                                <>
+                                  <button
+                                    onClick={() => handleEdit(leave)}
+                                    className="text-blue-600 hover:text-blue-800 font-medium mr-2"
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    onClick={() => handleDelete(leave)}
+                                    className="text-red-600 hover:text-red-800 font-medium"
+                                  >
+                                    Delete
+                                  </button>
+                                </>
                               )}
                             </td>
                           </tr>

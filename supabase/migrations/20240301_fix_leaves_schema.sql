@@ -37,6 +37,12 @@ CREATE POLICY "Users can update own leaves"
     USING (auth.uid() = employee_id)
     WITH CHECK (auth.uid() = employee_id);
 
+CREATE POLICY "Users can delete own leaves"
+    ON public.leaves
+    FOR DELETE
+    TO authenticated
+    USING (auth.uid() = employee_id);
+
 -- Create the update_leaves_updated_at_column function
 CREATE OR REPLACE FUNCTION update_leaves_updated_at_column()
 RETURNS TRIGGER AS $$
