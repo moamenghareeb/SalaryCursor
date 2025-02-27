@@ -14,6 +14,11 @@ CREATE TABLE IF NOT EXISTS public.leaves (
 -- Add RLS policies
 ALTER TABLE public.leaves ENABLE ROW LEVEL SECURITY;
 
+-- Drop existing policies if they exist
+DROP POLICY IF EXISTS "Users can read own leaves" ON public.leaves;
+DROP POLICY IF EXISTS "Users can insert own leaves" ON public.leaves;
+DROP POLICY IF EXISTS "Users can update own leaves" ON public.leaves;
+
 -- Allow users to read their own leaves
 CREATE POLICY "Users can read own leaves"
     ON public.leaves
@@ -37,7 +42,7 @@ CREATE POLICY "Users can update own leaves"
     WITH CHECK (auth.uid() = employee_id);
 
 -- Create function to update updated_at on changes
-CREATE OR REPLACE FUNCTION update_updated_at_column()
+CREATE OR REPLACE FUNCTION update_leaves_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
     NEW.updated_at = timezone('UTC', now());
@@ -49,4 +54,4 @@ $$ language 'plpgsql';
 CREATE TRIGGER update_leaves_updated_at
     BEFORE UPDATE ON public.leaves
     FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column(); 
+    EXECUTE FUNCTION update_leaves_updated_at_column(); 
