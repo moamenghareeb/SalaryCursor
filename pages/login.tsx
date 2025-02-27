@@ -111,21 +111,23 @@ export default function Login() {
             )}
           </div>
 
-          <div className="flex items-center justify-between">
-            <button
-              type="button"
-              onClick={() => setIsResetMode(!isResetMode)}
-              className="text-sm text-blue-600 hover:text-blue-500"
-            >
-              {isResetMode ? 'Back to login' : 'Forgot your password?'}
-            </button>
-          </div>
+          {!isResetMode && (
+            <div className="flex items-center justify-end">
+              <button
+                type="button"
+                onClick={() => setIsResetMode(true)}
+                className="text-sm text-blue-600 hover:text-blue-500 font-medium"
+              >
+                Forgot your password?
+              </button>
+            </div>
+          )}
 
-          <div>
+          <div className="space-y-4">
             <button
               type="submit"
               disabled={loading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+              className="w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
             >
               {loading ? (
                 'Loading...'
@@ -135,6 +137,16 @@ export default function Login() {
                 'Sign in'
               )}
             </button>
+
+            {isResetMode && (
+              <button
+                type="button"
+                onClick={() => setIsResetMode(false)}
+                className="w-full text-center text-sm text-gray-600 hover:text-gray-500 font-medium"
+              >
+                Back to login
+              </button>
+            )}
           </div>
         </form>
       </div>

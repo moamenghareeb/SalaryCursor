@@ -89,6 +89,50 @@ export default function Salary() {
 
         setEmployee(employeeData);
 
+        // First try to get the latest calculation
+        const { data: calcData, error: calcError } = await supabase
+          .from('salary_calculations')
+          .select('*')
+          .eq('employee_id', userData.user.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+
+        if (!calcError && calcData) {
+          setSalaryCalc({
+            basicSalary: calcData.basic_salary,
+            costOfLiving: calcData.cost_of_living,
+            shiftAllowance: calcData.shift_allowance,
+            overtimeHours: calcData.overtime_hours,
+            overtimePay: calcData.overtime_pay,
+            variablePay: calcData.variable_pay,
+            totalSalary: calcData.total_salary,
+            exchangeRate: calcData.exchange_rate,
+          });
+        } else {
+          // If no calculation found, try to get from salaries table
+          const { data: salaryData, error: salaryError } = await supabase
+            .from('salaries')
+            .select('*')
+            .eq('employee_id', userData.user.id)
+            .order('month', { ascending: false })
+            .limit(1)
+            .single();
+
+          if (!salaryError && salaryData) {
+            setSalaryCalc({
+              basicSalary: salaryData.basic_salary,
+              costOfLiving: salaryData.cost_of_living,
+              shiftAllowance: salaryData.shift_allowance,
+              overtimeHours: salaryData.overtime_hours,
+              overtimePay: salaryData.overtime_pay,
+              variablePay: salaryData.variable_pay,
+              totalSalary: salaryData.total_salary,
+              exchangeRate: salaryData.exchange_rate,
+            });
+          }
+        }
+
         // Fetch salary history
         const { data: historyData, error: historyError } = await supabase
           .from('salaries')
@@ -128,10 +172,10 @@ export default function Salary() {
     setSalaryCalc((prev) => ({ ...prev, [field]: value }));
   };
 
-  const calculateSalary = () => {
+  const calculateSalary = async () => {
     console.log('Calculate button clicked');
     
-    if (!exchangeRate) return;
+    if (!exchangeRate || !employee) return;
     
     const { basicSalary, costOfLiving, shiftAllowance, overtimeHours } = salaryCalc;
     
@@ -146,13 +190,36 @@ export default function Salary() {
     // Calculate total salary
     const totalSalary = basicSalary + costOfLiving + shiftAllowance + overtimePay + variablePay;
     
-    setSalaryCalc({
+    const newCalc = {
       ...salaryCalc,
       overtimePay,
       variablePay,
       totalSalary,
       exchangeRate,
-    });
+    };
+    
+    setSalaryCalc(newCalc);
+
+    // Save calculation to database
+    try {
+      const { data, error } = await supabase
+        .from('salary_calculations')
+        .insert([{
+          employee_id: employee.id,
+          basic_salary: basicSalary,
+          cost_of_living: costOfLiving,
+          shift_allowance: shiftAllowance,
+          overtime_hours: overtimeHours,
+          overtime_pay: overtimePay,
+          variable_pay: variablePay,
+          total_salary: totalSalary,
+          exchange_rate: exchangeRate,
+        }]);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error saving calculation:', error);
+    }
   };
 
   const saveSalary = async () => {
