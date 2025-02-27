@@ -300,211 +300,221 @@ export default function Salary() {
 
   return (
     <Layout>
-      <h1 className="text-3xl font-bold mb-6">Salary Calculator</h1>
-      
-      <div className="bg-white shadow rounded-lg p-6 mb-6">
-        <h2 className="text-xl font-semibold mb-4">Current Exchange Rate</h2>
-        <p className="text-lg">
-          1 USD = <span className="font-bold text-green-600">{exchangeRate.toFixed(2)} EGP</span>
-        </p>
-        {rateLastUpdated && <p className="text-xs text-gray-500">Last updated: {rateLastUpdated}</p>}
-        <p className="text-xs text-gray-500">* 30-day average, updated daily at 18:00 Cairo time</p>
-        {isAdmin && (
-          <button 
-            onClick={manuallyUpdateRate}
-            className="text-xs text-blue-600 hover:text-blue-800 mt-1"
-          >
-            Update Now (Admin Only)
-          </button>
-        )}
-      </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white shadow rounded-lg p-6">
-          <h2 className="text-xl font-semibold mb-4">Calculate Salary</h2>
-          
-          <div className="mb-4">
-            <label className="block mb-1">Month</label>
-            <input
-              type="month"
-              value={month}
-              onChange={(e) => setMonth(e.target.value)}
-              className="w-full p-2 border rounded"
-            />
+      <div className="px-4 sm:px-0">
+        <h1 className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-6">Salary Calculator</h1>
+        
+        <div className="grid grid-cols-1 gap-4 sm:gap-6">
+          <div className="bg-white shadow rounded-lg p-4 sm:p-6">
+            <h2 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4">Current Exchange Rate</h2>
+            <p className="text-xl sm:text-lg">
+              1 USD = <span className="font-bold text-green-600">{exchangeRate.toFixed(2)} EGP</span>
+            </p>
+            {rateLastUpdated && <p className="text-xs text-gray-500 mt-1">Last updated: {rateLastUpdated}</p>}
+            <p className="text-xs text-gray-500 mt-1">* 30-day average, updated daily at 18:00 Cairo time</p>
+            {isAdmin && (
+              <button 
+                onClick={manuallyUpdateRate}
+                className="text-xs text-blue-600 hover:text-blue-800 mt-2"
+              >
+                Update Now (Admin Only)
+              </button>
+            )}
           </div>
           
-          <div className="mb-4">
-            <label className="block mb-1">Basic Salary (A)</label>
-            <input
-              type="number"
-              value={salaryCalc.basicSalary || ''}
-              onChange={(e) => handleInputChange('basicSalary', parseFloat(e.target.value) || 0)}
-              className="w-full p-2 border rounded"
-              placeholder="Enter basic salary"
-            />
+          <div className="bg-white shadow rounded-lg p-4 sm:p-6">
+            <h2 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4">Calculate Salary</h2>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Month</label>
+                <input
+                  type="month"
+                  value={month}
+                  onChange={(e) => setMonth(e.target.value)}
+                  className="w-full p-3 border rounded text-base"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-1">Basic Salary (A)</label>
+                <input
+                  type="number"
+                  value={salaryCalc.basicSalary || ''}
+                  onChange={(e) => handleInputChange('basicSalary', parseFloat(e.target.value) || 0)}
+                  className="w-full p-3 border rounded text-base"
+                  placeholder="Enter basic salary"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-1">Cost of Living (B)</label>
+                <input
+                  type="number"
+                  value={salaryCalc.costOfLiving || ''}
+                  onChange={(e) => handleInputChange('costOfLiving', parseFloat(e.target.value) || 0)}
+                  className="w-full p-3 border rounded text-base"
+                  placeholder="Enter cost of living"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-1">Shift Allowance (C)</label>
+                <input
+                  type="number"
+                  value={salaryCalc.shiftAllowance || ''}
+                  onChange={(e) => handleInputChange('shiftAllowance', parseFloat(e.target.value) || 0)}
+                  className="w-full p-3 border rounded text-base"
+                  placeholder="Enter shift allowance"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-1">Overtime Hours</label>
+                <input
+                  type="number"
+                  value={salaryCalc.overtimeHours || ''}
+                  onChange={(e) => handleInputChange('overtimeHours', parseFloat(e.target.value) || 0)}
+                  className="w-full p-3 border rounded text-base"
+                  placeholder="Enter overtime hours"
+                />
+              </div>
+              
+              <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 pt-2">
+                <button
+                  onClick={calculateSalary}
+                  className="w-full sm:w-auto bg-blue-600 text-white px-6 py-3 rounded-lg text-base font-medium hover:bg-blue-700 disabled:opacity-50"
+                  disabled={!exchangeRate}
+                >
+                  Calculate
+                </button>
+                
+                <button
+                  onClick={saveSalary}
+                  className="w-full sm:w-auto bg-green-600 text-white px-6 py-3 rounded-lg text-base font-medium hover:bg-green-700 disabled:opacity-50"
+                  disabled={!salaryCalc.totalSalary || calculationLoading}
+                >
+                  {calculationLoading ? 'Saving...' : 'Save Salary'}
+                </button>
+              </div>
+            </div>
           </div>
           
-          <div className="mb-4">
-            <label className="block mb-1">Cost of Living (B)</label>
-            <input
-              type="number"
-              value={salaryCalc.costOfLiving || ''}
-              onChange={(e) => handleInputChange('costOfLiving', parseFloat(e.target.value) || 0)}
-              className="w-full p-2 border rounded"
-              placeholder="Enter cost of living"
-            />
+          <div className="bg-white shadow rounded-lg p-4 sm:p-6">
+            <h2 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4">Salary Results</h2>
+            
+            <div className="space-y-4">
+              <div className="p-3 bg-gray-50 rounded-lg">
+                <p className="text-gray-600 text-sm font-medium">Overtime Pay (D)</p>
+                <p className="text-lg font-medium mt-1">{salaryCalc.overtimePay.toFixed(2)} EGP</p>
+                <p className="text-xs text-gray-500 mt-1">((A+B)/210) * Overtime Hours</p>
+              </div>
+              
+              <div className="p-3 bg-gray-50 rounded-lg">
+                <p className="text-gray-600 text-sm font-medium">Variable Pay (E)</p>
+                <p className="text-lg font-medium mt-1">{salaryCalc.variablePay.toFixed(2)} EGP</p>
+                <p className="text-xs text-gray-500 mt-1">((A+B+C+D) * ((exchange rate/31) - 1))</p>
+              </div>
+              
+              <div className="p-4 bg-green-50 rounded-lg mt-4">
+                <p className="text-gray-600 text-sm font-medium">Total Salary</p>
+                <p className="text-2xl font-bold text-green-600 mt-1">{salaryCalc.totalSalary.toFixed(2)} EGP</p>
+                <p className="text-xs text-gray-500 mt-1">A + B + C + D + E</p>
+              </div>
+            </div>
+            
+            {salaryCalc.totalSalary > 0 && employee && (
+              <div className="mt-6">
+                <BlobProvider document={
+                  <SalaryPDF 
+                    salary={salaryCalc}
+                    employee={employee}
+                    month={month}
+                  />
+                }>
+                  {({ blob, url, loading, error }) => (
+                    <a 
+                      href={url || undefined} 
+                      download={`salary-slip-${month}-${employee.name}.pdf`}
+                      className="block w-full sm:w-auto text-center bg-red-600 text-white px-6 py-3 rounded-lg text-base font-medium hover:bg-red-700"
+                    >
+                      {loading ? 'Generating PDF...' : 'Download PDF'}
+                    </a>
+                  )}
+                </BlobProvider>
+              </div>
+            )}
           </div>
-          
-          <div className="mb-4">
-            <label className="block mb-1">Shift Allowance (C)</label>
-            <input
-              type="number"
-              value={salaryCalc.shiftAllowance || ''}
-              onChange={(e) => handleInputChange('shiftAllowance', parseFloat(e.target.value) || 0)}
-              className="w-full p-2 border rounded"
-              placeholder="Enter shift allowance"
-            />
-          </div>
-          
-          <div className="mb-4">
-            <label className="block mb-1">Overtime Hours</label>
-            <input
-              type="number"
-              value={salaryCalc.overtimeHours || ''}
-              onChange={(e) => handleInputChange('overtimeHours', parseFloat(e.target.value) || 0)}
-              className="w-full p-2 border rounded"
-              placeholder="Enter overtime hours"
-            />
-          </div>
-          
-          <button
-            onClick={calculateSalary}
-            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 mr-2"
-            disabled={!exchangeRate}
-          >
-            Calculate
-          </button>
-          
-          <button
-            onClick={saveSalary}
-            className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
-            disabled={!salaryCalc.totalSalary || calculationLoading}
-          >
-            {calculationLoading ? 'Saving...' : 'Save Salary'}
-          </button>
         </div>
         
-        <div className="bg-white shadow rounded-lg p-6">
-          <h2 className="text-xl font-semibold mb-4">Salary Results</h2>
+        <div className="mt-6 sm:mt-8 bg-white shadow rounded-lg p-4 sm:p-6 overflow-hidden">
+          <h2 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4">Salary History</h2>
           
-          <div className="mb-3">
-            <p className="text-gray-600">Overtime Pay (D)</p>
-            <p className="font-medium">{salaryCalc.overtimePay.toFixed(2)} EGP</p>
-            <p className="text-xs text-gray-500">((A+B)/210) * Overtime Hours</p>
-          </div>
-          
-          <div className="mb-3">
-            <p className="text-gray-600">Variable Pay (E)</p>
-            <p className="font-medium">{salaryCalc.variablePay.toFixed(2)} EGP</p>
-            <p className="text-xs text-gray-500">((A+B+C+D) * ((exchange rate/31) - 1))</p>
-          </div>
-          
-          <div className="mt-6 pt-4 border-t">
-            <p className="text-gray-600 text-lg">Total Salary</p>
-            <p className="font-bold text-2xl text-green-600">{salaryCalc.totalSalary.toFixed(2)} EGP</p>
-            <p className="text-xs text-gray-500">A + B + C + D + E</p>
-          </div>
-          
-          {salaryCalc.totalSalary > 0 && employee && (
-            <div className="mt-6">
-              <BlobProvider document={
-                <SalaryPDF 
-                  salary={salaryCalc}
-                  employee={employee}
-                  month={month}
-                />
-              }>
-                {({ blob, url, loading, error }) => (
-                  <a 
-                    href={url || undefined} 
-                    download={`salary-slip-${month}-${employee.name}.pdf`}
-                    className="inline-block bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
-                  >
-                    {loading ? 'Generating PDF...' : 'Download PDF'}
-                  </a>
-                )}
-              </BlobProvider>
+          {salaryHistory.length > 0 ? (
+            <div className="overflow-x-auto -mx-4 sm:mx-0">
+              <div className="inline-block min-w-full align-middle">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead>
+                    <tr className="bg-gray-50">
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Month</th>
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Basic</th>
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CoL</th>
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Shift</th>
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">OT</th>
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Var</th>
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">PDF</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {salaryHistory.map((salary) => (
+                      <tr key={salary.id} className="hover:bg-gray-50">
+                        <td className="px-3 py-3 text-sm">
+                          {new Date(salary.month).toLocaleDateString('en-US', { month: 'short', year: '2-digit' })}
+                        </td>
+                        <td className="px-3 py-3 text-sm">{salary.basic_salary.toFixed(0)}</td>
+                        <td className="px-3 py-3 text-sm">{salary.cost_of_living.toFixed(0)}</td>
+                        <td className="px-3 py-3 text-sm">{salary.shift_allowance.toFixed(0)}</td>
+                        <td className="px-3 py-3 text-sm">{salary.overtime_pay.toFixed(0)}</td>
+                        <td className="px-3 py-3 text-sm">{salary.variable_pay.toFixed(0)}</td>
+                        <td className="px-3 py-3 text-sm font-medium">{salary.total_salary.toFixed(0)}</td>
+                        <td className="px-3 py-3 text-sm">
+                          <BlobProvider document={
+                            <SalaryPDF 
+                              salary={{
+                                basicSalary: salary.basic_salary,
+                                costOfLiving: salary.cost_of_living,
+                                shiftAllowance: salary.shift_allowance,
+                                overtimeHours: salary.overtime_hours,
+                                overtimePay: salary.overtime_pay,
+                                variablePay: salary.variable_pay,
+                                totalSalary: salary.total_salary,
+                                exchangeRate: salary.exchange_rate,
+                              }} 
+                              employee={employee as Employee} 
+                              month={new Date(salary.month).toISOString().substring(0, 7)} 
+                            />
+                          }>
+                            {({ blob, url, loading, error }) => (
+                              <a 
+                                href={url || undefined} 
+                                download={`salary-${new Date(salary.month).toISOString().substring(0, 7)}-${employee?.name}.pdf`}
+                                className="text-red-600 hover:text-red-800"
+                              >
+                                {loading ? '...' : 'PDF'}
+                              </a>
+                            )}
+                          </BlobProvider>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
+          ) : (
+            <p className="text-gray-500 text-sm">No salary history available.</p>
           )}
         </div>
-      </div>
-      
-      <div className="mt-8 bg-white shadow rounded-lg p-6">
-        <h2 className="text-xl font-semibold mb-4">Salary History</h2>
-        
-        {salaryHistory.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Month</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Basic Salary</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cost of Living</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Shift Allowance</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Overtime Pay</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Variable Pay</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Salary</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {salaryHistory.map((salary) => (
-                  <tr key={salary.id}>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {new Date(salary.month).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">{salary.basic_salary.toFixed(2)}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">{salary.cost_of_living.toFixed(2)}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">{salary.shift_allowance.toFixed(2)}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">{salary.overtime_pay.toFixed(2)}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">{salary.variable_pay.toFixed(2)}</td>
-                    <td className="px-6 py-4 whitespace-nowrap font-bold">{salary.total_salary.toFixed(2)}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <BlobProvider document={
-                        <SalaryPDF 
-                          salary={{
-                            basicSalary: salary.basic_salary,
-                            costOfLiving: salary.cost_of_living,
-                            shiftAllowance: salary.shift_allowance,
-                            overtimeHours: salary.overtime_hours,
-                            overtimePay: salary.overtime_pay,
-                            variablePay: salary.variable_pay,
-                            totalSalary: salary.total_salary,
-                            exchangeRate: salary.exchange_rate,
-                          }} 
-                          employee={employee as Employee} 
-                          month={new Date(salary.month).toISOString().substring(0, 7)} 
-                        />
-                      }>
-                        {({ blob, url, loading, error }) => (
-                          <a 
-                            href={url || undefined} 
-                            download={`salary-${new Date(salary.month).toISOString().substring(0, 7)}-${employee?.name}.pdf`}
-                            className="text-red-600 hover:text-red-800"
-                          >
-                            {loading ? 'Loading...' : 'Download PDF'}
-                          </a>
-                        )}
-                      </BlobProvider>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <p>No salary history available.</p>
-        )}
       </div>
     </Layout>
   );
