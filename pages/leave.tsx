@@ -232,6 +232,7 @@ export default function Leave() {
       if (leaveError) throw leaveError;
       
       setLeaves(leaveData || []);
+      console.log(leaves);
 
       // Calculate total days taken for current year
       const currentYear = new Date().getFullYear();
@@ -576,7 +577,7 @@ export default function Leave() {
                               )}
                             </td>
                             <td className="px-3 py-3 text-sm">
-                              {!isPast && (
+                              {true && (
                                 <>
                                   <button
                                     onClick={() => handleEdit(leave)}
