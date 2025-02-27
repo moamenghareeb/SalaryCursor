@@ -2,8 +2,8 @@ import React from 'react';
 import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { supabase } from '../lib/supabase';
-import { Employee } from '../types';
-import type { Leave } from '../types/models';
+import type { Employee, Leave } from '../types';
+import type { Leave as LeaveType } from '../types/models';
 import { PDFDownloadLink, Document, Page, Text, View, StyleSheet, BlobProvider } from '@react-pdf/renderer';
 
 // Create styles for PDF
@@ -184,131 +184,153 @@ const LeavePDF = ({ employee, leaveData, totalLeaveBalance, leaveTaken, remainin
 export default function Leave() {
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [loading, setLoading] = useState(true);
-  const [year, setYear] = useState(new Date().getFullYear());
-  const [month, setMonth] = useState(new Date().getMonth() + 1);
-  const [days, setDays] = useState<number | null>(null);
-  const [savingLeave, setSavingLeave] = useState(false);
-  const [leaveData, setLeaveData] = useState<Leave[]>([]);
-  const [totalLeaveBalance, setTotalLeaveBalance] = useState(0);
-  const [leaveTaken, setLeaveTaken] = useState(0);
-  const [remainingLeave, setRemainingLeave] = useState(0);
+  const [leaves, setLeaves] = useState<Leave[]>([]);
+  const [leaveBalance, setLeaveBalance] = useState<number | null>(null);
+  const [leaveTaken, setLeaveTaken] = useState<number>(0);
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [reason, setReason] = useState('');
+  const [editingLeave, setEditingLeave] = useState<Leave | null>(null);
+  const [yearsOfService, setYearsOfService] = useState<number>(0);
+  const [isEditingYears, setIsEditingYears] = useState(false);
 
   useEffect(() => {
-    fetchEmployeeData();
+    fetchData();
   }, []);
 
-  useEffect(() => {
-    if (employee) {
-      fetchLeaveData();
-    }
-  }, [employee, year]);
-
-  const fetchEmployeeData = async () => {
+  const fetchData = async () => {
     try {
-      const { data: userData } = await supabase.auth.getUser();
+      const { data: user } = await supabase.auth.getUser();
       
-      if (!userData.user) return;
-      
-      const { data, error } = await supabase
+      if (!user.user) return;
+
+      // Fetch employee details
+      const { data: employeeData, error: employeeError } = await supabase
         .from('employees')
         .select('*')
-        .eq('email', userData.user.email)
+        .eq('id', user.user.id)
         .single();
-        
-      if (error) throw error;
+
+      if (employeeError) throw employeeError;
       
-      setEmployee(data);
+      setEmployee(employeeData);
+      setYearsOfService(employeeData.years_of_service);
+
+      // Calculate leave balance
+      const totalLeave = employeeData.years_of_service >= 10 ? 24.67 : 18.67;
+      setLeaveBalance(totalLeave);
+
+      // Fetch leaves for current year
+      const currentYear = new Date().getFullYear();
+      const { data: leaveData, error: leaveError } = await supabase
+        .from('leaves')
+        .select('*')
+        .eq('employee_id', user.user.id)
+        .eq('year', currentYear)
+        .order('start_date', { ascending: false });
+
+      if (leaveError) throw leaveError;
       
-      // Calculate leave balance based on years of service
-      const leaveBalance = data.years_of_service >= 10 ? 24.67 : 18.67;
-      setTotalLeaveBalance(leaveBalance);
-      
-      setLoading(false);
+      setLeaves(leaveData || []);
+
+      // Calculate total days taken
+      const total = (leaveData || []).reduce((sum, item) => sum + item.days_taken, 0);
+      setLeaveTaken(total);
     } catch (error) {
-      console.error('Error fetching employee data:', error);
+      console.error('Error fetching data:', error);
+    } finally {
       setLoading(false);
     }
   };
 
-  const fetchLeaveData = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('leaves')
-        .select('*')
-        .eq('employee_id', employee!.id)
-        .eq('year', year)
-        .order('month', { ascending: true });
-        
-      if (error) throw error;
-      
-      setLeaveData(data || []);
-      
-      // Calculate total leave taken
-      const totalTaken = data ? data.reduce((sum, item) => sum + item.days_taken, 0) : 0;
-      setLeaveTaken(totalTaken);
-      
-      // Calculate remaining leave
-      setRemainingLeave(totalLeaveBalance - totalTaken);
-    } catch (error) {
-      console.error('Error fetching leave data:', error);
-    }
+  const calculateDays = (start: string, end: string) => {
+    const startDate = new Date(start);
+    const endDate = new Date(end);
+    const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!employee || !days) return;
-    
-    setSavingLeave(true);
-    
+    if (!employee || !startDate || !endDate) return;
+
+    const days = calculateDays(startDate, endDate);
+    const year = new Date(startDate).getFullYear();
+
     try {
-      // Check if there's already a record for this month and year
-      const { data: existingData, error: fetchError } = await supabase
-        .from('leaves')
-        .select('*')
-        .eq('employee_id', employee.id)
-        .eq('year', year)
-        .eq('month', month)
-        .maybeSingle();
-        
-      if (fetchError) throw fetchError;
-      
-      if (existingData) {
-        // Update existing record
-        const { error: updateError } = await supabase
+      if (editingLeave) {
+        // Update existing leave
+        const { error } = await supabase
           .from('leaves')
-          .update({ days_taken: days })
-          .eq('id', existingData.id);
-          
-        if (updateError) throw updateError;
-      } else {
-        // Insert new record
-        const { error: insertError } = await supabase
-          .from('leaves')
-          .insert({
-            employee_id: employee.id,
+          .update({
+            start_date: startDate,
+            end_date: endDate,
+            days_taken: days,
+            reason,
             year,
-            month,
-            days_taken: days
-          });
-          
-        if (insertError) throw insertError;
+          })
+          .eq('id', editingLeave.id);
+
+        if (error) throw error;
+      } else {
+        // Submit new leave
+        const { error } = await supabase
+          .from('leaves')
+          .insert([{
+            employee_id: employee.id,
+            start_date: startDate,
+            end_date: endDate,
+            days_taken: days,
+            reason,
+            year,
+          }]);
+
+        if (error) throw error;
       }
-      
-      // Refresh leave data
-      await fetchLeaveData();
-      
+
       // Reset form
-      setDays(null);
+      setStartDate('');
+      setEndDate('');
+      setReason('');
+      setEditingLeave(null);
+
+      // Refresh data
+      await fetchData();
     } catch (error) {
-      console.error('Error saving leave:', error);
-    } finally {
-      setSavingLeave(false);
+      console.error('Error submitting leave:', error);
     }
   };
 
-  const handleYearChange = (selectedYear: number) => {
-    setYear(selectedYear);
+  const handleEdit = (leave: Leave) => {
+    setEditingLeave(leave);
+    setStartDate(leave.start_date);
+    setEndDate(leave.end_date);
+    setReason(leave.reason);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingLeave(null);
+    setStartDate('');
+    setEndDate('');
+    setReason('');
+  };
+
+  const handleUpdateYears = async () => {
+    if (!employee) return;
+
+    try {
+      const { error } = await supabase
+        .from('employees')
+        .update({ years_of_service: yearsOfService })
+        .eq('id', employee.id);
+
+      if (error) throw error;
+
+      setIsEditingYears(false);
+      await fetchData();
+    } catch (error) {
+      console.error('Error updating years of service:', error);
+    }
   };
 
   if (loading) {
@@ -321,158 +343,175 @@ export default function Leave() {
 
   return (
     <Layout>
-      <h1 className="text-3xl font-bold mb-6">Annual Leave Management</h1>
-      
-      {employee && (
-        <div className="bg-white shadow rounded-lg p-6 mb-6">
-          <h2 className="text-xl font-semibold mb-4">Leave Balance</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="p-4 bg-gray-50 rounded">
-              <p className="text-gray-600">Total Annual Leave</p>
-              <p className="font-medium text-xl">{totalLeaveBalance} days</p>
-              <p className="text-xs text-gray-500">
-                {employee.years_of_service >= 10 ? 'Based on 10+ years of service' : 'Standard allocation'}
-              </p>
-            </div>
-            <div className="p-4 bg-gray-50 rounded">
-              <p className="text-gray-600">Leave Taken</p>
-              <p className="font-medium text-xl">{leaveTaken} days</p>
-              <p className="text-xs text-gray-500">In {year}</p>
-            </div>
-            <div className="p-4 bg-gray-50 rounded">
-              <p className="text-gray-600">Remaining Leave</p>
-              <p className="font-medium text-xl text-blue-600">{remainingLeave.toFixed(2)} days</p>
-              <p className="text-xs text-gray-500">As of today</p>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white shadow rounded-lg p-6">
-          <h2 className="text-xl font-semibold mb-4">Record Leave</h2>
-          <form onSubmit={handleSubmit}>
-            <div className="mb-4">
-              <label className="block mb-1">Year</label>
-              <select
-                value={year}
-                onChange={(e) => setYear(parseInt(e.target.value))}
-                className="w-full p-2 border rounded"
+      <div className="px-4 sm:px-0">
+        <h1 className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-6">Annual Leave Management</h1>
+
+        <div className="grid grid-cols-1 gap-4 sm:gap-6">
+          <div className="bg-white shadow rounded-lg p-4 sm:p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg sm:text-xl font-semibold">Leave Balance</h2>
+              <button
+                onClick={() => setIsEditingYears(!isEditingYears)}
+                className="text-sm text-blue-600 hover:text-blue-800"
               >
-                {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map((y) => (
-                  <option key={y} value={y}>{y}</option>
-                ))}
-              </select>
+                Edit Years of Service
+              </button>
             </div>
-            
-            <div className="mb-4">
-              <label className="block mb-1">Month</label>
-              <select
-                value={month}
-                onChange={(e) => setMonth(parseInt(e.target.value))}
-                className="w-full p-2 border rounded"
-              >
-                {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-                  <option key={m} value={m}>
-                    {new Date(2000, m - 1, 1).toLocaleString('default', { month: 'long' })}
-                  </option>
-                ))}
-              </select>
-            </div>
-            
-            <div className="mb-4">
-              <label className="block mb-1">Days Taken</label>
-              <input
-                type="number"
-                value={days || ''}
-                onChange={(e) => setDays(parseFloat(e.target.value) || 0)}
-                step="0.5"
-                min="0"
-                className="w-full p-2 border rounded"
-                placeholder="Enter days taken"
-              />
-            </div>
-            
-            <button
-              type="submit"
-              disabled={savingLeave || days === null || days <= 0}
-              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:bg-blue-300"
-            >
-              {savingLeave ? 'Saving...' : 'Save Leave'}
-            </button>
-          </form>
-        </div>
-        
-        <div className="bg-white shadow rounded-lg p-6">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold">Leave History</h2>
-            <div className="flex items-center space-x-2">
-              <span>Year:</span>
-              <select
-                value={year}
-                onChange={(e) => handleYearChange(parseInt(e.target.value))}
-                className="p-1 border rounded"
-              >
-                {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map((y) => (
-                  <option key={y} value={y}>{y}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-          
-          {leaveData.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Month</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Days Taken</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date Recorded</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {leaveData.map((leave) => (
-                    <tr key={leave.id}>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {new Date(leave.year, leave.month - 1, 1).toLocaleString('default', { month: 'long' })}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">{leave.days_taken}</td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {new Date(leave.created_at).toLocaleDateString()}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <p className="text-gray-500">No leave records found for {year}.</p>
-          )}
-          
-          {employee && leaveData.length > 0 && (
-            <div className="mt-6">
-              <BlobProvider document={
-                <LeavePDF 
-                  employee={employee}
-                  leaveData={leaveData}
-                  totalLeaveBalance={totalLeaveBalance}
-                  leaveTaken={leaveTaken}
-                  remainingLeave={remainingLeave}
-                  year={year}
-                />
-              }>
-                {({ blob, url, loading, error }) => (
-                  <a 
-                    href={url || undefined} 
-                    download={`leave-report-${year}-${employee.name}.pdf`}
-                    className="inline-block bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
+
+            <div className="space-y-4">
+              {isEditingYears ? (
+                <div className="flex items-center gap-4">
+                  <input
+                    type="number"
+                    value={yearsOfService}
+                    onChange={(e) => setYearsOfService(parseFloat(e.target.value) || 0)}
+                    className="w-24 p-2 border rounded"
+                    min="0"
+                    step="0.1"
+                  />
+                  <button
+                    onClick={handleUpdateYears}
+                    className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
                   >
-                    {loading ? 'Generating PDF...' : 'Download PDF Report'}
-                  </a>
-                )}
-              </BlobProvider>
+                    Save
+                  </button>
+                  <button
+                    onClick={() => {
+                      setIsEditingYears(false);
+                      setYearsOfService(employee?.years_of_service || 0);
+                    }}
+                    className="text-gray-600 hover:text-gray-800"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <div className="p-3 bg-gray-50 rounded-lg">
+                  <p className="text-sm text-gray-600">Years of Service</p>
+                  <p className="text-lg font-medium mt-1">{yearsOfService} years</p>
+                </div>
+              )}
+
+              <div className="p-3 bg-gray-50 rounded-lg">
+                <p className="text-sm text-gray-600">Annual Leave Entitlement</p>
+                <p className="text-lg font-medium mt-1">{leaveBalance} days</p>
+              </div>
+
+              <div className="p-3 bg-gray-50 rounded-lg">
+                <p className="text-sm text-gray-600">Leave Taken This Year</p>
+                <p className="text-lg font-medium mt-1">{leaveTaken} days</p>
+              </div>
+
+              <div className="p-4 bg-blue-50 rounded-lg">
+                <p className="text-sm text-gray-600">Remaining Leave</p>
+                <p className="text-2xl font-bold text-blue-600 mt-1">
+                  {((leaveBalance || 0) - leaveTaken).toFixed(2)} days
+                </p>
+              </div>
             </div>
-          )}
+          </div>
+
+          <div className="bg-white shadow rounded-lg p-4 sm:p-6">
+            <h2 className="text-lg sm:text-xl font-semibold mb-4">
+              {editingLeave ? 'Edit Leave Request' : 'Submit Leave Request'}
+            </h2>
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Start Date</label>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="w-full p-3 border rounded text-base"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">End Date</label>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="w-full p-3 border rounded text-base"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Reason</label>
+                <textarea
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  className="w-full p-3 border rounded text-base"
+                  rows={3}
+                  required
+                />
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  className="w-full sm:w-auto bg-blue-600 text-white px-6 py-3 rounded-lg text-base font-medium hover:bg-blue-700"
+                >
+                  {editingLeave ? 'Update Leave' : 'Submit Leave'}
+                </button>
+
+                {editingLeave && (
+                  <button
+                    type="button"
+                    onClick={handleCancelEdit}
+                    className="w-full sm:w-auto bg-gray-600 text-white px-6 py-3 rounded-lg text-base font-medium hover:bg-gray-700"
+                  >
+                    Cancel Edit
+                  </button>
+                )}
+              </div>
+            </form>
+          </div>
+
+          <div className="bg-white shadow rounded-lg p-4 sm:p-6 overflow-hidden">
+            <h2 className="text-lg sm:text-xl font-semibold mb-4">Leave History</h2>
+
+            {leaves.length > 0 ? (
+              <div className="overflow-x-auto -mx-4 sm:mx-0">
+                <div className="inline-block min-w-full align-middle">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead>
+                      <tr className="bg-gray-50">
+                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dates</th>
+                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Days</th>
+                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reason</th>
+                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {leaves.map((leave) => (
+                        <tr key={leave.id} className="hover:bg-gray-50">
+                          <td className="px-3 py-3 text-sm">
+                            {new Date(leave.start_date).toLocaleDateString()} - {new Date(leave.end_date).toLocaleDateString()}
+                          </td>
+                          <td className="px-3 py-3 text-sm">{leave.days_taken}</td>
+                          <td className="px-3 py-3 text-sm">{leave.reason}</td>
+                          <td className="px-3 py-3 text-sm">
+                            <button
+                              onClick={() => handleEdit(leave)}
+                              className="text-blue-600 hover:text-blue-800"
+                            >
+                              Edit
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : (
+              <p className="text-gray-500 text-sm">No leave history available.</p>
+            )}
+          </div>
         </div>
       </div>
     </Layout>
