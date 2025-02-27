@@ -1,6 +1,7 @@
--- Drop and recreate leaves table
+-- Drop the existing leaves table
 DROP TABLE IF EXISTS public.leaves;
 
+-- Recreate the leaves table
 CREATE TABLE IF NOT EXISTS public.leaves (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
     employee_id UUID NOT NULL REFERENCES public.employees(id),
@@ -13,32 +14,39 @@ CREATE TABLE IF NOT EXISTS public.leaves (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('UTC', now())
 );
 
--- Add RLS policies
+-- Enable RLS on the new table
 ALTER TABLE public.leaves ENABLE ROW LEVEL SECURITY;
 
--- Allow users to read their own leaves
+-- Recreate the RLS policies
 CREATE POLICY "Users can read own leaves"
     ON public.leaves
     FOR SELECT
     TO authenticated
     USING (auth.uid() = employee_id);
 
--- Allow users to insert their own leaves
 CREATE POLICY "Users can insert own leaves"
     ON public.leaves
     FOR INSERT
     TO authenticated
     WITH CHECK (auth.uid() = employee_id);
 
--- Allow users to update their own leaves
-CREATE POLICY "Users can update own leaves"
+CREATE POLICY "Users can update own leaves" 
     ON public.leaves
     FOR UPDATE
     TO authenticated
     USING (auth.uid() = employee_id)
     WITH CHECK (auth.uid() = employee_id);
 
--- Create trigger to update updated_at
+-- Create the update_leaves_updated_at_column function
+CREATE OR REPLACE FUNCTION update_leaves_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = timezone('UTC', now());
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+-- Recreate the updated_at trigger
 CREATE TRIGGER update_leaves_updated_at
     BEFORE UPDATE ON public.leaves
     FOR EACH ROW
