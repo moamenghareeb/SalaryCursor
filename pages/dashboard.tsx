@@ -50,7 +50,7 @@ export default function Dashboard() {
         const currentYear = new Date().getFullYear();
         const { data: leaveData, error: leaveError } = await supabase
           .from('leaves')
-          .select('days_taken')
+          .select('*')
           .eq('employee_id', user.user.id)
           .eq('year', currentYear);
 
@@ -149,6 +149,10 @@ export default function Dashboard() {
               <h2 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4">Annual Leave</h2>
               {leaveBalance !== null && (
                 <div className="space-y-4">
+                  <div className="p-3 bg-gray-50 rounded-lg">
+                    <p className="text-sm text-gray-600">Years of Service</p>
+                    <p className="text-lg font-medium mt-1">{employee?.years_of_service} years</p>
+                  </div>
                   <div className="p-3 bg-gray-50 rounded-lg">
                     <p className="text-sm text-gray-600">Annual Leave Entitlement</p>
                     <p className="text-lg font-medium mt-1">{leaveBalance} days</p>

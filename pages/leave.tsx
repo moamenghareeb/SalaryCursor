@@ -193,6 +193,8 @@ export default function Leave() {
   const [editingLeave, setEditingLeave] = useState<Leave | null>(null);
   const [yearsOfService, setYearsOfService] = useState<number>(0);
   const [isEditingYears, setIsEditingYears] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -226,15 +228,15 @@ export default function Leave() {
         .from('leaves')
         .select('*')
         .eq('employee_id', user.user.id)
-        .eq('year', currentYear)
         .order('start_date', { ascending: false });
 
       if (leaveError) throw leaveError;
       
       setLeaves(leaveData || []);
 
-      // Calculate total days taken
-      const total = (leaveData || []).reduce((sum, item) => sum + item.days_taken, 0);
+      // Calculate total days taken for current year
+      const currentYearLeaves = (leaveData || []).filter(leave => leave.year === currentYear);
+      const total = currentYearLeaves.reduce((sum, item) => sum + item.days_taken, 0);
       setLeaveTaken(total);
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -254,13 +256,28 @@ export default function Leave() {
     e.preventDefault();
     if (!employee || !startDate || !endDate) return;
 
+    setError(null);
+    setSuccess(null);
+
     const days = calculateDays(startDate, endDate);
     const year = new Date(startDate).getFullYear();
+
+    // Validate dates
+    if (new Date(endDate) < new Date(startDate)) {
+      setError('End date cannot be before start date');
+      return;
+    }
+
+    // Validate against remaining leave
+    if (!editingLeave && days > ((leaveBalance || 0) - leaveTaken)) {
+      setError('Insufficient leave balance');
+      return;
+    }
 
     try {
       if (editingLeave) {
         // Update existing leave
-        const { error } = await supabase
+        const { error: updateError } = await supabase
           .from('leaves')
           .update({
             start_date: startDate,
@@ -271,10 +288,11 @@ export default function Leave() {
           })
           .eq('id', editingLeave.id);
 
-        if (error) throw error;
+        if (updateError) throw updateError;
+        setSuccess('Leave request updated successfully');
       } else {
         // Submit new leave
-        const { error } = await supabase
+        const { error: insertError } = await supabase
           .from('leaves')
           .insert([{
             employee_id: employee.id,
@@ -285,7 +303,8 @@ export default function Leave() {
             year,
           }]);
 
-        if (error) throw error;
+        if (insertError) throw insertError;
+        setSuccess('Leave request submitted successfully');
       }
 
       // Reset form
@@ -296,8 +315,9 @@ export default function Leave() {
 
       // Refresh data
       await fetchData();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error submitting leave:', error);
+      setError(error.message || 'Failed to submit leave request');
     }
   };
 
@@ -345,6 +365,18 @@ export default function Leave() {
     <Layout>
       <div className="px-4 sm:px-0">
         <h1 className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-6">Annual Leave Management</h1>
+
+        {error && (
+          <div className="mb-4 bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded">
+            {error}
+          </div>
+        )}
+
+        {success && (
+          <div className="mb-4 bg-green-50 border border-green-200 text-green-600 px-4 py-3 rounded">
+            {success}
+          </div>
+        )}
 
         <div className="grid grid-cols-1 gap-4 sm:gap-6">
           <div className="bg-white shadow rounded-lg p-4 sm:p-6">
@@ -472,7 +504,12 @@ export default function Leave() {
           </div>
 
           <div className="bg-white shadow rounded-lg p-4 sm:p-6 overflow-hidden">
-            <h2 className="text-lg sm:text-xl font-semibold mb-4">Leave History</h2>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg sm:text-xl font-semibold">Leave History</h2>
+              <div className="text-sm text-gray-500">
+                Showing all leave requests
+              </div>
+            </div>
 
             {leaves.length > 0 ? (
               <div className="overflow-x-auto -mx-4 sm:mx-0">
@@ -480,30 +517,57 @@ export default function Leave() {
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead>
                       <tr className="bg-gray-50">
+                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Year</th>
                         <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dates</th>
                         <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Days</th>
                         <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reason</th>
+                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                         <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {leaves.map((leave) => (
-                        <tr key={leave.id} className="hover:bg-gray-50">
-                          <td className="px-3 py-3 text-sm">
-                            {new Date(leave.start_date).toLocaleDateString()} - {new Date(leave.end_date).toLocaleDateString()}
-                          </td>
-                          <td className="px-3 py-3 text-sm">{leave.days_taken}</td>
-                          <td className="px-3 py-3 text-sm">{leave.reason}</td>
-                          <td className="px-3 py-3 text-sm">
-                            <button
-                              onClick={() => handleEdit(leave)}
-                              className="text-blue-600 hover:text-blue-800"
-                            >
-                              Edit
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
+                      {leaves.map((leave) => {
+                        const startDate = new Date(leave.start_date);
+                        const endDate = new Date(leave.end_date);
+                        const isPast = endDate < new Date();
+                        const isOngoing = startDate <= new Date() && endDate >= new Date();
+                        
+                        return (
+                          <tr key={leave.id} className="hover:bg-gray-50">
+                            <td className="px-3 py-3 text-sm">{leave.year}</td>
+                            <td className="px-3 py-3 text-sm">
+                              {startDate.toLocaleDateString()} - {endDate.toLocaleDateString()}
+                            </td>
+                            <td className="px-3 py-3 text-sm">{leave.days_taken}</td>
+                            <td className="px-3 py-3 text-sm">{leave.reason}</td>
+                            <td className="px-3 py-3 text-sm">
+                              {isPast ? (
+                                <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">
+                                  Past
+                                </span>
+                              ) : isOngoing ? (
+                                <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">
+                                  Ongoing
+                                </span>
+                              ) : (
+                                <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
+                                  Upcoming
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-3 py-3 text-sm">
+                              {!isPast && (
+                                <button
+                                  onClick={() => handleEdit(leave)}
+                                  className="text-blue-600 hover:text-blue-800 font-medium"
+                                >
+                                  Edit
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
