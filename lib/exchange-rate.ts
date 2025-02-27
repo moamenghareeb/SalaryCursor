@@ -1,42 +1,47 @@
-import fs from 'fs';
-import path from 'path';
 import { cache } from './cache';
-
-const DATA_FILE_PATH = path.join(
-  process.env.NODE_ENV === 'production' ? '/tmp' : process.cwd(), 
-  'data', 
-  'exchange-rate.json'
-);
+import { supabase } from './supabase';
 
 const EXCHANGE_RATE_CACHE_KEY = 'current_exchange_rate';
 const CACHE_TTL = 12 * 60 * 60 * 1000; // 12 hours in milliseconds
 
-// Ensure data directory exists
-export const ensureDirectoryExists = () => {
-  const dataDir = path.join(
-    process.env.NODE_ENV === 'production' ? '/tmp' : process.cwd(),
-    'data'
-  );
-  if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir, { recursive: true });
-  }
-}
-
 // Get the current exchange rate with cache and fallback
 export async function getCurrentExchangeRate(): Promise<{ rate: number; lastUpdated: string }> {
-  // Try to get from cache first
-  const cachedRate = cache.get<{ rate: number; lastUpdated: string }>(EXCHANGE_RATE_CACHE_KEY);
-  if (cachedRate) {
-    return cachedRate;
-  }
+  try {
+    // Try to get from cache first
+    const cachedRate = cache.get<{ rate: number; lastUpdated: string }>(EXCHANGE_RATE_CACHE_KEY);
+    if (cachedRate) {
+      return cachedRate;
+    }
 
-  // If not in cache, load from file
-  const storedRate = loadExchangeRate();
-  
-  // Cache the rate
-  cache.set(EXCHANGE_RATE_CACHE_KEY, storedRate, CACHE_TTL);
-  
-  return storedRate;
+    // If not in cache, try to get from database
+    const { data: rateData, error } = await supabase
+      .from('exchange_rates')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (error) {
+      console.error('Error fetching rate from database:', error);
+      return { rate: 31.50, lastUpdated: new Date().toISOString() };
+    }
+
+    if (rateData) {
+      const data = {
+        rate: rateData.rate,
+        lastUpdated: rateData.created_at
+      };
+      // Cache the rate
+      cache.set(EXCHANGE_RATE_CACHE_KEY, data, CACHE_TTL);
+      return data;
+    }
+
+    // If no rate in database, return default
+    return { rate: 31.50, lastUpdated: new Date().toISOString() };
+  } catch (error) {
+    console.error('Error in getCurrentExchangeRate:', error);
+    return { rate: 31.50, lastUpdated: new Date().toISOString() };
+  }
 }
 
 // Get the current exchange rate with fallback to free API
@@ -89,32 +94,34 @@ export async function get30DayAverageRate() {
   }
 }
 
-// Save the rate to cache and file
-export function saveExchangeRate(rate: number) {
-  ensureDirectoryExists();
-  
-  const data = {
-    rate,
-    lastUpdated: new Date().toISOString()
-  };
-  
-  // Save to file
-  fs.writeFileSync(DATA_FILE_PATH, JSON.stringify(data, null, 2));
-  
-  // Update cache
-  cache.set(EXCHANGE_RATE_CACHE_KEY, data, CACHE_TTL);
-}
+// Save the rate to database and cache
+export async function saveExchangeRate(rate: number): Promise<boolean> {
+  try {
+    // Save to database
+    const { data, error } = await supabase
+      .from('exchange_rates')
+      .insert([
+        {
+          rate: rate,
+          created_at: new Date().toISOString()
+        }
+      ]);
 
-// Load the rate from the JSON file
-export function loadExchangeRate() {
-  ensureDirectoryExists();
-  
-  if (!fs.existsSync(DATA_FILE_PATH)) {
-    const defaultData = { rate: 31.50, lastUpdated: new Date().toISOString() };
-    fs.writeFileSync(DATA_FILE_PATH, JSON.stringify(defaultData, null, 2));
-    return defaultData;
+    if (error) {
+      console.error('Error saving rate to database:', error);
+      return false;
+    }
+
+    // Update cache
+    const rateData = {
+      rate: rate,
+      lastUpdated: new Date().toISOString()
+    };
+    
+    cache.set(EXCHANGE_RATE_CACHE_KEY, rateData, CACHE_TTL);
+    return true;
+  } catch (error) {
+    console.error('Error in saveExchangeRate:', error);
+    return false;
   }
-  
-  const data = JSON.parse(fs.readFileSync(DATA_FILE_PATH, 'utf8'));
-  return data;
 } 

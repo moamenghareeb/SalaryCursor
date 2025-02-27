@@ -1,7 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { supabase } from '../../../lib/supabase';
-import { createServerSupabaseClient } from '@supabase/auth-helpers-nextjs';
-import { get30DayAverageRate, saveExchangeRate, ensureDirectoryExists } from '../../../lib/exchange-rate';
+import { get30DayAverageRate, saveExchangeRate } from '../../../lib/exchange-rate';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   // Only allow POST requests
@@ -10,9 +9,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // Ensure data directory exists first
-    ensureDirectoryExists();
-
     // Get the authorization header
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -51,14 +47,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(500).json({ error: 'Failed to fetch new rate' });
     }
 
-    // Save the new rate
-    try {
-      await saveExchangeRate(newRate);
-      return res.status(200).json({ success: true, rate: newRate });
-    } catch (saveError) {
-      console.error('Error saving rate:', saveError);
+    // Save the new rate to database and cache
+    const success = await saveExchangeRate(newRate);
+    
+    if (!success) {
       return res.status(500).json({ error: 'Failed to save new rate' });
     }
+
+    return res.status(200).json({ success: true, rate: newRate });
 
   } catch (error) {
     console.error('Error in update-exchange-rate:', error);
