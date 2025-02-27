@@ -9,6 +9,10 @@ CREATE TABLE IF NOT EXISTS public.exchange_rates (
 -- Add RLS policies
 ALTER TABLE public.exchange_rates ENABLE ROW LEVEL SECURITY;
 
+-- Drop existing policies if they exist
+DROP POLICY IF EXISTS "Allow anyone to read exchange rates" ON public.exchange_rates;
+DROP POLICY IF EXISTS "Allow admins to insert exchange rates" ON public.exchange_rates;
+
 -- Allow anyone to read exchange rates
 CREATE POLICY "Allow anyone to read exchange rates"
     ON public.exchange_rates
@@ -21,7 +25,7 @@ CREATE POLICY "Allow admins to insert exchange rates"
     ON public.exchange_rates
     FOR INSERT
     TO authenticated
-    USING (
+    WITH CHECK (
         EXISTS (
             SELECT 1 FROM public.employees
             WHERE id = auth.uid()
