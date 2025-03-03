@@ -29,6 +29,47 @@ export default function Salary() {
     exchangeRate: 0,
   });
 
+  // Add new state for deductions
+  const [deductions, setDeductions] = useState<{
+    type: string;
+    customName?: string;
+    amount: number;
+  }[]>([]);
+
+  // Predefined deduction types
+  const deductionTypes = [
+    'Pension Plan Employee Contribution',
+    'Retroactive Deduction',
+    'Premium Card Deduction',
+    'Mobile Deduction',
+    'Absences & Sick Leave Deduction',
+    'Custom Deduction'
+  ];
+
+  // Function to add a new deduction
+  const addDeduction = () => {
+    setDeductions([...deductions, { type: '', amount: 0 }]);
+  };
+
+  // Function to update a specific deduction
+  const updateDeduction = (index: number, field: 'type' | 'customName' | 'amount', value: string | number) => {
+    const newDeductions = [...deductions];
+    newDeductions[index] = {
+      ...newDeductions[index],
+      [field]: value
+    };
+    setDeductions(newDeductions);
+  };
+
+  // Function to remove a deduction
+  const removeDeduction = (index: number) => {
+    const newDeductions = deductions.filter((_, i) => i !== index);
+    setDeductions(newDeductions);
+  };
+
+  // Calculate total deductions
+  const totalDeductions = deductions.reduce((sum, deduction) => sum + deduction.amount, 0);
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -190,11 +231,15 @@ export default function Salary() {
     // Calculate total salary
     const totalSalary = basicSalary + costOfLiving + shiftAllowance + overtimePay + variablePay;
     
+    // Subtract total deductions
+    const netSalary = totalSalary - totalDeductions;
+    
     const newCalc = {
       ...salaryCalc,
       overtimePay,
       variablePay,
       totalSalary,
+      netSalary,
       exchangeRate,
     };
     
@@ -213,6 +258,8 @@ export default function Salary() {
           overtime_pay: overtimePay,
           variable_pay: variablePay,
           total_salary: totalSalary,
+          net_salary: netSalary,
+          deductions: JSON.stringify(deductions),
           exchange_rate: exchangeRate,
         }]);
 
@@ -581,6 +628,69 @@ export default function Salary() {
           ) : (
             <p className="text-gray-500 text-sm">No salary history available.</p>
           )}
+        </div>
+
+        {/* Deductions Section */}
+        <div className="bg-white shadow rounded-lg p-4 sm:p-6 mt-4">
+          <h2 className="text-lg sm:text-xl font-semibold mb-4">Deductions</h2>
+          
+          {deductions.map((deduction, index) => (
+            <div key={index} className="flex items-center space-x-2 mb-2">
+              <select
+                value={deduction.type}
+                onChange={(e) => {
+                  updateDeduction(index, 'type', e.target.value);
+                  // Reset custom name if not custom deduction
+                  if (e.target.value !== 'Custom Deduction') {
+                    updateDeduction(index, 'customName', '');
+                  }
+                }}
+                className="w-1/2 p-2 border rounded"
+              >
+                <option value="">Select Deduction Type</option>
+                {deductionTypes.map((type) => (
+                  <option key={type} value={type}>{type}</option>
+                ))}
+              </select>
+
+              {deduction.type === 'Custom Deduction' && (
+                <input
+                  type="text"
+                  placeholder="Custom Deduction Name"
+                  value={deduction.customName || ''}
+                  onChange={(e) => updateDeduction(index, 'customName', e.target.value)}
+                  className="w-1/4 p-2 border rounded"
+                />
+              )}
+
+              <input
+                type="number"
+                placeholder="Amount"
+                value={deduction.amount}
+                onChange={(e) => updateDeduction(index, 'amount', parseFloat(e.target.value) || 0)}
+                className="w-1/4 p-2 border rounded"
+              />
+
+              <button
+                onClick={() => removeDeduction(index)}
+                className="bg-red-500 text-white px-3 py-2 rounded hover:bg-red-600"
+              >
+                Remove
+              </button>
+            </div>
+          ))}
+
+          <button
+            onClick={addDeduction}
+            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 mt-2"
+          >
+            Add Deduction
+          </button>
+
+          <div className="mt-4 bg-gray-50 p-3 rounded">
+            <p className="text-sm font-medium">Total Deductions: {totalDeductions.toFixed(2)}</p>
+            <p className="text-sm font-medium">Net Salary: {(salaryCalc.totalSalary - totalDeductions).toFixed(2)}</p>
+          </div>
         </div>
       </div>
     </Layout>

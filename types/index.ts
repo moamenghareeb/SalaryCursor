@@ -38,6 +38,22 @@ export interface Leave {
   updated_at: string;
 }
 
+export interface Deduction {
+  type: string;
+  customName?: string;
+  amount: number;
+}
+
+export interface PublicHoliday {
+  id?: string;
+  employee_id: string;
+  date: string;
+  description?: string;
+  leave_credit: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface SalaryCalculation {
   basicSalary: number;
   costOfLiving: number;
@@ -46,5 +62,7 @@ export interface SalaryCalculation {
   overtimePay: number;
   variablePay: number;
   totalSalary: number;
+  netSalary?: number;
   exchangeRate: number;
+  deductions?: Deduction[];
 } 

@@ -195,6 +195,10 @@ export default function Leave() {
   const [isEditingYears, setIsEditingYears] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [publicHolidays, setPublicHolidays] = useState<{
+    date: string;
+    description?: string;
+  }[]>([]);
 
   useEffect(() => {
     fetchData();
@@ -273,8 +277,9 @@ export default function Leave() {
       return;
     }
 
-    // Validate against remaining leave
-    if (!editingLeave && days > ((leaveBalance || 0) - leaveTaken)) {
+    // Validate against remaining leave (including public holiday leave)
+    const totalLeaveBalance = (leaveBalance || 0) + (publicHolidays.length * 0.67);
+    if (!editingLeave && days > (totalLeaveBalance - leaveTaken)) {
       setError('Insufficient leave balance');
       return;
     }
@@ -312,11 +317,31 @@ export default function Leave() {
         setSuccess('Leave request submitted successfully');
       }
 
+      // Save public holidays
+      if (publicHolidays.length > 0) {
+        const { error: holidayError } = await supabase
+          .from('public_holidays')
+          .insert(
+            publicHolidays.map(holiday => ({
+              employee_id: employee.id,
+              date: holiday.date,
+              description: holiday.description,
+              leave_credit: 0.67
+            }))
+          );
+
+        if (holidayError) {
+          console.error('Error saving public holidays:', holidayError);
+          setError('Could not save public holidays');
+        }
+      }
+
       // Reset form
       setStartDate('');
       setEndDate('');
       setReason('');
       setEditingLeave(null);
+      setPublicHolidays([]);
 
       // Refresh data
       await fetchData();
@@ -387,6 +412,26 @@ export default function Leave() {
       setError(error.message || 'Failed to delete leave request');
     }
   };
+
+  const addPublicHoliday = () => {
+    setPublicHolidays([...publicHolidays, { date: '' }]);
+  };
+
+  const updatePublicHoliday = (index: number, field: 'date' | 'description', value: string) => {
+    const newPublicHolidays = [...publicHolidays];
+    newPublicHolidays[index] = {
+      ...newPublicHolidays[index],
+      [field]: value
+    };
+    setPublicHolidays(newPublicHolidays);
+  };
+
+  const removePublicHoliday = (index: number) => {
+    const newPublicHolidays = publicHolidays.filter((_, i) => i !== index);
+    setPublicHolidays(newPublicHolidays);
+  };
+
+  const publicHolidayLeave = publicHolidays.length * 0.67;
 
   if (loading) {
     return (
@@ -618,6 +663,52 @@ export default function Leave() {
             ) : (
               <p className="text-gray-500 text-sm">No leave history available.</p>
             )}
+          </div>
+
+          {/* Public Holidays Section */}
+          <div className="bg-white shadow rounded-lg p-4 sm:p-6 mt-4">
+            <h2 className="text-lg sm:text-xl font-semibold mb-4">Public Holidays Worked</h2>
+            
+            {publicHolidays.map((holiday, index) => (
+              <div key={index} className="flex items-center space-x-2 mb-2">
+                <input
+                  type="date"
+                  value={holiday.date}
+                  onChange={(e) => updatePublicHoliday(index, 'date', e.target.value)}
+                  className="w-1/2 p-2 border rounded"
+                />
+
+                <input
+                  type="text"
+                  placeholder="Holiday Description (Optional)"
+                  value={holiday.description || ''}
+                  onChange={(e) => updatePublicHoliday(index, 'description', e.target.value)}
+                  className="w-1/2 p-2 border rounded"
+                />
+
+                <button
+                  onClick={() => removePublicHoliday(index)}
+                  className="bg-red-500 text-white px-3 py-2 rounded hover:bg-red-600"
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+
+            <button
+              onClick={addPublicHoliday}
+              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 mt-2"
+            >
+              Add Public Holiday
+            </button>
+
+            <div className="mt-4 bg-gray-50 p-3 rounded">
+              <p className="text-sm font-medium">Public Holidays Worked: {publicHolidays.length}</p>
+              <p className="text-sm font-medium">Additional Leave Earned: {publicHolidayLeave.toFixed(2)} days</p>
+              <p className="text-sm font-medium">
+                Total Leave Balance: {((leaveBalance || 0) + publicHolidayLeave).toFixed(2)} days
+              </p>
+            </div>
           </div>
         </div>
       </div>
