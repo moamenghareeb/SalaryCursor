@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
+import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { supabase } from '../lib/supabase';
-import type { Leave } from '../types';
-import type { PublicHoliday } from '../types';
-import PublicHolidayManager from '../components/PublicHolidayManager';
+import type { Employee, Leave } from '../types';
+import type { Leave as LeaveType } from '../types/models';
 import { PDFDownloadLink, Document, Page, Text, View, StyleSheet, BlobProvider } from '@react-pdf/renderer';
 
 // Create styles for PDF
@@ -182,12 +182,10 @@ const LeavePDF = ({ employee, leaveData, totalLeaveBalance, leaveTaken, remainin
 );
 
 export default function Leave() {
-  const [employee, setEmployee] = useState<any>(null);
+  const [employee, setEmployee] = useState<Employee | null>(null);
   const [loading, setLoading] = useState(true);
-  const [leaveBalance, setLeaveBalance] = useState(0);
-  const [publicHolidays, setPublicHolidays] = useState<PublicHoliday[]>([]);
-  const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   const [leaves, setLeaves] = useState<Leave[]>([]);
+  const [leaveBalance, setLeaveBalance] = useState<number | null>(null);
   const [leaveTaken, setLeaveTaken] = useState<number>(0);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -220,6 +218,10 @@ export default function Leave() {
       setEmployee(employeeData);
       setYearsOfService(employeeData.years_of_service);
 
+      // Calculate leave balance
+      const totalLeave = employeeData.years_of_service >= 10 ? 24.67 : 18.67;
+      setLeaveBalance(totalLeave);
+
       // Fetch all leaves
       const { data: leaveData, error: leaveError } = await supabase
         .from('leaves')
@@ -230,19 +232,10 @@ export default function Leave() {
       if (leaveError) throw leaveError;
       
       setLeaves(leaveData || []);
-
-      // Fetch public holidays
-      const { data: holidayData, error: holidayError } = await supabase
-        .from('public_holidays')
-        .select('*')
-        .eq('employee_id', user.user.id)
-        .eq('year', currentYear);
-
-      if (holidayError) throw holidayError;
-
-      setPublicHolidays(holidayData || []);
+      console.log(leaves);
 
       // Calculate total days taken for current year
+      const currentYear = new Date().getFullYear();
       const currentYearLeaves = (leaveData || []).filter(leave => {
         const leaveStartYear = new Date(leave.start_date).getFullYear();
         return leaveStartYear === currentYear;
@@ -250,14 +243,6 @@ export default function Leave() {
       
       const total = currentYearLeaves.reduce((sum, item) => sum + item.days_taken, 0);
       setLeaveTaken(total);
-
-      // Calculate leave balance
-      const initialLeaveBalance = 21; // Standard annual leave
-      const takenLeave = total;
-      const publicHolidayCredits = (holidayData || []).reduce((sum, holiday) => sum + (holiday.leave_credit || 0.67), 0);
-      
-      setLeaveBalance(initialLeaveBalance - takenLeave + publicHolidayCredits);
-
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -327,35 +312,11 @@ export default function Leave() {
         setSuccess('Leave request submitted successfully');
       }
 
-      // Save public holidays
-      if (publicHolidays.length > 0) {
-        const { error: holidayError } = await supabase
-          .from('public_holidays')
-          .upsert(
-            publicHolidays.map(holiday => ({
-              employee_id: employee.id,
-              date: holiday.date,
-              description: holiday.description,
-              leave_credit: 0.67
-            })),
-            { 
-              onConflict: 'employee_id,date',
-              ignoreDuplicates: true 
-            }
-          );
-
-        if (holidayError) {
-          console.error('Error saving public holidays:', holidayError);
-          setError('Could not save public holidays');
-        }
-      }
-
       // Reset form
       setStartDate('');
       setEndDate('');
       setReason('');
       setEditingLeave(null);
-      setPublicHolidays([]);
 
       // Refresh data
       await fetchData();
@@ -427,13 +388,6 @@ export default function Leave() {
     }
   };
 
-  const handleLeaveBalanceUpdate = (additionalLeave: number) => {
-    // Update the leave balance immediately in the UI
-    setLeaveBalance(prev => prev + additionalLeave);
-    // Refresh data to get the latest from the database
-    fetchData();
-  };
-
   if (loading) {
     return (
       <Layout>
@@ -459,18 +413,7 @@ export default function Leave() {
           </div>
         )}
 
-        {/* Public Holiday Manager at the top */}
-        {employee && (
-          <div className="mb-6">
-            <PublicHolidayManager
-              employeeId={employee.id}
-              currentYear={currentYear}
-              onLeaveBalanceUpdate={handleLeaveBalanceUpdate}
-            />
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+        <div className="grid grid-cols-1 gap-4 sm:gap-6">
           <div className="bg-white shadow rounded-lg p-4 sm:p-6">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg sm:text-xl font-semibold">Leave Balance</h2>
@@ -518,26 +461,18 @@ export default function Leave() {
 
               <div className="p-3 bg-gray-50 rounded-lg">
                 <p className="text-sm text-gray-600">Annual Leave Entitlement</p>
-                <p className="text-lg font-medium mt-1">21 days</p>
+                <p className="text-lg font-medium mt-1">{leaveBalance} days</p>
               </div>
 
               <div className="p-3 bg-gray-50 rounded-lg">
                 <p className="text-sm text-gray-600">Leave Taken This Year</p>
-                <p className="text-lg font-medium mt-1">{leaveTaken.toFixed(2)} days</p>
-              </div>
-
-              <div className="p-3 bg-green-50 rounded-lg">
-                <p className="text-sm text-gray-600">Public Holiday Credits</p>
-                <p className="text-lg font-medium text-green-600 mt-1">
-                  +{publicHolidays.reduce((sum, holiday) => sum + (holiday.leave_credit || 0.67), 0).toFixed(2)} days
-                </p>
-                <p className="text-xs text-gray-500 mt-1">({publicHolidays.length} public holidays worked)</p>
+                <p className="text-lg font-medium mt-1">{leaveTaken} days</p>
               </div>
 
               <div className="p-4 bg-blue-50 rounded-lg">
                 <p className="text-sm text-gray-600">Remaining Leave</p>
                 <p className="text-2xl font-bold text-blue-600 mt-1">
-                  {leaveBalance.toFixed(2)} days
+                  {((leaveBalance || 0) - leaveTaken).toFixed(2)} days
                 </p>
               </div>
             </div>
@@ -602,88 +537,88 @@ export default function Leave() {
               </div>
             </form>
           </div>
-        </div>
 
-        <div className="mt-6 bg-white shadow rounded-lg p-4 sm:p-6 overflow-hidden">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-lg sm:text-xl font-semibold">Leave History</h2>
-            <div className="text-sm text-gray-500">
-              Showing all leave requests
-            </div>
-          </div>
-
-          {leaves.length > 0 ? (
-            <div className="overflow-x-auto -mx-4 sm:mx-0">
-              <div className="inline-block min-w-full align-middle">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead>
-                    <tr className="bg-gray-50">
-                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Year</th>
-                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dates</th>
-                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Days</th>
-                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reason</th>
-                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {leaves.map((leave) => {
-                      const startDate = new Date(leave.start_date);
-                      const endDate = new Date(leave.end_date);
-                      const isPast = endDate < new Date();
-                      const isOngoing = startDate <= new Date() && endDate >= new Date();
-                      
-                      return (
-                        <tr key={leave.id} className="hover:bg-gray-50">
-                          <td className="px-3 py-3 text-sm">{leave.year}</td>
-                          <td className="px-3 py-3 text-sm">
-                            {startDate.toLocaleDateString()} - {endDate.toLocaleDateString()}
-                          </td>
-                          <td className="px-3 py-3 text-sm">{leave.days_taken.toFixed(2)}</td>
-                          <td className="px-3 py-3 text-sm">{leave.reason}</td>
-                          <td className="px-3 py-3 text-sm">
-                            {isPast ? (
-                              <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">
-                                Past
-                              </span>
-                            ) : isOngoing ? (
-                              <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">
-                                Ongoing
-                              </span>
-                            ) : (
-                              <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
-                                Upcoming
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-3 py-3 text-sm">
-                            {true && (
-                              <>
-                                <button
-                                  onClick={() => handleEdit(leave)}
-                                  className="text-blue-600 hover:text-blue-800 font-medium mr-2"
-                                >
-                                  Edit
-                                </button>
-                                <button
-                                  onClick={() => handleDelete(leave)}
-                                  className="text-red-600 hover:text-red-800 font-medium"
-                                >
-                                  Delete
-                                </button>
-                              </>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+          <div className="bg-white shadow rounded-lg p-4 sm:p-6 overflow-hidden">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg sm:text-xl font-semibold">Leave History</h2>
+              <div className="text-sm text-gray-500">
+                Showing all leave requests
               </div>
             </div>
-          ) : (
-            <p className="text-gray-500 text-sm">No leave history available.</p>
-          )}
+
+            {leaves.length > 0 ? (
+              <div className="overflow-x-auto -mx-4 sm:mx-0">
+                <div className="inline-block min-w-full align-middle">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead>
+                      <tr className="bg-gray-50">
+                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Year</th>
+                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dates</th>
+                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Days</th>
+                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reason</th>
+                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {leaves.map((leave) => {
+                        const startDate = new Date(leave.start_date);
+                        const endDate = new Date(leave.end_date);
+                        const isPast = endDate < new Date();
+                        const isOngoing = startDate <= new Date() && endDate >= new Date();
+                        
+                        return (
+                          <tr key={leave.id} className="hover:bg-gray-50">
+                            <td className="px-3 py-3 text-sm">{leave.year}</td>
+                            <td className="px-3 py-3 text-sm">
+                              {startDate.toLocaleDateString()} - {endDate.toLocaleDateString()}
+                            </td>
+                            <td className="px-3 py-3 text-sm">{leave.days_taken}</td>
+                            <td className="px-3 py-3 text-sm">{leave.reason}</td>
+                            <td className="px-3 py-3 text-sm">
+                              {isPast ? (
+                                <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">
+                                  Past
+                                </span>
+                              ) : isOngoing ? (
+                                <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">
+                                  Ongoing
+                                </span>
+                              ) : (
+                                <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
+                                  Upcoming
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-3 py-3 text-sm">
+                              {true && (
+                                <>
+                                  <button
+                                    onClick={() => handleEdit(leave)}
+                                    className="text-blue-600 hover:text-blue-800 font-medium mr-2"
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    onClick={() => handleDelete(leave)}
+                                    className="text-red-600 hover:text-red-800 font-medium"
+                                  >
+                                    Delete
+                                  </button>
+                                </>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : (
+              <p className="text-gray-500 text-sm">No leave history available.</p>
+            )}
+          </div>
         </div>
       </div>
     </Layout>
