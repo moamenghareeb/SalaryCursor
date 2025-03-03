@@ -2,10 +2,9 @@ import React from 'react';
 import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { supabase } from '../lib/supabase';
-import type { Employee, Leave, PublicHoliday } from '../types';
+import type { Employee, Leave } from '../types';
 import type { Leave as LeaveType } from '../types/models';
 import { PDFDownloadLink, Document, Page, Text, View, StyleSheet, BlobProvider } from '@react-pdf/renderer';
-import PublicHolidayManager from '../components/PublicHolidayManager';
 
 // Create styles for PDF
 const styles = StyleSheet.create({
@@ -186,7 +185,6 @@ export default function Leave() {
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [loading, setLoading] = useState(true);
   const [leaves, setLeaves] = useState<Leave[]>([]);
-  const [publicHolidays, setPublicHolidays] = useState<PublicHoliday[]>([]);
   const [leaveBalance, setLeaveBalance] = useState<number | null>(null);
   const [leaveTaken, setLeaveTaken] = useState<number>(0);
   const [startDate, setStartDate] = useState('');
@@ -197,11 +195,6 @@ export default function Leave() {
   const [isEditingYears, setIsEditingYears] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [currentYear, setCurrentYear] = useState<number>(new Date().getFullYear());
-  const [baseEntitlement, setBaseEntitlement] = useState<number>(21);
-  const [serviceBonus, setServiceBonus] = useState<number>(0);
-  const [holidayCredits, setHolidayCredits] = useState<number>(0);
-  const [totalEntitlement, setTotalEntitlement] = useState<number>(0);
 
   useEffect(() => {
     fetchData();
@@ -225,19 +218,9 @@ export default function Leave() {
       setEmployee(employeeData);
       setYearsOfService(employeeData.years_of_service);
 
-      // Fetch public holidays for current year
-      const startDate = `${currentYear}-01-01`;
-      const endDate = `${currentYear}-12-31`;
-      
-      const { data: holidayData, error: holidayError } = await supabase
-        .from('public_holidays')
-        .select('*')
-        .eq('employee_id', user.user.id)
-        .gte('holiday_date', startDate)
-        .lte('holiday_date', endDate);
-        
-      if (holidayError) throw holidayError;
-      setPublicHolidays(holidayData || []);
+      // Calculate leave balance
+      const totalLeave = employeeData.years_of_service >= 10 ? 24.67 : 18.67;
+      setLeaveBalance(totalLeave);
 
       // Fetch all leaves
       const { data: leaveData, error: leaveError } = await supabase
@@ -249,8 +232,10 @@ export default function Leave() {
       if (leaveError) throw leaveError;
       
       setLeaves(leaveData || []);
+      console.log(leaves);
 
       // Calculate total days taken for current year
+      const currentYear = new Date().getFullYear();
       const currentYearLeaves = (leaveData || []).filter(leave => {
         const leaveStartYear = new Date(leave.start_date).getFullYear();
         return leaveStartYear === currentYear;
@@ -258,33 +243,11 @@ export default function Leave() {
       
       const total = currentYearLeaves.reduce((sum, item) => sum + item.days_taken, 0);
       setLeaveTaken(total);
-
-      // Calculate leave balance
-      const initialLeaveBalance = 21; // Standard annual leave
-      const serviceBonus = employeeData.years_of_service >= 10 ? 3 : 0; // Extra days for senior employees
-      const publicHolidayCredits = (holidayData || []).reduce((sum, holiday) => sum + (holiday.leave_credit || 0.67), 0);
-
-      // Total entitlement (without considering taken leave)
-      const totalEntitlement = initialLeaveBalance + serviceBonus + publicHolidayCredits;
-      
-      // Update state for all calculations
-      setBaseEntitlement(initialLeaveBalance);
-      setServiceBonus(serviceBonus);
-      setHolidayCredits(publicHolidayCredits);
-      setTotalEntitlement(totalEntitlement);
-      
-      // Final balance (entitlement minus taken leave)
-      setLeaveBalance(totalEntitlement - total);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
       setLoading(false);
     }
-  };
-
-  // Handler for public holiday updates
-  const handleLeaveBalanceUpdate = () => {
-    fetchData(); // Refresh data to update leave balance
   };
 
   const calculateDays = (start: string, end: string) => {
@@ -450,17 +413,6 @@ export default function Leave() {
           </div>
         )}
 
-        {/* Public Holiday Manager at the top */}
-        {employee && (
-          <div className="mb-6">
-            <PublicHolidayManager
-              employeeId={employee.id}
-              currentYear={currentYear}
-              onLeaveBalanceUpdate={handleLeaveBalanceUpdate}
-            />
-          </div>
-        )}
-
         <div className="grid grid-cols-1 gap-4 sm:gap-6">
           <div className="bg-white shadow rounded-lg p-4 sm:p-6">
             <div className="flex justify-between items-center mb-4">
@@ -509,12 +461,7 @@ export default function Leave() {
 
               <div className="p-3 bg-gray-50 rounded-lg">
                 <p className="text-sm text-gray-600">Annual Leave Entitlement</p>
-                <p className="text-lg font-medium mt-1">{totalEntitlement.toFixed(2)} days</p>
-                <div className="mt-2 text-xs text-gray-500">
-                  <p>Base Entitlement: {baseEntitlement} days</p>
-                  {serviceBonus > 0 && <p>Years of Service Bonus: +{serviceBonus} days</p>}
-                  {holidayCredits > 0 && <p>Public Holiday Credits: +{holidayCredits.toFixed(2)} days</p>}
-                </div>
+                <p className="text-lg font-medium mt-1">{leaveBalance} days</p>
               </div>
 
               <div className="p-3 bg-gray-50 rounded-lg">
@@ -525,7 +472,7 @@ export default function Leave() {
               <div className="p-4 bg-blue-50 rounded-lg">
                 <p className="text-sm text-gray-600">Remaining Leave</p>
                 <p className="text-2xl font-bold text-blue-600 mt-1">
-                  {leaveBalance?.toFixed(2) || "0.00"} days
+                  {((leaveBalance || 0) - leaveTaken).toFixed(2)} days
                 </p>
               </div>
             </div>

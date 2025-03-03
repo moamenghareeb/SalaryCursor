@@ -2,11 +2,10 @@ import React from 'react';
 import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { supabase } from '../lib/supabase';
-import { SalaryCalculation, Employee, Deduction, DeductionType, DeductionSummary } from '../types';
+import { SalaryCalculation, Employee } from '../types';
 import { PDFDownloadLink, Document, Page, Text, View, StyleSheet, BlobProvider } from '@react-pdf/renderer';
 import SalaryPDF from '../components/SalaryPDF';
 import { User } from '@supabase/supabase-js';
-import PermanentDeductionModal from '../components/PermanentDeductionModal';
 
 export default function Salary() {
   const [employee, setEmployee] = useState<Employee | null>(null);
@@ -18,14 +17,6 @@ export default function Salary() {
   const [salaryHistory, setSalaryHistory] = useState<any[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
-  
-  // Deductions related state
-  const [deductions, setDeductions] = useState<Deduction[]>([]);
-  const [newDeductionName, setNewDeductionName] = useState('');
-  const [newDeductionAmount, setNewDeductionAmount] = useState('');
-  const [newDeductionType, setNewDeductionType] = useState<DeductionType>('Other');
-  const [totalDeductions, setTotalDeductions] = useState(0);
-  const [showPermanentDeductionsModal, setShowPermanentDeductionsModal] = useState(false);
 
   const [salaryCalc, setSalaryCalc] = useState<SalaryCalculation>({
     basicSalary: 0,
@@ -38,127 +29,85 @@ export default function Salary() {
     exchangeRate: 0,
   });
 
-  const DEDUCTION_TYPES: DeductionType[] = [
-    'Pension Plan',
-    'Retroactive',
-    'Premium Card',
-    'Mobile',
-    'Absences',
-    'Sick Leave',
-    'Other'
-  ];
-
   useEffect(() => {
-    fetchData();
-  }, [month]);
-
-  const fetchData = async () => {
-    try {
-      setAuthError(null);
-      
-      // Fetch exchange rate from cached endpoint
+    const fetchData = async () => {
       try {
-        console.log("Fetching exchange rate...");
-        const rateResponse = await fetch('/api/exchange-rate');
+        setAuthError(null);
         
-        if (rateResponse.ok) {
-          const rateData = await rateResponse.json();
-          if (rateData.rate) {
-            setExchangeRate(rateData.rate);
-            const lastUpdated = new Date(rateData.lastUpdated);
-            setRateLastUpdated(lastUpdated.toLocaleDateString('en-US', {
-              year: 'numeric',
-              month: 'short',
-              day: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit'
-            }));
+        // Fetch exchange rate from cached endpoint
+        try {
+          console.log("Fetching exchange rate...");
+          const rateResponse = await fetch('/api/exchange-rate');
+          
+          if (rateResponse.ok) {
+            const rateData = await rateResponse.json();
+            if (rateData.rate) {
+              setExchangeRate(rateData.rate);
+              const lastUpdated = new Date(rateData.lastUpdated);
+              setRateLastUpdated(lastUpdated.toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+              }));
+            }
+          } else {
+            console.warn("API failed, using fallback rate");
           }
-        } else {
-          console.warn("API failed, using fallback rate");
+        } catch (err) {
+          console.warn("Exchange rate API error, using fallback", err);
         }
-      } catch (err) {
-        console.warn("Exchange rate API error, using fallback", err);
-      }
 
-      // Fetch employee data
-      const { data: userData, error: authError } = await supabase.auth.getUser();
-      
-      if (authError) {
-        setAuthError('Authentication failed. Please try logging in again.');
-        return;
-      }
-
-      if (!userData?.user) {
-        setAuthError('No user found. Please log in.');
-        return;
-      }
-
-      const { data: employeeData, error: employeeError } = await supabase
-        .from('employees')
-        .select('*')
-        .eq('id', userData.user.id)
-        .single();
-
-      if (employeeError) {
-        if (employeeError.code === 'PGRST116') {
-          setAuthError('Employee record not found. Please contact your administrator.');
-        } else {
-          setAuthError(`Error fetching employee data: ${employeeError.message}`);
+        // Fetch employee data
+        const { data: userData, error: authError } = await supabase.auth.getUser();
+        
+        if (authError) {
+          setAuthError('Authentication failed. Please try logging in again.');
+          return;
         }
-        return;
-      }
 
-      setEmployee(employeeData);
-      setIsAdmin(employeeData.is_admin || false);
+        if (!userData?.user) {
+          setAuthError('No user found. Please log in.');
+          return;
+        }
 
-      // Fetch permanent deductions
-      const { data: permanentDeductionsData, error: permanentDeductionsError } = await supabase
-        .from('deductions')
-        .select('*')
-        .eq('employee_id', userData.user.id)
-        .eq('is_permanent', true);
+        const { data: employeeData, error: employeeError } = await supabase
+          .from('employees')
+          .select('*')
+          .eq('id', userData.user.id)
+          .single();
 
-      if (permanentDeductionsError) {
-        console.error('Error fetching permanent deductions:', permanentDeductionsError);
-      } else {
-        // We'll apply these later if a salary is loaded
-        const permanentDeductions = permanentDeductionsData || [];
-        
-        // Calculate total permanent deductions
-        const permanentDeductionsTotal = permanentDeductions.reduce(
-          (sum, deduction) => sum + (deduction.amount || 0), 
-          0
-        );
-        
-        console.log(`Loaded ${permanentDeductions.length} permanent deductions totaling ${permanentDeductionsTotal}`);
-      }
+        if (employeeError) {
+          if (employeeError.code === 'PGRST116') {
+            setAuthError('Employee record not found. Please contact your administrator.');
+          } else {
+            setAuthError(`Error fetching employee data: ${employeeError.message}`);
+          }
+          return;
+        }
 
-      // First try to get the salary calculation for the selected month
-      const [year, monthNum] = month.split('-');
-      const monthQuery = `${year}-${monthNum}`;
-      
-      const { data: monthData, error: monthError } = await supabase
-        .from('salary_calculations')
-        .select('*')
-        .eq('employee_id', userData.user.id)
-        .eq('month', monthQuery)
-        .order('created_at', { ascending: false })
-        .limit(1);
+        setEmployee(employeeData);
 
-      if (monthError) {
-        console.error('Error fetching salary calculation:', monthError);
-      } else {
-        if (monthData && monthData.length > 0) {
+        // First try to get the latest calculation
+        const { data: calcData, error: calcError } = await supabase
+          .from('salary_calculations')
+          .select('*')
+          .eq('employee_id', userData.user.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+
+        if (!calcError && calcData) {
           setSalaryCalc({
-            basicSalary: monthData[0].basic_salary,
-            costOfLiving: monthData[0].cost_of_living,
-            shiftAllowance: monthData[0].shift_allowance,
-            overtimeHours: monthData[0].overtime_hours,
-            overtimePay: monthData[0].overtime_pay,
-            variablePay: monthData[0].variable_pay,
-            totalSalary: monthData[0].total_salary,
-            exchangeRate: monthData[0].exchange_rate,
+            basicSalary: calcData.basic_salary,
+            costOfLiving: calcData.cost_of_living,
+            shiftAllowance: calcData.shift_allowance,
+            overtimeHours: calcData.overtime_hours,
+            overtimePay: calcData.overtime_pay,
+            variablePay: calcData.variable_pay,
+            totalSalary: calcData.total_salary,
+            exchangeRate: calcData.exchange_rate,
           });
         } else {
           // If no calculation found, try to get from salaries table
@@ -183,57 +132,41 @@ export default function Salary() {
             });
           }
         }
-      }
 
-      // Fetch salary history
-      const { data: historyData, error: historyError } = await supabase
-        .from('salaries')
-        .select('*')
-        .eq('employee_id', userData.user.id)
-        .order('month', { ascending: false });
-
-      if (historyError) {
-        console.error('Error fetching salary history:', historyError);
-      } else {
-        setSalaryHistory(historyData || []);
-      }
-
-      // Fetch deductions for this specific salary if it exists
-      if (monthData && monthData.length > 0) {
-        const salaryId = monthData[0].id;
-        
-        const { data: deductionsData, error: deductionsError } = await supabase
-          .from('deductions')
+        // Fetch salary history
+        const { data: historyData, error: historyError } = await supabase
+          .from('salaries')
           .select('*')
           .eq('employee_id', userData.user.id)
-          .eq('salary_id', salaryId)
-          .order('created_at', { ascending: false });
-          
-        if (deductionsError) {
-          console.error('Error fetching deductions:', deductionsError);
+          .order('month', { ascending: false });
+
+        if (historyError) {
+          console.error('Error fetching salary history:', historyError);
         } else {
-          setDeductions(deductionsData || []);
-          
-          // Calculate total deductions
-          const deductionsTotal = (deductionsData || []).reduce(
-            (sum, deduction) => sum + (deduction.amount || 0), 
-            0
-          );
-          setTotalDeductions(deductionsTotal);
-          
-          console.log(`Loaded ${deductionsData?.length || 0} deductions totaling ${deductionsTotal}`);
+          setSalaryHistory(historyData || []);
         }
-      } else {
-        // Clear deductions if no salary found for this month
-        setDeductions([]);
-        setTotalDeductions(0);
+
+        // Check if user is admin
+        const { data: adminData, error: adminError } = await supabase
+          .from('employees')
+          .select('is_admin')
+          .eq('id', userData.user.id)
+          .single();
+        
+        if (!adminError && adminData) {
+          setIsAdmin(adminData.is_admin || false);
+        }
+
+      } catch (error) {
+        console.error('Error fetching data:', error);
+        setAuthError('An unexpected error occurred. Please try again later.');
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error("Error in fetchData:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
+
+    fetchData();
+  }, []);
 
   const handleInputChange = (field: keyof SalaryCalculation, value: number) => {
     setSalaryCalc((prev) => ({ ...prev, [field]: value }));
@@ -257,16 +190,11 @@ export default function Salary() {
     // Calculate total salary
     const totalSalary = basicSalary + costOfLiving + shiftAllowance + overtimePay + variablePay;
     
-    // Subtract total deductions from final salary
-    const netSalaryAfterDeductions = totalSalary - totalDeductions;
-    
-    console.log(`Total salary: ${totalSalary}, Deductions: ${totalDeductions}, Net: ${netSalaryAfterDeductions}`);
-    
     const newCalc = {
       ...salaryCalc,
       overtimePay,
       variablePay,
-      totalSalary: netSalaryAfterDeductions,
+      totalSalary,
       exchangeRate,
     };
     
@@ -410,92 +338,6 @@ export default function Salary() {
     } catch (error) {
       console.error('Error in update function:', error);
       alert(`Error updating rate: ${error}`);
-    }
-  };
-
-  // Function to handle adding a new deduction
-  const handleAddDeduction = async () => {
-    if (!employee) return;
-    if (!newDeductionName || !newDeductionAmount) {
-      console.error('Please provide both name and amount for deduction');
-      return;
-    }
-
-    const amount = parseFloat(newDeductionAmount);
-    if (isNaN(amount) || amount <= 0) {
-      console.error('Please enter a valid amount');
-      return;
-    }
-
-    try {
-      // Find the salary_id for the current month if it exists
-      const [year, monthNum] = month.split('-');
-      const monthQuery = `${year}-${monthNum}`;
-      
-      const { data: salaryData, error: salaryError } = await supabase
-        .from('salary_calculations')
-        .select('id')
-        .eq('employee_id', employee.id)
-        .eq('month', monthQuery)
-        .order('created_at', { ascending: false })
-        .limit(1);
-
-      if (salaryError) throw salaryError;
-      
-      const salaryId = salaryData && salaryData.length > 0 ? salaryData[0].id : null;
-      
-      if (!salaryId) {
-        console.error('Please calculate and save the salary first before adding deductions');
-        return;
-      }
-
-      // Insert the new deduction
-      const { data: newDeduction, error: insertError } = await supabase
-        .from('deductions')
-        .insert([{
-          employee_id: employee.id,
-          salary_id: salaryId,
-          deduction_name: newDeductionName,
-          amount: amount,
-          deduction_type: newDeductionType,
-          is_permanent: false
-        }])
-        .select();
-
-      if (insertError) throw insertError;
-
-      // Add the new deduction to state
-      if (newDeduction && newDeduction.length > 0) {
-        setDeductions([...deductions, newDeduction[0]]);
-        setTotalDeductions(totalDeductions + amount);
-      }
-
-      // Reset form
-      setNewDeductionName('');
-      setNewDeductionAmount('');
-      setNewDeductionType('Other');
-      
-    } catch (error) {
-      console.error('Error adding deduction:', error);
-    }
-  };
-
-  // Function to handle deleting a deduction
-  const handleDeleteDeduction = async (deduction: Deduction) => {
-    try {
-      const { error } = await supabase
-        .from('deductions')
-        .delete()
-        .eq('id', deduction.id);
-
-      if (error) throw error;
-
-      // Update state
-      setDeductions(deductions.filter(d => d.id !== deduction.id));
-      setTotalDeductions(totalDeductions - deduction.amount);
-      
-    } catch (error) {
-      console.error('Error deleting deduction:', error);
     }
   };
 
@@ -670,147 +512,6 @@ export default function Salary() {
             )}
           </div>
         </div>
-        
-        {/* Add Deductions Section */}
-        <div className="mt-6 sm:mt-8 bg-white shadow rounded-lg p-4 sm:p-6">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-lg sm:text-xl font-medium text-gray-900">Deductions</h2>
-            <button
-              onClick={() => setShowPermanentDeductionsModal(true)}
-              className="text-sm text-blue-600 hover:text-blue-800"
-            >
-              Manage Permanent Deductions
-            </button>
-          </div>
-          
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
-              <select
-                value={newDeductionType}
-                onChange={(e) => setNewDeductionType(e.target.value as DeductionType)}
-                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-              >
-                {DEDUCTION_TYPES.map((type) => (
-                  <option key={type} value={type}>{type}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-              <input
-                type="text"
-                value={newDeductionName}
-                onChange={(e) => setNewDeductionName(e.target.value)}
-                placeholder="E.g., Health Insurance"
-                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Amount ($)</label>
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                value={newDeductionAmount}
-                onChange={(e) => setNewDeductionAmount(e.target.value)}
-                placeholder="0.00"
-                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-              />
-            </div>
-            <div className="flex items-end">
-              <button
-                onClick={handleAddDeduction}
-                className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-md w-full"
-              >
-                Add Deduction
-              </button>
-            </div>
-          </div>
-          
-          {/* Deductions Table */}
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Type
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Description
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Amount
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {deductions.length === 0 ? (
-                  <tr>
-                    <td colSpan={4} className="px-4 py-4 text-center text-sm text-gray-500">
-                      No deductions added yet
-                    </td>
-                  </tr>
-                ) : (
-                  deductions.map((deduction) => (
-                    <tr key={deduction.id}>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                        {deduction.deduction_type}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-500">
-                        {deduction.deduction_name}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                        ${deduction.amount.toFixed(2)}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
-                        <button
-                          onClick={() => handleDeleteDeduction(deduction)}
-                          className="text-red-600 hover:text-red-800"
-                        >
-                          Delete
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-              <tfoot>
-                <tr className="bg-gray-50">
-                  <td colSpan={2} className="px-4 py-3 text-right text-sm font-medium text-gray-700">
-                    Total Deductions:
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-700">
-                    ${totalDeductions.toFixed(2)}
-                  </td>
-                  <td></td>
-                </tr>
-                <tr className="bg-blue-50">
-                  <td colSpan={2} className="px-4 py-3 text-right text-sm font-medium text-blue-700">
-                    Net Salary After Deductions:
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-blue-700">
-                    ${(salaryCalc.totalSalary - totalDeductions).toFixed(2)}
-                  </td>
-                  <td></td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        </div>
-        
-        {/* Permanent Deductions Modal */}
-        {employee && (
-          <PermanentDeductionModal
-            employeeId={employee.id}
-            isOpen={showPermanentDeductionsModal}
-            onClose={() => setShowPermanentDeductionsModal(false)}
-            onSuccess={fetchData}
-          />
-        )}
         
         <div className="mt-6 sm:mt-8 bg-white shadow rounded-lg p-4 sm:p-6 overflow-hidden">
           <h2 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4">Salary History</h2>

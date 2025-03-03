@@ -47,40 +47,4 @@ export interface SalaryCalculation {
   variablePay: number;
   totalSalary: number;
   exchangeRate: number;
-}
-
-export interface PublicHoliday {
-  id: string;
-  employee_id: string;
-  holiday_date: string;
-  description: string;
-  leave_credit: number;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface Deduction {
-  id: string;
-  employee_id: string;
-  salary_id?: string;
-  deduction_name: string;
-  amount: number;
-  deduction_type: string;
-  is_permanent: boolean;
-  created_at: string;
-  updated_at: string;
-}
-
-export type DeductionType = 
-  | 'Pension Plan'
-  | 'Retroactive'
-  | 'Premium Card'
-  | 'Mobile'
-  | 'Absences'
-  | 'Sick Leave'
-  | 'Other';
-
-export interface DeductionSummary {
-  totalDeductions: number;
-  items: Deduction[];
 } 
