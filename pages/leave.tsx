@@ -1,9 +1,9 @@
-import React from 'react';
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { supabase } from '../lib/supabase';
-import type { Employee, Leave } from '../types';
-import type { Leave as LeaveType } from '../types/models';
+import type { Leave } from '../types';
+import type { PublicHoliday } from '../types';
+import PublicHolidayManager from '../components/PublicHolidayManager';
 import { PDFDownloadLink, Document, Page, Text, View, StyleSheet, BlobProvider } from '@react-pdf/renderer';
 
 // Create styles for PDF
@@ -182,10 +182,12 @@ const LeavePDF = ({ employee, leaveData, totalLeaveBalance, leaveTaken, remainin
 );
 
 export default function Leave() {
-  const [employee, setEmployee] = useState<Employee | null>(null);
+  const [employee, setEmployee] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [leaveBalance, setLeaveBalance] = useState(0);
+  const [publicHolidays, setPublicHolidays] = useState<PublicHoliday[]>([]);
+  const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   const [leaves, setLeaves] = useState<Leave[]>([]);
-  const [leaveBalance, setLeaveBalance] = useState<number | null>(null);
   const [leaveTaken, setLeaveTaken] = useState<number>(0);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -195,10 +197,6 @@ export default function Leave() {
   const [isEditingYears, setIsEditingYears] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [publicHolidays, setPublicHolidays] = useState<{
-    date: string;
-    description?: string;
-  }[]>([]);
 
   useEffect(() => {
     fetchData();
@@ -222,10 +220,6 @@ export default function Leave() {
       setEmployee(employeeData);
       setYearsOfService(employeeData.years_of_service);
 
-      // Calculate leave balance
-      const totalLeave = employeeData.years_of_service >= 10 ? 24.67 : 18.67;
-      setLeaveBalance(totalLeave);
-
       // Fetch all leaves
       const { data: leaveData, error: leaveError } = await supabase
         .from('leaves')
@@ -246,7 +240,6 @@ export default function Leave() {
       if (holidayError) throw holidayError;
 
       // Calculate total days taken for current year
-      const currentYear = new Date().getFullYear();
       const currentYearLeaves = (leaveData || []).filter(leave => {
         const leaveStartYear = new Date(leave.start_date).getFullYear();
         return leaveStartYear === currentYear;
@@ -254,6 +247,14 @@ export default function Leave() {
       
       const total = currentYearLeaves.reduce((sum, item) => sum + item.days_taken, 0);
       setLeaveTaken(total);
+
+      // Calculate leave balance
+      const initialLeaveBalance = 21; // Standard annual leave
+      const takenLeave = total;
+      const publicHolidayCredits = holidayData.reduce((sum, holiday) => sum + holiday.leave_credit, 0);
+      
+      setLeaveBalance(initialLeaveBalance - takenLeave + publicHolidayCredits);
+      setPublicHolidays(holidayData || []);
 
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -424,25 +425,9 @@ export default function Leave() {
     }
   };
 
-  const addPublicHoliday = () => {
-    setPublicHolidays([...publicHolidays, { date: '' }]);
+  const handleLeaveBalanceUpdate = (additionalLeave: number) => {
+    setLeaveBalance(prev => prev + additionalLeave);
   };
-
-  const updatePublicHoliday = (index: number, field: 'date' | 'description', value: string) => {
-    const newPublicHolidays = [...publicHolidays];
-    newPublicHolidays[index] = {
-      ...newPublicHolidays[index],
-      [field]: value
-    };
-    setPublicHolidays(newPublicHolidays);
-  };
-
-  const removePublicHoliday = (index: number) => {
-    const newPublicHolidays = publicHolidays.filter((_, i) => i !== index);
-    setPublicHolidays(newPublicHolidays);
-  };
-
-  const publicHolidayLeave = publicHolidays.length * 0.67;
 
   if (loading) {
     return (
@@ -536,12 +521,6 @@ export default function Leave() {
               <div className="p-3 bg-green-50 rounded-lg">
                 <div className="flex justify-between items-center mb-2">
                   <p className="text-sm text-gray-600">Public Holidays Worked</p>
-                  <button
-                    onClick={addPublicHoliday}
-                    className="text-xs text-blue-600 hover:text-blue-800"
-                  >
-                    Add Holiday
-                  </button>
                 </div>
 
                 {publicHolidays.map((holiday, index) => (
@@ -549,7 +528,14 @@ export default function Leave() {
                     <input
                       type="date"
                       value={holiday.date}
-                      onChange={(e) => updatePublicHoliday(index, 'date', e.target.value)}
+                      onChange={(e) => {
+                        const newPublicHolidays = [...publicHolidays];
+                        newPublicHolidays[index] = {
+                          ...newPublicHolidays[index],
+                          date: e.target.value
+                        };
+                        setPublicHolidays(newPublicHolidays);
+                      }}
                       className="w-1/2 p-1 border rounded text-xs"
                     />
 
@@ -557,16 +543,16 @@ export default function Leave() {
                       type="text"
                       placeholder="Description (Optional)"
                       value={holiday.description || ''}
-                      onChange={(e) => updatePublicHoliday(index, 'description', e.target.value)}
+                      onChange={(e) => {
+                        const newPublicHolidays = [...publicHolidays];
+                        newPublicHolidays[index] = {
+                          ...newPublicHolidays[index],
+                          description: e.target.value
+                        };
+                        setPublicHolidays(newPublicHolidays);
+                      }}
                       className="w-1/2 p-1 border rounded text-xs"
                     />
-
-                    <button
-                      onClick={() => removePublicHoliday(index)}
-                      className="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600"
-                    >
-                      Remove
-                    </button>
                   </div>
                 ))}
 
@@ -724,6 +710,15 @@ export default function Leave() {
             )}
           </div>
         </div>
+
+        {/* Public Holiday Manager */}
+        {employee && (
+          <PublicHolidayManager
+            employeeId={employee.id}
+            currentYear={currentYear}
+            onLeaveBalanceUpdate={handleLeaveBalanceUpdate}
+          />
+        )}
       </div>
     </Layout>
   );

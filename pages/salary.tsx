@@ -2,10 +2,11 @@ import React from 'react';
 import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { supabase } from '../lib/supabase';
-import { SalaryCalculation, Employee } from '../types';
+import { SalaryCalculation, Employee, Deduction, PermanentDeduction } from '../types';
 import { PDFDownloadLink, Document, Page, Text, View, StyleSheet, BlobProvider } from '@react-pdf/renderer';
 import SalaryPDF from '../components/SalaryPDF';
 import { User } from '@supabase/supabase-js';
+import PermanentDeductionModal from '../components/PermanentDeductionModal';
 
 export default function Salary() {
   const [employee, setEmployee] = useState<Employee | null>(null);
@@ -36,6 +37,9 @@ export default function Salary() {
     amount: number;
   }[]>([]);
 
+  // Permanent Deductions State
+  const [permanentDeductions, setPermanentDeductions] = useState<PermanentDeduction[]>([]);
+
   // Predefined deduction types
   const deductionTypes = [
     'Pension Plan Employee Contribution',
@@ -45,6 +49,10 @@ export default function Salary() {
     'Absences & Sick Leave Deduction',
     'Custom Deduction'
   ];
+
+  // New state for modal management
+  const [isDeductionModalOpen, setIsDeductionModalOpen] = useState(false);
+  const [selectedDeduction, setSelectedDeduction] = useState<PermanentDeduction | undefined>(undefined);
 
   // Function to add a new deduction
   const addDeduction = () => {
@@ -69,6 +77,120 @@ export default function Salary() {
 
   // Calculate total deductions
   const totalDeductions = deductions.reduce((sum, deduction) => sum + deduction.amount, 0);
+
+  // Fetch Permanent Deductions in useEffect
+  useEffect(() => {
+    const fetchPermanentDeductions = async () => {
+      if (!employee?.id) return;
+
+      try {
+        const { data, error } = await supabase
+          .from('permanent_deductions')
+          .select('*')
+          .eq('employee_id', employee.id)
+          .eq('is_active', true);
+
+        if (error) throw error;
+
+        setPermanentDeductions(data || []);
+      } catch (error) {
+        console.error('Error fetching permanent deductions:', error);
+      }
+    };
+
+    fetchPermanentDeductions();
+  }, [employee?.id]);
+
+  // Updated handler for adding a permanent deduction
+  const handleAddPermanentDeduction = () => {
+    setSelectedDeduction(undefined);
+    setIsDeductionModalOpen(true);
+  };
+
+  // Updated handler for editing a permanent deduction
+  const handleEditPermanentDeduction = (deduction: PermanentDeduction) => {
+    setSelectedDeduction(deduction);
+    setIsDeductionModalOpen(true);
+  };
+
+  // Updated handler for saving a permanent deduction
+  const handleSavePermanentDeduction = async (deductionData: Partial<PermanentDeduction>) => {
+    try {
+      const employeeId = employee?.id;
+      if (!employeeId) {
+        throw new Error('No employee ID available');
+      }
+
+      const deductionToSave: Partial<PermanentDeduction> = {
+        ...deductionData,
+        employee_id: employeeId
+      };
+
+      let result;
+      if (selectedDeduction?.id) {
+        // Update existing deduction
+        result = await supabase
+          .from('permanent_deductions')
+          .update(deductionToSave)
+          .eq('id', selectedDeduction.id)
+          .select()
+          .single();
+      } else {
+        // Add new deduction
+        result = await supabase
+          .from('permanent_deductions')
+          .insert(deductionToSave)
+          .select()
+          .single();
+      }
+
+      if (result.error) throw result.error;
+
+      // Update local state
+      setPermanentDeductions(prev => {
+        if (selectedDeduction?.id) {
+          // Update existing deduction
+          return prev.map(d => 
+            d.id === selectedDeduction.id ? result.data : d
+          );
+        } else {
+          // Add new deduction
+          return [...prev, result.data];
+        }
+      });
+
+      // Close modal
+      setIsDeductionModalOpen(false);
+      setSelectedDeduction(undefined);
+    } catch (error) {
+      console.error('Error saving permanent deduction:', error);
+      alert('Failed to save permanent deduction');
+    }
+  };
+
+  // Updated handler for removing a permanent deduction
+  const handleRemovePermanentDeduction = async (deductionId: string | undefined) => {
+    if (!deductionId) return;
+
+    try {
+      const { error } = await supabase
+        .from('permanent_deductions')
+        .delete()
+        .eq('id', deductionId);
+
+      if (error) throw error;
+
+      setPermanentDeductions(prev => prev.filter(d => d.id !== deductionId));
+    } catch (error) {
+      console.error('Error removing permanent deduction:', error);
+      alert('Failed to remove permanent deduction');
+    }
+  };
+
+  // Calculate total permanent deductions
+  const totalPermanentDeductions = permanentDeductions
+    .filter(ded => ded.is_active)
+    .reduce((sum, deduction) => sum + deduction.amount, 0);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -231,7 +353,9 @@ export default function Salary() {
     // Calculate total salary
     const totalSalary = basicSalary + costOfLiving + shiftAllowance + overtimePay + variablePay;
     
-    // Subtract total deductions
+    // Subtract total deductions (temporary and permanent)
+    const totalDeductions = deductions.reduce((sum, deduction) => sum + deduction.amount, 0) + 
+                            totalPermanentDeductions;
     const netSalary = totalSalary - totalDeductions;
     
     const newCalc = {
@@ -260,6 +384,7 @@ export default function Salary() {
           total_salary: totalSalary,
           net_salary: netSalary,
           deductions: JSON.stringify(deductions),
+          permanent_deductions: JSON.stringify(permanentDeductions),
           exchange_rate: exchangeRate,
         }]);
 
@@ -691,6 +816,45 @@ export default function Salary() {
           ) : (
             <p className="text-gray-500 text-sm">No salary history available.</p>
           )}
+        </div>
+
+        {/* Permanent Deductions Section */}
+        <div className="mt-6 bg-white shadow-md rounded-lg p-6">
+          <h3 className="text-xl font-semibold mb-4">Permanent Deductions</h3>
+          <div className="space-y-4">
+            {permanentDeductions.map((deduction) => (
+              <div key={deduction.id} className="flex items-center justify-between border-b pb-2">
+                <div>
+                  <p className="font-medium">
+                    {deduction.custom_name || deduction.type} - ${deduction.amount.toFixed(2)}
+                  </p>
+                  <p className="text-sm text-gray-500">
+                    {deduction.is_active ? 'Active' : 'Inactive'}
+                  </p>
+                </div>
+                <div className="flex space-x-2">
+                  <button 
+                    onClick={() => handleEditPermanentDeduction(deduction)}
+                    className="text-blue-600 hover:text-blue-800"
+                  >
+                    Edit
+                  </button>
+                  <button 
+                    onClick={() => handleRemovePermanentDeduction(deduction.id)}
+                    className="text-red-600 hover:text-red-800"
+                  >
+                    Remove
+                  </button>
+                </div>
+              </div>
+            ))}
+            <button 
+              onClick={handleAddPermanentDeduction}
+              className="w-full bg-green-500 text-white py-2 rounded-md hover:bg-green-600 transition-colors"
+            >
+              Add Permanent Deduction
+            </button>
+          </div>
         </div>
       </div>
     </Layout>

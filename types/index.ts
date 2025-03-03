@@ -50,6 +50,18 @@ export interface PublicHoliday {
   date: string;
   description?: string;
   leave_credit: number;
+  year: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface PermanentDeduction {
+  id?: string;
+  employee_id: string;
+  type: string;
+  custom_name?: string;
+  amount: number;
+  is_active?: boolean;
   created_at?: string;
   updated_at?: string;
 }
@@ -65,4 +77,5 @@ export interface SalaryCalculation {
   netSalary?: number;
   exchangeRate: number;
   deductions?: Deduction[];
+  permanentDeductions?: PermanentDeduction[];
 } 
