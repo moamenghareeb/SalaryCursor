@@ -198,6 +198,10 @@ export default function Leave() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [currentYear, setCurrentYear] = useState<number>(new Date().getFullYear());
+  const [baseEntitlement, setBaseEntitlement] = useState<number>(21);
+  const [serviceBonus, setServiceBonus] = useState<number>(0);
+  const [holidayCredits, setHolidayCredits] = useState<number>(0);
+  const [totalEntitlement, setTotalEntitlement] = useState<number>(0);
 
   useEffect(() => {
     fetchData();
@@ -257,10 +261,20 @@ export default function Leave() {
 
       // Calculate leave balance
       const initialLeaveBalance = 21; // Standard annual leave
-      const takenLeave = total;
+      const serviceBonus = employeeData.years_of_service >= 10 ? 3 : 0; // Extra days for senior employees
       const publicHolidayCredits = (holidayData || []).reduce((sum, holiday) => sum + (holiday.leave_credit || 0.67), 0);
+
+      // Total entitlement (without considering taken leave)
+      const totalEntitlement = initialLeaveBalance + serviceBonus + publicHolidayCredits;
       
-      setLeaveBalance(initialLeaveBalance - takenLeave + publicHolidayCredits);
+      // Update state for all calculations
+      setBaseEntitlement(initialLeaveBalance);
+      setServiceBonus(serviceBonus);
+      setHolidayCredits(publicHolidayCredits);
+      setTotalEntitlement(totalEntitlement);
+      
+      // Final balance (entitlement minus taken leave)
+      setLeaveBalance(totalEntitlement - total);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -495,7 +509,12 @@ export default function Leave() {
 
               <div className="p-3 bg-gray-50 rounded-lg">
                 <p className="text-sm text-gray-600">Annual Leave Entitlement</p>
-                <p className="text-lg font-medium mt-1">{leaveBalance} days</p>
+                <p className="text-lg font-medium mt-1">{totalEntitlement.toFixed(2)} days</p>
+                <div className="mt-2 text-xs text-gray-500">
+                  <p>Base Entitlement: {baseEntitlement} days</p>
+                  {serviceBonus > 0 && <p>Years of Service Bonus: +{serviceBonus} days</p>}
+                  {holidayCredits > 0 && <p>Public Holiday Credits: +{holidayCredits.toFixed(2)} days</p>}
+                </div>
               </div>
 
               <div className="p-3 bg-gray-50 rounded-lg">
@@ -506,7 +525,7 @@ export default function Leave() {
               <div className="p-4 bg-blue-50 rounded-lg">
                 <p className="text-sm text-gray-600">Remaining Leave</p>
                 <p className="text-2xl font-bold text-blue-600 mt-1">
-                  {((leaveBalance || 0) - leaveTaken).toFixed(2)} days
+                  {leaveBalance?.toFixed(2) || "0.00"} days
                 </p>
               </div>
             </div>
