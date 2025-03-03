@@ -625,47 +625,31 @@ export default function Salary() {
               </div>
 
               {/* Deductions Section with Permanent Deductions moved next to it */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Temporary Deductions */}
+              <div className="grid grid-cols-1 gap-4">
+                {/* All Deductions in editable format */}
                 <div className="border-t pt-4 mt-4">
-                  <h3 className="text-base font-semibold mb-3">Temporary Deductions</h3>
+                  <h3 className="text-base font-semibold mb-3">Deductions</h3>
                   
                   {deductions.map((deduction, index) => (
                     <div key={index} className="flex items-center space-x-2 mb-2">
-                      <select
-                        value={deduction.type}
+                      <input
+                        type="text"
+                        placeholder="Deduction Name"
+                        value={deduction.type === 'Custom Deduction' ? (deduction.customName || '') : deduction.type}
                         onChange={(e) => {
-                          updateDeduction(index, 'type', e.target.value);
-                          // Reset custom name if not custom deduction
-                          if (e.target.value !== 'Custom Deduction') {
-                            updateDeduction(index, 'customName', '');
-                          }
+                          // Simplified handling - all deductions are treated as custom
+                          updateDeduction(index, 'type', 'Custom Deduction');
+                          updateDeduction(index, 'customName', e.target.value);
                         }}
-                        className="w-1/2 p-2 border rounded"
-                        aria-label="Select deduction type"
-                      >
-                        <option value="">Select Deduction Type</option>
-                        {deductionTypes.map((type) => (
-                          <option key={type} value={type}>{type}</option>
-                        ))}
-                      </select>
-
-                      {deduction.type === 'Custom Deduction' && (
-                        <input
-                          type="text"
-                          placeholder="Custom Deduction Name"
-                          value={deduction.customName || ''}
-                          onChange={(e) => updateDeduction(index, 'customName', e.target.value)}
-                          className="w-1/4 p-2 border rounded"
-                        />
-                      )}
+                        className="w-2/3 p-2 border rounded"
+                      />
 
                       <input
                         type="number"
                         placeholder="Amount"
                         value={deduction.amount}
                         onChange={(e) => updateDeduction(index, 'amount', parseFloat(e.target.value) || 0)}
-                        className="w-1/4 p-2 border rounded"
+                        className="w-1/3 p-2 border rounded"
                       />
 
                       <button
@@ -686,7 +670,7 @@ export default function Salary() {
                   </button>
                 </div>
                 
-                {/* Permanent Deductions Section moved here */}
+                {/* Permanent Deductions Section */}
                 <div className="border-t pt-4 mt-4">
                   <h3 className="text-base font-semibold mb-3">Permanent Deductions</h3>
                   <div className="space-y-4">
@@ -694,7 +678,7 @@ export default function Salary() {
                       <div key={deduction.id} className="flex items-center justify-between border-b pb-2">
                         <div>
                           <p className="font-medium">
-                            {deduction.custom_name || deduction.type} - ${deduction.amount.toFixed(2)}
+                            {deduction.custom_name || deduction.type} - {deduction.amount.toFixed(2)}
                           </p>
                           <p className="text-sm text-gray-500">
                             {deduction.is_active ? 'Active' : 'Inactive'}

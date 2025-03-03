@@ -254,7 +254,7 @@ export default function Leave() {
       // Calculate leave balance
       const initialLeaveBalance = 21; // Standard annual leave
       const takenLeave = total;
-      const publicHolidayCredits = (holidayData || []).reduce((sum, holiday) => sum + holiday.leave_credit, 0);
+      const publicHolidayCredits = (holidayData || []).reduce((sum, holiday) => sum + (holiday.leave_credit || 0.67), 0);
       
       setLeaveBalance(initialLeaveBalance - takenLeave + publicHolidayCredits);
 
@@ -459,6 +459,17 @@ export default function Leave() {
           </div>
         )}
 
+        {/* Public Holiday Manager at the top */}
+        {employee && (
+          <div className="mb-6">
+            <PublicHolidayManager
+              employeeId={employee.id}
+              currentYear={currentYear}
+              onLeaveBalanceUpdate={handleLeaveBalanceUpdate}
+            />
+          </div>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
           <div className="bg-white shadow rounded-lg p-4 sm:p-6">
             <div className="flex justify-between items-center mb-4">
@@ -512,13 +523,13 @@ export default function Leave() {
 
               <div className="p-3 bg-gray-50 rounded-lg">
                 <p className="text-sm text-gray-600">Leave Taken This Year</p>
-                <p className="text-lg font-medium mt-1">{leaveTaken} days</p>
+                <p className="text-lg font-medium mt-1">{leaveTaken.toFixed(2)} days</p>
               </div>
 
               <div className="p-3 bg-green-50 rounded-lg">
                 <p className="text-sm text-gray-600">Public Holiday Credits</p>
                 <p className="text-lg font-medium text-green-600 mt-1">
-                  +{publicHolidays.reduce((sum, holiday) => sum + holiday.leave_credit, 0).toFixed(2)} days
+                  +{publicHolidays.reduce((sum, holiday) => sum + (holiday.leave_credit || 0.67), 0).toFixed(2)} days
                 </p>
                 <p className="text-xs text-gray-500 mt-1">({publicHolidays.length} public holidays worked)</p>
               </div>
@@ -591,100 +602,89 @@ export default function Leave() {
               </div>
             </form>
           </div>
-
-          <div className="bg-white shadow rounded-lg p-4 sm:p-6 overflow-hidden">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg sm:text-xl font-semibold">Leave History</h2>
-              <div className="text-sm text-gray-500">
-                Showing all leave requests
-              </div>
-            </div>
-
-            {leaves.length > 0 ? (
-              <div className="overflow-x-auto -mx-4 sm:mx-0">
-                <div className="inline-block min-w-full align-middle">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead>
-                      <tr className="bg-gray-50">
-                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Year</th>
-                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dates</th>
-                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Days</th>
-                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reason</th>
-                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {leaves.map((leave) => {
-                        const startDate = new Date(leave.start_date);
-                        const endDate = new Date(leave.end_date);
-                        const isPast = endDate < new Date();
-                        const isOngoing = startDate <= new Date() && endDate >= new Date();
-                        
-                        return (
-                          <tr key={leave.id} className="hover:bg-gray-50">
-                            <td className="px-3 py-3 text-sm">{leave.year}</td>
-                            <td className="px-3 py-3 text-sm">
-                              {startDate.toLocaleDateString()} - {endDate.toLocaleDateString()}
-                            </td>
-                            <td className="px-3 py-3 text-sm">{leave.days_taken}</td>
-                            <td className="px-3 py-3 text-sm">{leave.reason}</td>
-                            <td className="px-3 py-3 text-sm">
-                              {isPast ? (
-                                <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">
-                                  Past
-                                </span>
-                              ) : isOngoing ? (
-                                <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">
-                                  Ongoing
-                                </span>
-                              ) : (
-                                <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
-                                  Upcoming
-                                </span>
-                              )}
-                            </td>
-                            <td className="px-3 py-3 text-sm">
-                              {true && (
-                                <>
-                                  <button
-                                    onClick={() => handleEdit(leave)}
-                                    className="text-blue-600 hover:text-blue-800 font-medium mr-2"
-                                  >
-                                    Edit
-                                  </button>
-                                  <button
-                                    onClick={() => handleDelete(leave)}
-                                    className="text-red-600 hover:text-red-800 font-medium"
-                                  >
-                                    Delete
-                                  </button>
-                                </>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            ) : (
-              <p className="text-gray-500 text-sm">No leave history available.</p>
-            )}
-          </div>
         </div>
 
-        {/* Public Holiday Manager - Move after the leave balance and form section */}
-        {employee && (
-          <div className="mt-6">
-            <PublicHolidayManager
-              employeeId={employee.id}
-              currentYear={currentYear}
-              onLeaveBalanceUpdate={handleLeaveBalanceUpdate}
-            />
+        <div className="mt-6 bg-white shadow rounded-lg p-4 sm:p-6 overflow-hidden">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-lg sm:text-xl font-semibold">Leave History</h2>
+            <div className="text-sm text-gray-500">
+              Showing all leave requests
+            </div>
           </div>
-        )}
+
+          {leaves.length > 0 ? (
+            <div className="overflow-x-auto -mx-4 sm:mx-0">
+              <div className="inline-block min-w-full align-middle">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead>
+                    <tr className="bg-gray-50">
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Year</th>
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dates</th>
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Days</th>
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reason</th>
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {leaves.map((leave) => {
+                      const startDate = new Date(leave.start_date);
+                      const endDate = new Date(leave.end_date);
+                      const isPast = endDate < new Date();
+                      const isOngoing = startDate <= new Date() && endDate >= new Date();
+                      
+                      return (
+                        <tr key={leave.id} className="hover:bg-gray-50">
+                          <td className="px-3 py-3 text-sm">{leave.year}</td>
+                          <td className="px-3 py-3 text-sm">
+                            {startDate.toLocaleDateString()} - {endDate.toLocaleDateString()}
+                          </td>
+                          <td className="px-3 py-3 text-sm">{leave.days_taken.toFixed(2)}</td>
+                          <td className="px-3 py-3 text-sm">{leave.reason}</td>
+                          <td className="px-3 py-3 text-sm">
+                            {isPast ? (
+                              <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">
+                                Past
+                              </span>
+                            ) : isOngoing ? (
+                              <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">
+                                Ongoing
+                              </span>
+                            ) : (
+                              <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
+                                Upcoming
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-3 py-3 text-sm">
+                            {true && (
+                              <>
+                                <button
+                                  onClick={() => handleEdit(leave)}
+                                  className="text-blue-600 hover:text-blue-800 font-medium mr-2"
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  onClick={() => handleDelete(leave)}
+                                  className="text-red-600 hover:text-red-800 font-medium"
+                                >
+                                  Delete
+                                </button>
+                              </>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : (
+            <p className="text-gray-500 text-sm">No leave history available.</p>
+          )}
+        </div>
       </div>
     </Layout>
   );

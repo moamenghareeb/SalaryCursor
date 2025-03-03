@@ -14,11 +14,13 @@ const PublicHolidayManager: React.FC<PublicHolidayManagerProps> = (props) => {
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [description, setDescription] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
 
   // Fetch existing public holidays for the employee
   useEffect(() => {
     const fetchPublicHolidays = async () => {
       try {
+        setIsLoading(true);
         const { data, error } = await supabase
           .from('public_holidays')
           .select('*')
@@ -28,13 +30,18 @@ const PublicHolidayManager: React.FC<PublicHolidayManagerProps> = (props) => {
         if (error) throw error;
 
         setPublicHolidays(data || []);
+        setError(null);
       } catch (err) {
         console.error('Error fetching public holidays:', err);
         setError('Failed to load public holidays');
+      } finally {
+        setIsLoading(false);
       }
     };
 
-    fetchPublicHolidays();
+    if (employeeId) {
+      fetchPublicHolidays();
+    }
   }, [employeeId, currentYear]);
 
   // Add a new public holiday
@@ -44,7 +51,17 @@ const PublicHolidayManager: React.FC<PublicHolidayManagerProps> = (props) => {
       return;
     }
 
+    // Validate the date is in the current year
+    const holidayYear = new Date(selectedDate).getFullYear();
+    if (holidayYear !== currentYear) {
+      setError(`The selected date must be in ${currentYear}`);
+      return;
+    }
+
     try {
+      setIsLoading(true);
+      setError(null);
+      
       // Check if holiday already exists
       const existingHoliday = publicHolidays.find(
         ph => ph.date === selectedDate
@@ -82,15 +99,26 @@ const PublicHolidayManager: React.FC<PublicHolidayManagerProps> = (props) => {
       setSelectedDate('');
       setDescription('');
       setError(null);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error adding public holiday:', err);
-      setError('Failed to add public holiday');
+      setError(err.message || 'Failed to add public holiday');
+    } finally {
+      setIsLoading(false);
     }
   };
 
   // Remove a public holiday
   const handleRemovePublicHoliday = async (holidayId: string) => {
     try {
+      setIsLoading(true);
+      
+      const holidayToRemove = publicHolidays.find(ph => ph.id === holidayId);
+      if (!holidayToRemove) {
+        throw new Error('Holiday not found');
+      }
+      
+      const leaveCredit = holidayToRemove.leave_credit || 0.67;
+      
       const { error } = await supabase
         .from('public_holidays')
         .delete()
@@ -102,11 +130,15 @@ const PublicHolidayManager: React.FC<PublicHolidayManagerProps> = (props) => {
       const updatedHolidays = publicHolidays.filter(ph => ph.id !== holidayId);
       setPublicHolidays(updatedHolidays);
 
-      // Notify parent component about leave balance update
-      onLeaveBalanceUpdate(-0.67);
-    } catch (err) {
+      // Notify parent component about leave balance update (negative since we're removing)
+      onLeaveBalanceUpdate(-leaveCredit);
+      
+      setError(null);
+    } catch (err: any) {
       console.error('Error removing public holiday:', err);
-      setError('Failed to remove public holiday');
+      setError(err.message || 'Failed to remove public holiday');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -120,7 +152,7 @@ const PublicHolidayManager: React.FC<PublicHolidayManagerProps> = (props) => {
         </div>
       )}
 
-      <div className="flex space-x-2 mb-4">
+      <div className="flex flex-col md:flex-row md:space-x-2 space-y-2 md:space-y-0 mb-4">
         <input
           type="date"
           value={selectedDate}
@@ -128,6 +160,7 @@ const PublicHolidayManager: React.FC<PublicHolidayManagerProps> = (props) => {
           className="flex-grow p-2 border rounded"
           min={`${currentYear}-01-01`}
           max={`${currentYear}-12-31`}
+          disabled={isLoading}
         />
         <input
           type="text"
@@ -135,12 +168,14 @@ const PublicHolidayManager: React.FC<PublicHolidayManagerProps> = (props) => {
           onChange={(e) => setDescription(e.target.value)}
           placeholder="Optional description"
           className="flex-grow p-2 border rounded"
+          disabled={isLoading}
         />
         <button
           onClick={handleAddPublicHoliday}
-          className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
+          className={`bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+          disabled={isLoading}
         >
-          Add Holiday
+          {isLoading ? 'Adding...' : 'Add Holiday'}
         </button>
       </div>
 
@@ -166,11 +201,12 @@ const PublicHolidayManager: React.FC<PublicHolidayManagerProps> = (props) => {
               </div>
               <div className="flex items-center space-x-2">
                 <span className="text-sm text-gray-600">
-                  +{holiday.leave_credit} Leave Days
+                  +{(holiday.leave_credit || 0.67).toFixed(2)} Leave Days
                 </span>
                 <button
                   onClick={() => handleRemovePublicHoliday(holiday.id!)}
-                  className="text-red-500 hover:text-red-700"
+                  className={`text-red-500 hover:text-red-700 ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  disabled={isLoading}
                 >
                   Remove
                 </button>
