@@ -492,6 +492,69 @@ export default function Salary() {
                   placeholder="Enter overtime hours"
                 />
               </div>
+
+              {/* Deductions Section */}
+              <div className="border-t pt-4 mt-4">
+                <h3 className="text-base font-semibold mb-3">Deductions</h3>
+                
+                {deductions.map((deduction, index) => (
+                  <div key={index} className="flex items-center space-x-2 mb-2">
+                    <select
+                      value={deduction.type}
+                      onChange={(e) => {
+                        updateDeduction(index, 'type', e.target.value);
+                        // Reset custom name if not custom deduction
+                        if (e.target.value !== 'Custom Deduction') {
+                          updateDeduction(index, 'customName', '');
+                        }
+                      }}
+                      className="w-1/2 p-2 border rounded"
+                    >
+                      <option value="">Select Deduction Type</option>
+                      {deductionTypes.map((type) => (
+                        <option key={type} value={type}>{type}</option>
+                      ))}
+                    </select>
+
+                    {deduction.type === 'Custom Deduction' && (
+                      <input
+                        type="text"
+                        placeholder="Custom Deduction Name"
+                        value={deduction.customName || ''}
+                        onChange={(e) => updateDeduction(index, 'customName', e.target.value)}
+                        className="w-1/4 p-2 border rounded"
+                      />
+                    )}
+
+                    <input
+                      type="number"
+                      placeholder="Amount"
+                      value={deduction.amount}
+                      onChange={(e) => updateDeduction(index, 'amount', parseFloat(e.target.value) || 0)}
+                      className="w-1/4 p-2 border rounded"
+                    />
+
+                    <button
+                      onClick={() => removeDeduction(index)}
+                      className="bg-red-500 text-white px-3 py-2 rounded hover:bg-red-600"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+
+                <button
+                  onClick={addDeduction}
+                  className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 mt-2"
+                >
+                  Add Deduction
+                </button>
+
+                <div className="mt-4 bg-gray-50 p-3 rounded">
+                  <p className="text-sm font-medium">Total Deductions: {totalDeductions.toFixed(2)}</p>
+                  <p className="text-sm font-medium">Net Salary: {(salaryCalc.totalSalary - totalDeductions).toFixed(2)}</p>
+                </div>
+              </div>
               
               <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 pt-2">
                 <button
@@ -628,69 +691,6 @@ export default function Salary() {
           ) : (
             <p className="text-gray-500 text-sm">No salary history available.</p>
           )}
-        </div>
-
-        {/* Deductions Section */}
-        <div className="bg-white shadow rounded-lg p-4 sm:p-6 mt-4">
-          <h2 className="text-lg sm:text-xl font-semibold mb-4">Deductions</h2>
-          
-          {deductions.map((deduction, index) => (
-            <div key={index} className="flex items-center space-x-2 mb-2">
-              <select
-                value={deduction.type}
-                onChange={(e) => {
-                  updateDeduction(index, 'type', e.target.value);
-                  // Reset custom name if not custom deduction
-                  if (e.target.value !== 'Custom Deduction') {
-                    updateDeduction(index, 'customName', '');
-                  }
-                }}
-                className="w-1/2 p-2 border rounded"
-              >
-                <option value="">Select Deduction Type</option>
-                {deductionTypes.map((type) => (
-                  <option key={type} value={type}>{type}</option>
-                ))}
-              </select>
-
-              {deduction.type === 'Custom Deduction' && (
-                <input
-                  type="text"
-                  placeholder="Custom Deduction Name"
-                  value={deduction.customName || ''}
-                  onChange={(e) => updateDeduction(index, 'customName', e.target.value)}
-                  className="w-1/4 p-2 border rounded"
-                />
-              )}
-
-              <input
-                type="number"
-                placeholder="Amount"
-                value={deduction.amount}
-                onChange={(e) => updateDeduction(index, 'amount', parseFloat(e.target.value) || 0)}
-                className="w-1/4 p-2 border rounded"
-              />
-
-              <button
-                onClick={() => removeDeduction(index)}
-                className="bg-red-500 text-white px-3 py-2 rounded hover:bg-red-600"
-              >
-                Remove
-              </button>
-            </div>
-          ))}
-
-          <button
-            onClick={addDeduction}
-            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 mt-2"
-          >
-            Add Deduction
-          </button>
-
-          <div className="mt-4 bg-gray-50 p-3 rounded">
-            <p className="text-sm font-medium">Total Deductions: {totalDeductions.toFixed(2)}</p>
-            <p className="text-sm font-medium">Net Salary: {(salaryCalc.totalSalary - totalDeductions).toFixed(2)}</p>
-          </div>
         </div>
       </div>
     </Layout>

@@ -236,7 +236,14 @@ export default function Leave() {
       if (leaveError) throw leaveError;
       
       setLeaves(leaveData || []);
-      console.log(leaves);
+
+      // Fetch public holidays
+      const { data: holidayData, error: holidayError } = await supabase
+        .from('public_holidays')
+        .select('*')
+        .eq('employee_id', user.user.id);
+
+      if (holidayError) throw holidayError;
 
       // Calculate total days taken for current year
       const currentYear = new Date().getFullYear();
@@ -247,6 +254,7 @@ export default function Leave() {
       
       const total = currentYearLeaves.reduce((sum, item) => sum + item.days_taken, 0);
       setLeaveTaken(total);
+
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -277,9 +285,8 @@ export default function Leave() {
       return;
     }
 
-    // Validate against remaining leave (including public holiday leave)
-    const totalLeaveBalance = (leaveBalance || 0) + (publicHolidays.length * 0.67);
-    if (!editingLeave && days > (totalLeaveBalance - leaveTaken)) {
+    // Validate against remaining leave
+    if (!editingLeave && days > ((leaveBalance || 0) - leaveTaken)) {
       setError('Insufficient leave balance');
       return;
     }
@@ -321,13 +328,17 @@ export default function Leave() {
       if (publicHolidays.length > 0) {
         const { error: holidayError } = await supabase
           .from('public_holidays')
-          .insert(
+          .upsert(
             publicHolidays.map(holiday => ({
               employee_id: employee.id,
               date: holiday.date,
               description: holiday.description,
               leave_credit: 0.67
-            }))
+            })),
+            { 
+              onConflict: 'employee_id,date',
+              ignoreDuplicates: true 
+            }
           );
 
         if (holidayError) {
@@ -520,6 +531,54 @@ export default function Leave() {
                   {((leaveBalance || 0) - leaveTaken).toFixed(2)} days
                 </p>
               </div>
+
+              {/* Public Holidays Section */}
+              <div className="p-3 bg-green-50 rounded-lg">
+                <div className="flex justify-between items-center mb-2">
+                  <p className="text-sm text-gray-600">Public Holidays Worked</p>
+                  <button
+                    onClick={addPublicHoliday}
+                    className="text-xs text-blue-600 hover:text-blue-800"
+                  >
+                    Add Holiday
+                  </button>
+                </div>
+
+                {publicHolidays.map((holiday, index) => (
+                  <div key={index} className="flex items-center space-x-2 mb-2">
+                    <input
+                      type="date"
+                      value={holiday.date}
+                      onChange={(e) => updatePublicHoliday(index, 'date', e.target.value)}
+                      className="w-1/2 p-1 border rounded text-xs"
+                    />
+
+                    <input
+                      type="text"
+                      placeholder="Description (Optional)"
+                      value={holiday.description || ''}
+                      onChange={(e) => updatePublicHoliday(index, 'description', e.target.value)}
+                      className="w-1/2 p-1 border rounded text-xs"
+                    />
+
+                    <button
+                      onClick={() => removePublicHoliday(index)}
+                      className="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+
+                <div className="mt-2">
+                  <p className="text-xs text-gray-600">
+                    Public Holidays: {publicHolidays.length} 
+                    <span className="ml-2 text-green-600">
+                      +{(publicHolidays.length * 0.67).toFixed(2)} days
+                    </span>
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -663,52 +722,6 @@ export default function Leave() {
             ) : (
               <p className="text-gray-500 text-sm">No leave history available.</p>
             )}
-          </div>
-
-          {/* Public Holidays Section */}
-          <div className="bg-white shadow rounded-lg p-4 sm:p-6 mt-4">
-            <h2 className="text-lg sm:text-xl font-semibold mb-4">Public Holidays Worked</h2>
-            
-            {publicHolidays.map((holiday, index) => (
-              <div key={index} className="flex items-center space-x-2 mb-2">
-                <input
-                  type="date"
-                  value={holiday.date}
-                  onChange={(e) => updatePublicHoliday(index, 'date', e.target.value)}
-                  className="w-1/2 p-2 border rounded"
-                />
-
-                <input
-                  type="text"
-                  placeholder="Holiday Description (Optional)"
-                  value={holiday.description || ''}
-                  onChange={(e) => updatePublicHoliday(index, 'description', e.target.value)}
-                  className="w-1/2 p-2 border rounded"
-                />
-
-                <button
-                  onClick={() => removePublicHoliday(index)}
-                  className="bg-red-500 text-white px-3 py-2 rounded hover:bg-red-600"
-                >
-                  Remove
-                </button>
-              </div>
-            ))}
-
-            <button
-              onClick={addPublicHoliday}
-              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 mt-2"
-            >
-              Add Public Holiday
-            </button>
-
-            <div className="mt-4 bg-gray-50 p-3 rounded">
-              <p className="text-sm font-medium">Public Holidays Worked: {publicHolidays.length}</p>
-              <p className="text-sm font-medium">Additional Leave Earned: {publicHolidayLeave.toFixed(2)} days</p>
-              <p className="text-sm font-medium">
-                Total Leave Balance: {((leaveBalance || 0) + publicHolidayLeave).toFixed(2)} days
-              </p>
-            </div>
           </div>
         </div>
       </div>
