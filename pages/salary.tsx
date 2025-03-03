@@ -542,7 +542,13 @@ export default function Salary() {
       <div className="px-4 sm:px-0">
         <h1 className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-6">Salary Calculator</h1>
         
-        <div className="grid grid-cols-1 gap-4 sm:gap-6">
+        {authError && (
+          <div className="mb-4 bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded">
+            {authError}
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
           <div className="bg-white shadow rounded-lg p-4 sm:p-6">
             <h2 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4">Current Exchange Rate</h2>
             <p className="text-xl sm:text-lg">
@@ -618,67 +624,111 @@ export default function Salary() {
                 />
               </div>
 
-              {/* Deductions Section */}
-              <div className="border-t pt-4 mt-4">
-                <h3 className="text-base font-semibold mb-3">Deductions</h3>
-                
-                {deductions.map((deduction, index) => (
-                  <div key={index} className="flex items-center space-x-2 mb-2">
-                    <select
-                      value={deduction.type}
-                      onChange={(e) => {
-                        updateDeduction(index, 'type', e.target.value);
-                        // Reset custom name if not custom deduction
-                        if (e.target.value !== 'Custom Deduction') {
-                          updateDeduction(index, 'customName', '');
-                        }
-                      }}
-                      className="w-1/2 p-2 border rounded"
-                    >
-                      <option value="">Select Deduction Type</option>
-                      {deductionTypes.map((type) => (
-                        <option key={type} value={type}>{type}</option>
-                      ))}
-                    </select>
+              {/* Deductions Section with Permanent Deductions moved next to it */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Temporary Deductions */}
+                <div className="border-t pt-4 mt-4">
+                  <h3 className="text-base font-semibold mb-3">Temporary Deductions</h3>
+                  
+                  {deductions.map((deduction, index) => (
+                    <div key={index} className="flex items-center space-x-2 mb-2">
+                      <select
+                        value={deduction.type}
+                        onChange={(e) => {
+                          updateDeduction(index, 'type', e.target.value);
+                          // Reset custom name if not custom deduction
+                          if (e.target.value !== 'Custom Deduction') {
+                            updateDeduction(index, 'customName', '');
+                          }
+                        }}
+                        className="w-1/2 p-2 border rounded"
+                        aria-label="Select deduction type"
+                      >
+                        <option value="">Select Deduction Type</option>
+                        {deductionTypes.map((type) => (
+                          <option key={type} value={type}>{type}</option>
+                        ))}
+                      </select>
 
-                    {deduction.type === 'Custom Deduction' && (
+                      {deduction.type === 'Custom Deduction' && (
+                        <input
+                          type="text"
+                          placeholder="Custom Deduction Name"
+                          value={deduction.customName || ''}
+                          onChange={(e) => updateDeduction(index, 'customName', e.target.value)}
+                          className="w-1/4 p-2 border rounded"
+                        />
+                      )}
+
                       <input
-                        type="text"
-                        placeholder="Custom Deduction Name"
-                        value={deduction.customName || ''}
-                        onChange={(e) => updateDeduction(index, 'customName', e.target.value)}
+                        type="number"
+                        placeholder="Amount"
+                        value={deduction.amount}
+                        onChange={(e) => updateDeduction(index, 'amount', parseFloat(e.target.value) || 0)}
                         className="w-1/4 p-2 border rounded"
                       />
-                    )}
 
-                    <input
-                      type="number"
-                      placeholder="Amount"
-                      value={deduction.amount}
-                      onChange={(e) => updateDeduction(index, 'amount', parseFloat(e.target.value) || 0)}
-                      className="w-1/4 p-2 border rounded"
-                    />
+                      <button
+                        onClick={() => removeDeduction(index)}
+                        className="bg-red-500 text-white px-3 py-2 rounded hover:bg-red-600"
+                        aria-label="Remove deduction"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
 
-                    <button
-                      onClick={() => removeDeduction(index)}
-                      className="bg-red-500 text-white px-3 py-2 rounded hover:bg-red-600"
+                  <button
+                    onClick={addDeduction}
+                    className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 mt-2"
+                  >
+                    Add Deduction
+                  </button>
+                </div>
+                
+                {/* Permanent Deductions Section moved here */}
+                <div className="border-t pt-4 mt-4">
+                  <h3 className="text-base font-semibold mb-3">Permanent Deductions</h3>
+                  <div className="space-y-4">
+                    {permanentDeductions.map((deduction) => (
+                      <div key={deduction.id} className="flex items-center justify-between border-b pb-2">
+                        <div>
+                          <p className="font-medium">
+                            {deduction.custom_name || deduction.type} - ${deduction.amount.toFixed(2)}
+                          </p>
+                          <p className="text-sm text-gray-500">
+                            {deduction.is_active ? 'Active' : 'Inactive'}
+                          </p>
+                        </div>
+                        <div className="flex space-x-2">
+                          <button 
+                            onClick={() => handleEditPermanentDeduction(deduction)}
+                            className="text-blue-600 hover:text-blue-800"
+                          >
+                            Edit
+                          </button>
+                          <button 
+                            onClick={() => handleRemovePermanentDeduction(deduction.id)}
+                            className="text-red-600 hover:text-red-800"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    <button 
+                      onClick={handleAddPermanentDeduction}
+                      className="w-full bg-green-500 text-white py-2 rounded-md hover:bg-green-600 transition-colors"
                     >
-                      Remove
+                      Add Permanent Deduction
                     </button>
                   </div>
-                ))}
-
-                <button
-                  onClick={addDeduction}
-                  className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 mt-2"
-                >
-                  Add Deduction
-                </button>
-
-                <div className="mt-4 bg-gray-50 p-3 rounded">
-                  <p className="text-sm font-medium">Total Deductions: {totalDeductions.toFixed(2)}</p>
-                  <p className="text-sm font-medium">Net Salary: {(salaryCalc.totalSalary - totalDeductions).toFixed(2)}</p>
                 </div>
+              </div>
+
+              <div className="mt-4 bg-gray-50 p-3 rounded">
+                <p className="text-sm font-medium">Total Deductions: {(totalDeductions + totalPermanentDeductions).toFixed(2)}</p>
+                <p className="text-sm font-medium">Net Salary: {(salaryCalc.totalSalary - totalDeductions - totalPermanentDeductions).toFixed(2)}</p>
               </div>
               
               <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 pt-2">
@@ -816,45 +866,6 @@ export default function Salary() {
           ) : (
             <p className="text-gray-500 text-sm">No salary history available.</p>
           )}
-        </div>
-
-        {/* Permanent Deductions Section */}
-        <div className="mt-6 bg-white shadow-md rounded-lg p-6">
-          <h3 className="text-xl font-semibold mb-4">Permanent Deductions</h3>
-          <div className="space-y-4">
-            {permanentDeductions.map((deduction) => (
-              <div key={deduction.id} className="flex items-center justify-between border-b pb-2">
-                <div>
-                  <p className="font-medium">
-                    {deduction.custom_name || deduction.type} - ${deduction.amount.toFixed(2)}
-                  </p>
-                  <p className="text-sm text-gray-500">
-                    {deduction.is_active ? 'Active' : 'Inactive'}
-                  </p>
-                </div>
-                <div className="flex space-x-2">
-                  <button 
-                    onClick={() => handleEditPermanentDeduction(deduction)}
-                    className="text-blue-600 hover:text-blue-800"
-                  >
-                    Edit
-                  </button>
-                  <button 
-                    onClick={() => handleRemovePermanentDeduction(deduction.id)}
-                    className="text-red-600 hover:text-red-800"
-                  >
-                    Remove
-                  </button>
-                </div>
-              </div>
-            ))}
-            <button 
-              onClick={handleAddPermanentDeduction}
-              className="w-full bg-green-500 text-white py-2 rounded-md hover:bg-green-600 transition-colors"
-            >
-              Add Permanent Deduction
-            </button>
-          </div>
         </div>
       </div>
     </Layout>

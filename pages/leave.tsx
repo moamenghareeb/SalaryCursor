@@ -235,9 +235,12 @@ export default function Leave() {
       const { data: holidayData, error: holidayError } = await supabase
         .from('public_holidays')
         .select('*')
-        .eq('employee_id', user.user.id);
+        .eq('employee_id', user.user.id)
+        .eq('year', currentYear);
 
       if (holidayError) throw holidayError;
+
+      setPublicHolidays(holidayData || []);
 
       // Calculate total days taken for current year
       const currentYearLeaves = (leaveData || []).filter(leave => {
@@ -251,10 +254,9 @@ export default function Leave() {
       // Calculate leave balance
       const initialLeaveBalance = 21; // Standard annual leave
       const takenLeave = total;
-      const publicHolidayCredits = holidayData.reduce((sum, holiday) => sum + holiday.leave_credit, 0);
+      const publicHolidayCredits = (holidayData || []).reduce((sum, holiday) => sum + holiday.leave_credit, 0);
       
       setLeaveBalance(initialLeaveBalance - takenLeave + publicHolidayCredits);
-      setPublicHolidays(holidayData || []);
 
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -426,7 +428,10 @@ export default function Leave() {
   };
 
   const handleLeaveBalanceUpdate = (additionalLeave: number) => {
+    // Update the leave balance immediately in the UI
     setLeaveBalance(prev => prev + additionalLeave);
+    // Refresh data to get the latest from the database
+    fetchData();
   };
 
   if (loading) {
@@ -454,7 +459,7 @@ export default function Leave() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 gap-4 sm:gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
           <div className="bg-white shadow rounded-lg p-4 sm:p-6">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg sm:text-xl font-semibold">Leave Balance</h2>
@@ -502,7 +507,7 @@ export default function Leave() {
 
               <div className="p-3 bg-gray-50 rounded-lg">
                 <p className="text-sm text-gray-600">Annual Leave Entitlement</p>
-                <p className="text-lg font-medium mt-1">{leaveBalance} days</p>
+                <p className="text-lg font-medium mt-1">21 days</p>
               </div>
 
               <div className="p-3 bg-gray-50 rounded-lg">
@@ -510,60 +515,19 @@ export default function Leave() {
                 <p className="text-lg font-medium mt-1">{leaveTaken} days</p>
               </div>
 
+              <div className="p-3 bg-green-50 rounded-lg">
+                <p className="text-sm text-gray-600">Public Holiday Credits</p>
+                <p className="text-lg font-medium text-green-600 mt-1">
+                  +{publicHolidays.reduce((sum, holiday) => sum + holiday.leave_credit, 0).toFixed(2)} days
+                </p>
+                <p className="text-xs text-gray-500 mt-1">({publicHolidays.length} public holidays worked)</p>
+              </div>
+
               <div className="p-4 bg-blue-50 rounded-lg">
                 <p className="text-sm text-gray-600">Remaining Leave</p>
                 <p className="text-2xl font-bold text-blue-600 mt-1">
-                  {((leaveBalance || 0) - leaveTaken).toFixed(2)} days
+                  {leaveBalance.toFixed(2)} days
                 </p>
-              </div>
-
-              {/* Public Holidays Section */}
-              <div className="p-3 bg-green-50 rounded-lg">
-                <div className="flex justify-between items-center mb-2">
-                  <p className="text-sm text-gray-600">Public Holidays Worked</p>
-                </div>
-
-                {publicHolidays.map((holiday, index) => (
-                  <div key={index} className="flex items-center space-x-2 mb-2">
-                    <input
-                      type="date"
-                      value={holiday.date}
-                      onChange={(e) => {
-                        const newPublicHolidays = [...publicHolidays];
-                        newPublicHolidays[index] = {
-                          ...newPublicHolidays[index],
-                          date: e.target.value
-                        };
-                        setPublicHolidays(newPublicHolidays);
-                      }}
-                      className="w-1/2 p-1 border rounded text-xs"
-                    />
-
-                    <input
-                      type="text"
-                      placeholder="Description (Optional)"
-                      value={holiday.description || ''}
-                      onChange={(e) => {
-                        const newPublicHolidays = [...publicHolidays];
-                        newPublicHolidays[index] = {
-                          ...newPublicHolidays[index],
-                          description: e.target.value
-                        };
-                        setPublicHolidays(newPublicHolidays);
-                      }}
-                      className="w-1/2 p-1 border rounded text-xs"
-                    />
-                  </div>
-                ))}
-
-                <div className="mt-2">
-                  <p className="text-xs text-gray-600">
-                    Public Holidays: {publicHolidays.length} 
-                    <span className="ml-2 text-green-600">
-                      +{(publicHolidays.length * 0.67).toFixed(2)} days
-                    </span>
-                  </p>
-                </div>
               </div>
             </div>
           </div>
@@ -711,13 +675,15 @@ export default function Leave() {
           </div>
         </div>
 
-        {/* Public Holiday Manager */}
+        {/* Public Holiday Manager - Move after the leave balance and form section */}
         {employee && (
-          <PublicHolidayManager
-            employeeId={employee.id}
-            currentYear={currentYear}
-            onLeaveBalanceUpdate={handleLeaveBalanceUpdate}
-          />
+          <div className="mt-6">
+            <PublicHolidayManager
+              employeeId={employee.id}
+              currentYear={currentYear}
+              onLeaveBalanceUpdate={handleLeaveBalanceUpdate}
+            />
+          </div>
         )}
       </div>
     </Layout>
