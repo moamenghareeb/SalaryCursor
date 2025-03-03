@@ -266,7 +266,7 @@ export default function Salary() {
       ...salaryCalc,
       overtimePay,
       variablePay,
-      totalSalary,
+      totalSalary: netSalaryAfterDeductions,
       exchangeRate,
     };
     
@@ -670,6 +670,147 @@ export default function Salary() {
             )}
           </div>
         </div>
+        
+        {/* Add Deductions Section */}
+        <div className="mt-6 sm:mt-8 bg-white shadow rounded-lg p-4 sm:p-6">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-lg sm:text-xl font-medium text-gray-900">Deductions</h2>
+            <button
+              onClick={() => setShowPermanentDeductionsModal(true)}
+              className="text-sm text-blue-600 hover:text-blue-800"
+            >
+              Manage Permanent Deductions
+            </button>
+          </div>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+              <select
+                value={newDeductionType}
+                onChange={(e) => setNewDeductionType(e.target.value as DeductionType)}
+                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              >
+                {DEDUCTION_TYPES.map((type) => (
+                  <option key={type} value={type}>{type}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+              <input
+                type="text"
+                value={newDeductionName}
+                onChange={(e) => setNewDeductionName(e.target.value)}
+                placeholder="E.g., Health Insurance"
+                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Amount ($)</label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={newDeductionAmount}
+                onChange={(e) => setNewDeductionAmount(e.target.value)}
+                placeholder="0.00"
+                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              />
+            </div>
+            <div className="flex items-end">
+              <button
+                onClick={handleAddDeduction}
+                className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-md w-full"
+              >
+                Add Deduction
+              </button>
+            </div>
+          </div>
+          
+          {/* Deductions Table */}
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Type
+                  </th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Description
+                  </th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Amount
+                  </th>
+                  <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {deductions.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="px-4 py-4 text-center text-sm text-gray-500">
+                      No deductions added yet
+                    </td>
+                  </tr>
+                ) : (
+                  deductions.map((deduction) => (
+                    <tr key={deduction.id}>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                        {deduction.deduction_type}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-500">
+                        {deduction.deduction_name}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                        ${deduction.amount.toFixed(2)}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
+                        <button
+                          onClick={() => handleDeleteDeduction(deduction)}
+                          className="text-red-600 hover:text-red-800"
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+              <tfoot>
+                <tr className="bg-gray-50">
+                  <td colSpan={2} className="px-4 py-3 text-right text-sm font-medium text-gray-700">
+                    Total Deductions:
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-700">
+                    ${totalDeductions.toFixed(2)}
+                  </td>
+                  <td></td>
+                </tr>
+                <tr className="bg-blue-50">
+                  <td colSpan={2} className="px-4 py-3 text-right text-sm font-medium text-blue-700">
+                    Net Salary After Deductions:
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-blue-700">
+                    ${(salaryCalc.totalSalary - totalDeductions).toFixed(2)}
+                  </td>
+                  <td></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+        
+        {/* Permanent Deductions Modal */}
+        {employee && (
+          <PermanentDeductionModal
+            employeeId={employee.id}
+            isOpen={showPermanentDeductionsModal}
+            onClose={() => setShowPermanentDeductionsModal(false)}
+            onSuccess={fetchData}
+          />
+        )}
         
         <div className="mt-6 sm:mt-8 bg-white shadow rounded-lg p-4 sm:p-6 overflow-hidden">
           <h2 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4">Salary History</h2>
