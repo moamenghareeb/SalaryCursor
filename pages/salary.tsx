@@ -2,10 +2,11 @@ import React from 'react';
 import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { supabase } from '../lib/supabase';
-import { SalaryCalculation, Employee } from '../types';
+import { SalaryCalculation, Employee, Deduction, DeductionType, DeductionSummary } from '../types';
 import { PDFDownloadLink, Document, Page, Text, View, StyleSheet, BlobProvider } from '@react-pdf/renderer';
 import SalaryPDF from '../components/SalaryPDF';
 import { User } from '@supabase/supabase-js';
+import PermanentDeductionModal from '../components/PermanentDeductionModal';
 
 export default function Salary() {
   const [employee, setEmployee] = useState<Employee | null>(null);
@@ -17,6 +18,14 @@ export default function Salary() {
   const [salaryHistory, setSalaryHistory] = useState<any[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
+  
+  // Deductions related state
+  const [deductions, setDeductions] = useState<Deduction[]>([]);
+  const [newDeductionName, setNewDeductionName] = useState('');
+  const [newDeductionAmount, setNewDeductionAmount] = useState('');
+  const [newDeductionType, setNewDeductionType] = useState<DeductionType>('Other');
+  const [totalDeductions, setTotalDeductions] = useState(0);
+  const [showPermanentDeductionsModal, setShowPermanentDeductionsModal] = useState(false);
 
   const [salaryCalc, setSalaryCalc] = useState<SalaryCalculation>({
     basicSalary: 0,
@@ -29,85 +38,127 @@ export default function Salary() {
     exchangeRate: 0,
   });
 
+  const DEDUCTION_TYPES: DeductionType[] = [
+    'Pension Plan',
+    'Retroactive',
+    'Premium Card',
+    'Mobile',
+    'Absences',
+    'Sick Leave',
+    'Other'
+  ];
+
   useEffect(() => {
-    const fetchData = async () => {
+    fetchData();
+  }, [month]);
+
+  const fetchData = async () => {
+    try {
+      setAuthError(null);
+      
+      // Fetch exchange rate from cached endpoint
       try {
-        setAuthError(null);
+        console.log("Fetching exchange rate...");
+        const rateResponse = await fetch('/api/exchange-rate');
         
-        // Fetch exchange rate from cached endpoint
-        try {
-          console.log("Fetching exchange rate...");
-          const rateResponse = await fetch('/api/exchange-rate');
-          
-          if (rateResponse.ok) {
-            const rateData = await rateResponse.json();
-            if (rateData.rate) {
-              setExchangeRate(rateData.rate);
-              const lastUpdated = new Date(rateData.lastUpdated);
-              setRateLastUpdated(lastUpdated.toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-              }));
-            }
-          } else {
-            console.warn("API failed, using fallback rate");
+        if (rateResponse.ok) {
+          const rateData = await rateResponse.json();
+          if (rateData.rate) {
+            setExchangeRate(rateData.rate);
+            const lastUpdated = new Date(rateData.lastUpdated);
+            setRateLastUpdated(lastUpdated.toLocaleDateString('en-US', {
+              year: 'numeric',
+              month: 'short',
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            }));
           }
-        } catch (err) {
-          console.warn("Exchange rate API error, using fallback", err);
+        } else {
+          console.warn("API failed, using fallback rate");
         }
+      } catch (err) {
+        console.warn("Exchange rate API error, using fallback", err);
+      }
 
-        // Fetch employee data
-        const { data: userData, error: authError } = await supabase.auth.getUser();
+      // Fetch employee data
+      const { data: userData, error: authError } = await supabase.auth.getUser();
+      
+      if (authError) {
+        setAuthError('Authentication failed. Please try logging in again.');
+        return;
+      }
+
+      if (!userData?.user) {
+        setAuthError('No user found. Please log in.');
+        return;
+      }
+
+      const { data: employeeData, error: employeeError } = await supabase
+        .from('employees')
+        .select('*')
+        .eq('id', userData.user.id)
+        .single();
+
+      if (employeeError) {
+        if (employeeError.code === 'PGRST116') {
+          setAuthError('Employee record not found. Please contact your administrator.');
+        } else {
+          setAuthError(`Error fetching employee data: ${employeeError.message}`);
+        }
+        return;
+      }
+
+      setEmployee(employeeData);
+      setIsAdmin(employeeData.is_admin || false);
+
+      // Fetch permanent deductions
+      const { data: permanentDeductionsData, error: permanentDeductionsError } = await supabase
+        .from('deductions')
+        .select('*')
+        .eq('employee_id', userData.user.id)
+        .eq('is_permanent', true);
+
+      if (permanentDeductionsError) {
+        console.error('Error fetching permanent deductions:', permanentDeductionsError);
+      } else {
+        // We'll apply these later if a salary is loaded
+        const permanentDeductions = permanentDeductionsData || [];
         
-        if (authError) {
-          setAuthError('Authentication failed. Please try logging in again.');
-          return;
-        }
+        // Calculate total permanent deductions
+        const permanentDeductionsTotal = permanentDeductions.reduce(
+          (sum, deduction) => sum + (deduction.amount || 0), 
+          0
+        );
+        
+        console.log(`Loaded ${permanentDeductions.length} permanent deductions totaling ${permanentDeductionsTotal}`);
+      }
 
-        if (!userData?.user) {
-          setAuthError('No user found. Please log in.');
-          return;
-        }
+      // First try to get the salary calculation for the selected month
+      const [year, monthNum] = month.split('-');
+      const monthQuery = `${year}-${monthNum}`;
+      
+      const { data: monthData, error: monthError } = await supabase
+        .from('salary_calculations')
+        .select('*')
+        .eq('employee_id', userData.user.id)
+        .eq('month', monthQuery)
+        .order('created_at', { ascending: false })
+        .limit(1);
 
-        const { data: employeeData, error: employeeError } = await supabase
-          .from('employees')
-          .select('*')
-          .eq('id', userData.user.id)
-          .single();
-
-        if (employeeError) {
-          if (employeeError.code === 'PGRST116') {
-            setAuthError('Employee record not found. Please contact your administrator.');
-          } else {
-            setAuthError(`Error fetching employee data: ${employeeError.message}`);
-          }
-          return;
-        }
-
-        setEmployee(employeeData);
-
-        // First try to get the latest calculation
-        const { data: calcData, error: calcError } = await supabase
-          .from('salary_calculations')
-          .select('*')
-          .eq('employee_id', userData.user.id)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .single();
-
-        if (!calcError && calcData) {
+      if (monthError) {
+        console.error('Error fetching salary calculation:', monthError);
+      } else {
+        if (monthData && monthData.length > 0) {
           setSalaryCalc({
-            basicSalary: calcData.basic_salary,
-            costOfLiving: calcData.cost_of_living,
-            shiftAllowance: calcData.shift_allowance,
-            overtimeHours: calcData.overtime_hours,
-            overtimePay: calcData.overtime_pay,
-            variablePay: calcData.variable_pay,
-            totalSalary: calcData.total_salary,
-            exchangeRate: calcData.exchange_rate,
+            basicSalary: monthData[0].basic_salary,
+            costOfLiving: monthData[0].cost_of_living,
+            shiftAllowance: monthData[0].shift_allowance,
+            overtimeHours: monthData[0].overtime_hours,
+            overtimePay: monthData[0].overtime_pay,
+            variablePay: monthData[0].variable_pay,
+            totalSalary: monthData[0].total_salary,
+            exchangeRate: monthData[0].exchange_rate,
           });
         } else {
           // If no calculation found, try to get from salaries table
@@ -132,41 +183,57 @@ export default function Salary() {
             });
           }
         }
+      }
 
-        // Fetch salary history
-        const { data: historyData, error: historyError } = await supabase
-          .from('salaries')
+      // Fetch salary history
+      const { data: historyData, error: historyError } = await supabase
+        .from('salaries')
+        .select('*')
+        .eq('employee_id', userData.user.id)
+        .order('month', { ascending: false });
+
+      if (historyError) {
+        console.error('Error fetching salary history:', historyError);
+      } else {
+        setSalaryHistory(historyData || []);
+      }
+
+      // Fetch deductions for this specific salary if it exists
+      if (monthData && monthData.length > 0) {
+        const salaryId = monthData[0].id;
+        
+        const { data: deductionsData, error: deductionsError } = await supabase
+          .from('deductions')
           .select('*')
           .eq('employee_id', userData.user.id)
-          .order('month', { ascending: false });
-
-        if (historyError) {
-          console.error('Error fetching salary history:', historyError);
+          .eq('salary_id', salaryId)
+          .order('created_at', { ascending: false });
+          
+        if (deductionsError) {
+          console.error('Error fetching deductions:', deductionsError);
         } else {
-          setSalaryHistory(historyData || []);
+          setDeductions(deductionsData || []);
+          
+          // Calculate total deductions
+          const deductionsTotal = (deductionsData || []).reduce(
+            (sum, deduction) => sum + (deduction.amount || 0), 
+            0
+          );
+          setTotalDeductions(deductionsTotal);
+          
+          console.log(`Loaded ${deductionsData?.length || 0} deductions totaling ${deductionsTotal}`);
         }
-
-        // Check if user is admin
-        const { data: adminData, error: adminError } = await supabase
-          .from('employees')
-          .select('is_admin')
-          .eq('id', userData.user.id)
-          .single();
-        
-        if (!adminError && adminData) {
-          setIsAdmin(adminData.is_admin || false);
-        }
-
-      } catch (error) {
-        console.error('Error fetching data:', error);
-        setAuthError('An unexpected error occurred. Please try again later.');
-      } finally {
-        setLoading(false);
+      } else {
+        // Clear deductions if no salary found for this month
+        setDeductions([]);
+        setTotalDeductions(0);
       }
-    };
-
-    fetchData();
-  }, []);
+    } catch (error) {
+      console.error("Error in fetchData:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleInputChange = (field: keyof SalaryCalculation, value: number) => {
     setSalaryCalc((prev) => ({ ...prev, [field]: value }));
@@ -189,6 +256,11 @@ export default function Salary() {
     
     // Calculate total salary
     const totalSalary = basicSalary + costOfLiving + shiftAllowance + overtimePay + variablePay;
+    
+    // Subtract total deductions from final salary
+    const netSalaryAfterDeductions = totalSalary - totalDeductions;
+    
+    console.log(`Total salary: ${totalSalary}, Deductions: ${totalDeductions}, Net: ${netSalaryAfterDeductions}`);
     
     const newCalc = {
       ...salaryCalc,
@@ -338,6 +410,92 @@ export default function Salary() {
     } catch (error) {
       console.error('Error in update function:', error);
       alert(`Error updating rate: ${error}`);
+    }
+  };
+
+  // Function to handle adding a new deduction
+  const handleAddDeduction = async () => {
+    if (!employee) return;
+    if (!newDeductionName || !newDeductionAmount) {
+      console.error('Please provide both name and amount for deduction');
+      return;
+    }
+
+    const amount = parseFloat(newDeductionAmount);
+    if (isNaN(amount) || amount <= 0) {
+      console.error('Please enter a valid amount');
+      return;
+    }
+
+    try {
+      // Find the salary_id for the current month if it exists
+      const [year, monthNum] = month.split('-');
+      const monthQuery = `${year}-${monthNum}`;
+      
+      const { data: salaryData, error: salaryError } = await supabase
+        .from('salary_calculations')
+        .select('id')
+        .eq('employee_id', employee.id)
+        .eq('month', monthQuery)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (salaryError) throw salaryError;
+      
+      const salaryId = salaryData && salaryData.length > 0 ? salaryData[0].id : null;
+      
+      if (!salaryId) {
+        console.error('Please calculate and save the salary first before adding deductions');
+        return;
+      }
+
+      // Insert the new deduction
+      const { data: newDeduction, error: insertError } = await supabase
+        .from('deductions')
+        .insert([{
+          employee_id: employee.id,
+          salary_id: salaryId,
+          deduction_name: newDeductionName,
+          amount: amount,
+          deduction_type: newDeductionType,
+          is_permanent: false
+        }])
+        .select();
+
+      if (insertError) throw insertError;
+
+      // Add the new deduction to state
+      if (newDeduction && newDeduction.length > 0) {
+        setDeductions([...deductions, newDeduction[0]]);
+        setTotalDeductions(totalDeductions + amount);
+      }
+
+      // Reset form
+      setNewDeductionName('');
+      setNewDeductionAmount('');
+      setNewDeductionType('Other');
+      
+    } catch (error) {
+      console.error('Error adding deduction:', error);
+    }
+  };
+
+  // Function to handle deleting a deduction
+  const handleDeleteDeduction = async (deduction: Deduction) => {
+    try {
+      const { error } = await supabase
+        .from('deductions')
+        .delete()
+        .eq('id', deduction.id);
+
+      if (error) throw error;
+
+      // Update state
+      setDeductions(deductions.filter(d => d.id !== deduction.id));
+      setTotalDeductions(totalDeductions - deduction.amount);
+      
+    } catch (error) {
+      console.error('Error deleting deduction:', error);
     }
   };
 

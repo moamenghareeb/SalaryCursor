@@ -2,9 +2,10 @@ import React from 'react';
 import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { supabase } from '../lib/supabase';
-import type { Employee, Leave } from '../types';
+import type { Employee, Leave, PublicHoliday } from '../types';
 import type { Leave as LeaveType } from '../types/models';
 import { PDFDownloadLink, Document, Page, Text, View, StyleSheet, BlobProvider } from '@react-pdf/renderer';
+import PublicHolidayManager from '../components/PublicHolidayManager';
 
 // Create styles for PDF
 const styles = StyleSheet.create({
@@ -185,6 +186,7 @@ export default function Leave() {
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [loading, setLoading] = useState(true);
   const [leaves, setLeaves] = useState<Leave[]>([]);
+  const [publicHolidays, setPublicHolidays] = useState<PublicHoliday[]>([]);
   const [leaveBalance, setLeaveBalance] = useState<number | null>(null);
   const [leaveTaken, setLeaveTaken] = useState<number>(0);
   const [startDate, setStartDate] = useState('');
@@ -195,6 +197,7 @@ export default function Leave() {
   const [isEditingYears, setIsEditingYears] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [currentYear, setCurrentYear] = useState<number>(new Date().getFullYear());
 
   useEffect(() => {
     fetchData();
@@ -218,9 +221,19 @@ export default function Leave() {
       setEmployee(employeeData);
       setYearsOfService(employeeData.years_of_service);
 
-      // Calculate leave balance
-      const totalLeave = employeeData.years_of_service >= 10 ? 24.67 : 18.67;
-      setLeaveBalance(totalLeave);
+      // Fetch public holidays for current year
+      const startDate = `${currentYear}-01-01`;
+      const endDate = `${currentYear}-12-31`;
+      
+      const { data: holidayData, error: holidayError } = await supabase
+        .from('public_holidays')
+        .select('*')
+        .eq('employee_id', user.user.id)
+        .gte('holiday_date', startDate)
+        .lte('holiday_date', endDate);
+        
+      if (holidayError) throw holidayError;
+      setPublicHolidays(holidayData || []);
 
       // Fetch all leaves
       const { data: leaveData, error: leaveError } = await supabase
@@ -232,10 +245,8 @@ export default function Leave() {
       if (leaveError) throw leaveError;
       
       setLeaves(leaveData || []);
-      console.log(leaves);
 
       // Calculate total days taken for current year
-      const currentYear = new Date().getFullYear();
       const currentYearLeaves = (leaveData || []).filter(leave => {
         const leaveStartYear = new Date(leave.start_date).getFullYear();
         return leaveStartYear === currentYear;
@@ -243,11 +254,23 @@ export default function Leave() {
       
       const total = currentYearLeaves.reduce((sum, item) => sum + item.days_taken, 0);
       setLeaveTaken(total);
+
+      // Calculate leave balance
+      const initialLeaveBalance = 21; // Standard annual leave
+      const takenLeave = total;
+      const publicHolidayCredits = (holidayData || []).reduce((sum, holiday) => sum + (holiday.leave_credit || 0.67), 0);
+      
+      setLeaveBalance(initialLeaveBalance - takenLeave + publicHolidayCredits);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  // Handler for public holiday updates
+  const handleLeaveBalanceUpdate = () => {
+    fetchData(); // Refresh data to update leave balance
   };
 
   const calculateDays = (start: string, end: string) => {
@@ -410,6 +433,17 @@ export default function Leave() {
         {success && (
           <div className="mb-4 bg-green-50 border border-green-200 text-green-600 px-4 py-3 rounded">
             {success}
+          </div>
+        )}
+
+        {/* Public Holiday Manager at the top */}
+        {employee && (
+          <div className="mb-6">
+            <PublicHolidayManager
+              employeeId={employee.id}
+              currentYear={currentYear}
+              onLeaveBalanceUpdate={handleLeaveBalanceUpdate}
+            />
           </div>
         )}
 
