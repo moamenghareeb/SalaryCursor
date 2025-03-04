@@ -8,11 +8,20 @@ import { Font } from '@react-pdf/renderer';
 import SalaryPDF from '../components/SalaryPDF';
 import { User } from '@supabase/supabase-js';
 
-// Register fonts
+// Register fonts - use direct font import
 Font.register({
   family: 'Roboto',
-  src: 'https://fonts.gstatic.com/s/roboto/v30/KFOmCnqEu92Fr1Me5Q.ttf',
-  fontWeight: 'normal'
+  format: "truetype",
+  fonts: [
+    {
+      src: 'https://cdnjs.cloudflare.com/ajax/libs/ink/3.1.10/fonts/Roboto/roboto-light-webfont.ttf',
+      fontWeight: 'normal'
+    },
+    {
+      src: 'https://cdnjs.cloudflare.com/ajax/libs/ink/3.1.10/fonts/Roboto/roboto-bold-webfont.ttf',
+      fontWeight: 'bold'
+    }
+  ]
 });
 
 export default function Salary() {
@@ -786,39 +795,61 @@ export default function Salary() {
                 <div className="mt-2 w-8 h-8 border-t-2 border-primary border-solid rounded-full animate-spin"></div>
               </div>
             ) : (
-              <BlobProvider document={
-                <Document>
-                  {employee && (
-                    <SalaryPDF 
-                      salary={salaryCalc}
-                      employee={employee} 
-                      month={month} 
-                    />
-                  )}
-                </Document>
-              }>
-                {({ url, loading, error }) => (
-                  <div className="mt-4">
-                    {loading && <p>Generating PDF...</p>}
-                    {error && (
-                      <div className="text-red-500">
-                        <p>PDF generation error: {error.message}</p>
-                      </div>
-                    )}
-                    {url && employee && (
-                      <div className="flex flex-col items-center">
-                        <a
-                          href={url}
-                          download={`${employee.name}_salary_${month}.pdf`}
-                          className="py-2 px-4 bg-blue-500 text-white rounded-md hover:bg-blue-600"
-                        >
-                          Download PDF
-                        </a>
-                      </div>
-                    )}
+              employee && salaryCalc?.totalSalary > 0 && (
+                <div className="mt-4">
+                  <div className="py-2 px-4 bg-blue-500 text-white rounded-md hover:bg-blue-600 text-center block w-full cursor-pointer"
+                    onClick={() => {
+                      try {
+                        const MyDocument = () => (
+                          <Document>
+                            <Page size="A4" style={{
+                              flexDirection: 'column',
+                              backgroundColor: '#fff',
+                              padding: 30,
+                              fontFamily: 'Roboto'
+                            }}>
+                              <View style={{ marginBottom: 20, padding: 10, borderBottom: '1pt solid #112246' }}>
+                                <Text style={{ fontSize: 24, textAlign: 'center', color: '#112246', marginBottom: 10 }}>
+                                  Salary Slip
+                                </Text>
+                                <Text style={{ fontSize: 14, textAlign: 'center' }}>
+                                  {employee.name} | {new Date(month).toLocaleDateString('en-US', { year: 'numeric', month: 'long' })}
+                                </Text>
+                              </View>
+                              
+                              <View style={{ margin: 10, padding: 10 }}>
+                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8 }}>
+                                  <Text>Basic Salary</Text>
+                                  <Text>{salaryCalc.basicSalary.toFixed(2)}</Text>
+                                </View>
+                                
+                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', borderTop: '1pt solid #112246', marginTop: 16, paddingTop: 8 }}>
+                                  <Text style={{ fontWeight: 'bold' }}>Total Salary</Text>
+                                  <Text style={{ fontWeight: 'bold' }}>{salaryCalc.totalSalary.toFixed(2)} EGP</Text>
+                                </View>
+                              </View>
+                            </Page>
+                          </Document>
+                        );
+                        
+                        const instance = pdf(<MyDocument />);
+                        instance.toBlob().then((blob) => {
+                          const url = URL.createObjectURL(blob);
+                          const link = document.createElement('a');
+                          link.href = url;
+                          link.download = `${employee.name}_salary_${month}.pdf`;
+                          link.click();
+                        });
+                      } catch (error) {
+                        console.error('PDF generation error:', error);
+                        alert('Error generating PDF');
+                      }
+                    }}
+                  >
+                    Download PDF
                   </div>
-                )}
-              </BlobProvider>
+                </div>
+              )
             )}
           </div>
         </div>
