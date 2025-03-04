@@ -677,21 +677,21 @@ export default function Salary() {
                     <Document>
                       <SalaryPDF 
                         salary={{
-                          basicSalary: salaryCalc.basicSalary || 0,
-                          costOfLiving: salaryCalc.costOfLiving || 0,
-                          shiftAllowance: salaryCalc.shiftAllowance || 0,
-                          overtimeHours: salaryCalc.overtimeHours || 0,
-                          overtimePay: salaryCalc.overtimePay || 0,
-                          variablePay: salaryCalc.variablePay || 0,
-                          actAsPay: salaryCalc.actAsPay || 0,
-                          pensionPlan: salaryCalc.pensionPlan || 0,
-                          retroactiveDeduction: salaryCalc.retroactiveDeduction || 0,
-                          premiumCardDeduction: salaryCalc.premiumCardDeduction || 0,
-                          mobileDeduction: salaryCalc.mobileDeduction || 0,
-                          absences: salaryCalc.absences || 0,
-                          sickLeave: salaryCalc.sickLeave || 0,
-                          totalSalary: salaryCalc.totalSalary || 0,
-                          exchangeRate: exchangeRate,
+                          basicSalary: salaryCalc?.basicSalary || 0,
+                          costOfLiving: salaryCalc?.costOfLiving || 0,
+                          shiftAllowance: salaryCalc?.shiftAllowance || 0,
+                          overtimeHours: salaryCalc?.overtimeHours || 0,
+                          overtimePay: salaryCalc?.overtimePay || 0,
+                          variablePay: salaryCalc?.variablePay || 0,
+                          actAsPay: salaryCalc?.actAsPay || 0,
+                          pensionPlan: salaryCalc?.pensionPlan || 0,
+                          retroactiveDeduction: salaryCalc?.retroactiveDeduction || 0,
+                          premiumCardDeduction: salaryCalc?.premiumCardDeduction || 0,
+                          mobileDeduction: salaryCalc?.mobileDeduction || 0,
+                          absences: salaryCalc?.absences || 0,
+                          sickLeave: salaryCalc?.sickLeave || 0,
+                          totalSalary: salaryCalc?.totalSalary || 0,
+                          exchangeRate: exchangeRate || 31.50,
                         }}
                         employee={employee}
                         month={month}
@@ -770,21 +770,21 @@ export default function Salary() {
                             <Document>
                               <SalaryPDF 
                                 salary={{
-                                  basicSalary: salary.basic_salary || 0,
-                                  costOfLiving: salary.cost_of_living || 0,
-                                  shiftAllowance: salary.shift_allowance || 0,
-                                  overtimeHours: salary.overtime_hours || 0,
-                                  overtimePay: salary.overtime_pay || 0,
-                                  variablePay: salary.variable_pay || 0,
-                                  actAsPay: salary.act_as_pay || 0,
-                                  pensionPlan: salary.pension_plan || 0,
-                                  retroactiveDeduction: salary.retroactive_deduction || 0,
-                                  premiumCardDeduction: salary.premium_card_deduction || 0,
-                                  mobileDeduction: salary.mobile_deduction || 0,
-                                  absences: salary.absences || 0,
-                                  sickLeave: salary.sick_leave || 0,
-                                  totalSalary: salary.total_salary || 0,
-                                  exchangeRate: salary.exchange_rate || exchangeRate,
+                                  basicSalary: salary?.basic_salary || 0,
+                                  costOfLiving: salary?.cost_of_living || 0,
+                                  shiftAllowance: salary?.shift_allowance || 0,
+                                  overtimeHours: salary?.overtime_hours || 0,
+                                  overtimePay: salary?.overtime_pay || 0,
+                                  variablePay: salary?.variable_pay || 0,
+                                  actAsPay: salary?.act_as_pay || 0,
+                                  pensionPlan: salary?.pension_plan || 0,
+                                  retroactiveDeduction: salary?.retroactive_deduction || 0,
+                                  premiumCardDeduction: salary?.premium_card_deduction || 0,
+                                  mobileDeduction: salary?.mobile_deduction || 0,
+                                  absences: salary?.absences || 0,
+                                  sickLeave: salary?.sick_leave || 0,
+                                  totalSalary: salary?.total_salary || 0,
+                                  exchangeRate: salary?.exchange_rate || exchangeRate || 31.50,
                                 }}
                                 employee={employee as Employee} 
                                 month={new Date(salary.month).toISOString().substring(0, 7)} 
