@@ -11,11 +11,7 @@ import { User } from '@supabase/supabase-js';
 // Register fonts
 Font.register({
   family: 'Roboto',
-  fonts: [
-    {
-      src: 'data:font/truetype;base64,AAEAAAASAQAABAAgR0RFRgBKAAgAAAHoAAAAKEdQT1MF1F7cAAADWAAAAThHU1VCgxp8DAAABMAAAABsT1MvMnSaAagAAAKUAAAAYGNtYXABOgGwAAACpAAAAGRjdnQgK6gHnQAAAkQAAABUZnBnbXf4YKsAAAeEAAABvGdhc3AACAATAAABLAAAAAxnbHlmQQl0CQAACUAAAAQkaGRteA8GBAsAAAFEAAAAEGhlYWQGxuqCAAAB1AAAADZoaGVhCyYH3QAAAYQAAAAkaG10eCh8BLQAAAIkAAAANGxvY2EGCAyAAAABxAAAABxtYXhwAjMDCQAAAVgAAAAgbmFtZRudOGoAAAMAAAABHHBvc3T/bQBkAAABfAAAACBwcmVwomb6yQAABJgAAAFJAAEAAgAIAAL//wAPAAAAAQAAAAwJCAQCBgUGBQUFBQAAAAFRAFEAkgC3AOAA9wEEARQBJwE3AAEAAAANAIwABgBZAAcAAQAAAAAAAAAAAAAAAAADAAEAAwAAAAAAAP+cADIAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAHbP5GAAAJSfoa/nEJMAABAAAAAAAAAAAAAAAAAAAADQABAAIAHgAAAAAAAAAOAAEAAgAAAAwAAAAMAAEAAAABAAMAAgABAAEAAQAAAAoAMgAyAARERkxUAB5jeXJsABpncmVrABpsYXRuABoABAAAAAD//wACAAAAAQACY3BzcAAOa2VybgAUAAAAAQAAAAAAAQABAAIABgIQAAEAAAABAAgAAQAKAAUABgAHAAgACQALAAEABAACAAYADAABAAb/7AABAAb/9gABAAX/9gABAAX/9gABAAX/9gABAAAAAQAIAAEAEgAFAAYABwAIAAkACwAOAA8AEAARABIAAQAEAAIABgAMAAEABv/sAAEABv/2AAEABP/2AAEABP/2AAEABP/2AAEABv/2AAEABv/2AAEABv/2AAEABv/2AAEABv/2AAEAAAAKACoAKAADREZMVAAeY3lybAAaZ3JlawAaAAAAAQAAAAEABAACAAAAAQAIAAFzYWx0AAQAAAAEAAEAAAAEAAEAAAAEAAEAAAAEAAEAAAABAAABAAQAAAABAAQA'
-    }
-  ]
+  src: 'https://fonts.gstatic.com/s/roboto/v30/KFOmCnqEu92Fr1Me5Q.ttf'
 });
 
 export default function Salary() {
@@ -770,31 +766,33 @@ export default function Salary() {
                         <td className="px-3 py-3 text-sm">{(salary.variable_pay || 0).toFixed(0)}</td>
                         <td className="px-3 py-3 text-sm font-medium">{(salary.total_salary || 0).toFixed(0)}</td>
                         <td className="px-3 py-3 text-sm">
-                          <BlobProvider document={
-                            <Document>
-                              <SalaryPDF 
-                                salary={{
-                                  basicSalary: salary?.basic_salary || 0,
-                                  costOfLiving: salary?.cost_of_living || 0,
-                                  shiftAllowance: salary?.shift_allowance || 0,
-                                  overtimeHours: salary?.overtime_hours || 0,
-                                  overtimePay: salary?.overtime_pay || 0,
-                                  variablePay: salary?.variable_pay || 0,
-                                  actAsPay: salary?.act_as_pay || 0,
-                                  pensionPlan: salary?.pension_plan || 0,
-                                  retroactiveDeduction: salary?.retroactive_deduction || 0,
-                                  premiumCardDeduction: salary?.premium_card_deduction || 0,
-                                  mobileDeduction: salary?.mobile_deduction || 0,
-                                  absences: salary?.absences || 0,
-                                  sickLeave: salary?.sick_leave || 0,
-                                  totalSalary: salary?.total_salary || 0,
-                                  exchangeRate: salary?.exchange_rate || exchangeRate || 31.50,
-                                }}
-                                employee={employee as Employee} 
-                                month={new Date(salary.month).toISOString().substring(0, 7)} 
-                              />
-                            </Document>
-                          }>
+                          <BlobProvider 
+                            document={
+                              <Document>
+                                <SalaryPDF 
+                                  salary={{
+                                    basicSalary: salary?.basic_salary || 0,
+                                    costOfLiving: salary?.cost_of_living || 0,
+                                    shiftAllowance: salary?.shift_allowance || 0,
+                                    overtimeHours: salary?.overtime_hours || 0,
+                                    overtimePay: salary?.overtime_pay || 0,
+                                    variablePay: salary?.variable_pay || 0,
+                                    actAsPay: salary?.act_as_pay || 0,
+                                    pensionPlan: salary?.pension_plan || 0,
+                                    retroactiveDeduction: salary?.retroactive_deduction || 0,
+                                    premiumCardDeduction: salary?.premium_card_deduction || 0,
+                                    mobileDeduction: salary?.mobile_deduction || 0,
+                                    absences: salary?.absences || 0,
+                                    sickLeave: salary?.sick_leave || 0,
+                                    totalSalary: salary?.total_salary || 0,
+                                    exchangeRate: salary?.exchange_rate || exchangeRate || 31.50,
+                                  }}
+                                  employee={employee as Employee} 
+                                  month={new Date(salary.month).toISOString().substring(0, 7)} 
+                                />
+                              </Document>
+                            }
+                          >
                             {({ url, loading, error }) => {
                               if (error) {
                                 console.error('PDF generation error:', error);
