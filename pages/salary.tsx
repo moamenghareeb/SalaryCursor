@@ -299,18 +299,28 @@ export default function Salary() {
   };
 
   const saveSalary = async () => {
-    if (!employee || !exchangeRate) return;
+    if (!employee || !exchangeRate) {
+      alert('Missing employee information or exchange rate');
+      return;
+    }
     
     setCalculationLoading(true);
     
     try {
+      console.log('Saving salary for month:', month);
+      
       // Check if salary for this month already exists
-      const { data: existingSalary } = await supabase
+      const { data: existingSalary, error: checkError } = await supabase
         .from('salaries')
         .select('id')
         .eq('employee_id', employee.id)
         .eq('month', `${month}-01`)
         .single();
+      
+      if (checkError && checkError.code !== 'PGRST116') {
+        console.error('Error checking existing salary:', checkError);
+        throw new Error(`Failed to check existing salary: ${checkError.message}`);
+      }
       
       const salaryData = {
         employee_id: employee.id,
@@ -332,6 +342,8 @@ export default function Salary() {
         exchange_rate: exchangeRate,
       };
       
+      console.log('Saving salary data:', salaryData);
+      
       let response;
       
       if (existingSalary) {
@@ -347,7 +359,10 @@ export default function Salary() {
           .insert(salaryData);
       }
       
-      if (response.error) throw response.error;
+      if (response.error) {
+        console.error('Error saving salary:', response.error);
+        throw new Error(`Failed to save salary: ${response.error.message}`);
+      }
       
       // Refresh salary history immediately
       const { data: historyData, error: historyError } = await supabase
@@ -356,15 +371,18 @@ export default function Salary() {
         .eq('employee_id', employee.id)
         .order('month', { ascending: false });
 
-      if (historyError) throw historyError;
+      if (historyError) {
+        console.error('Error fetching salary history:', historyError);
+        throw new Error(`Failed to refresh salary history: ${historyError.message}`);
+      }
       
       // Update the salary history state
       setSalaryHistory(historyData || []);
       
       alert('Salary saved successfully!');
     } catch (error) {
-      console.error('Error saving salary:', error);
-      alert('Failed to save salary. Please try again.');
+      console.error('Error in saveSalary:', error);
+      alert(error instanceof Error ? error.message : 'Failed to save salary. Please try again.');
     } finally {
       setCalculationLoading(false);
     }
