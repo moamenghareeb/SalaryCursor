@@ -6,18 +6,43 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     try {
       const calculation = req.body;
       
-      const { data, error } = await supabase
-        .from('salary_calculations')
-        .insert([calculation])
-        .select()
+      // Try to find existing record for this employee and month
+      const { data: existingRecord, error: findError } = await supabase
+        .from('salaries')
+        .select('id')
+        .eq('employee_id', calculation.employee_id)
+        .eq('month', calculation.month || `${new Date().toISOString().substring(0, 7)}-01`)
         .single();
-
-      if (error) {
-        console.error('Error saving calculation:', error);
-        return res.status(500).json({ error: error.message });
+      
+      let result;
+      
+      if (existingRecord) {
+        // Update existing record
+        const { data, error } = await supabase
+          .from('salaries')
+          .update(calculation)
+          .eq('id', existingRecord.id)
+          .select()
+          .single();
+          
+        result = { data, error };
+      } else {
+        // Insert new record
+        const { data, error } = await supabase
+          .from('salaries')
+          .insert([calculation])
+          .select()
+          .single();
+          
+        result = { data, error };
       }
 
-      return res.status(200).json(data);
+      if (result.error) {
+        console.error('Error saving calculation:', result.error);
+        return res.status(500).json({ error: result.error.message });
+      }
+
+      return res.status(200).json(result.data);
     } catch (error) {
       console.error('Error in salary_calculations API:', error);
       return res.status(500).json({ error: 'Internal server error' });
@@ -31,7 +56,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       const { data, error } = await supabase
-        .from('salary_calculations')
+        .from('salaries')
         .select('*')
         .eq('employee_id', employee_id)
         .order('created_at', { ascending: false });

@@ -11,13 +11,15 @@ import { User } from '@supabase/supabase-js';
 // Register fonts
 Font.register({
   family: 'Roboto',
-  src: 'https://fonts.gstatic.com/s/roboto/v30/KFOmCnqEu92Fr1Me5Q.ttf'
+  src: 'https://fonts.gstatic.com/s/roboto/v30/KFOmCnqEu92Fr1Me5Q.ttf',
+  fontWeight: 'normal'
 });
 
 export default function Salary() {
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [loading, setLoading] = useState(true);
   const [calculationLoading, setCalculationLoading] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
   const [exchangeRate, setExchangeRate] = useState(31.50); // Default fallback
   const [rateLastUpdated, setRateLastUpdated] = useState('');
   const [month, setMonth] = useState(new Date().toISOString().substring(0, 7));
@@ -699,66 +701,45 @@ export default function Salary() {
               </div>
             </div>
             
-            {(salaryCalc?.totalSalary > 0 || false) && employee && (
-              <div className="mt-6">
-                <BlobProvider
-                  document={
-                    <Document>
-                      <SalaryPDF 
-                        salary={{
-                          basicSalary: salaryCalc?.basicSalary || 0,
-                          costOfLiving: salaryCalc?.costOfLiving || 0,
-                          shiftAllowance: salaryCalc?.shiftAllowance || 0,
-                          overtimeHours: salaryCalc?.overtimeHours || 0,
-                          overtimePay: salaryCalc?.overtimePay || 0,
-                          variablePay: salaryCalc?.variablePay || 0,
-                          actAsPay: salaryCalc?.actAsPay || 0,
-                          pensionPlan: salaryCalc?.pensionPlan || 0,
-                          retroactiveDeduction: salaryCalc?.retroactiveDeduction || 0,
-                          premiumCardDeduction: salaryCalc?.premiumCardDeduction || 0,
-                          mobileDeduction: salaryCalc?.mobileDeduction || 0,
-                          absences: salaryCalc?.absences || 0,
-                          sickLeave: salaryCalc?.sickLeave || 0,
-                          totalSalary: salaryCalc?.totalSalary || 0,
-                          exchangeRate: exchangeRate || 31.50,
-                        }}
-                        employee={employee}
-                        month={month}
-                      />
-                    </Document>
-                  }
-                >
-                  {({ url, loading, error }) => {
-                    if (error) {
-                      console.error('PDF generation error:', error);
-                      return (
-                        <div className="text-red-600">Error generating PDF. Please try again.</div>
-                      );
-                    }
-
-                    if (!url && loading) {
-                      return (
-                        <button 
-                          className="block w-full sm:w-auto text-center bg-red-600 text-white px-6 py-3 rounded-lg text-base font-medium hover:bg-red-700 disabled:opacity-50"
-                          disabled
-                        >
-                          Generating PDF...
-                        </button>
-                      );
-                    }
-
-                    return (
-                      <a
-                        href={url || '#'}
-                        download={`salary-slip-${month}-${employee.name}.pdf`}
-                        className="block w-full sm:w-auto text-center bg-red-600 text-white px-6 py-3 rounded-lg text-base font-medium hover:bg-red-700"
-                      >
-                        Download PDF
-                      </a>
-                    );
-                  }}
-                </BlobProvider>
+            {calculationLoading ? (
+              <div className="mt-4 flex flex-col items-center">
+                <p>Generating PDF...</p>
+                <div className="mt-2 w-8 h-8 border-t-2 border-primary border-solid rounded-full animate-spin"></div>
               </div>
+            ) : (
+              <BlobProvider document={
+                <Document>
+                  {employee && (
+                    <SalaryPDF 
+                      salary={salaryCalc}
+                      employee={employee} 
+                      month={month} 
+                    />
+                  )}
+                </Document>
+              }>
+                {({ url, loading, error }) => (
+                  <div className="mt-4">
+                    {loading && <p>Generating PDF...</p>}
+                    {error && (
+                      <div className="text-red-500">
+                        <p>PDF generation error: {error.message}</p>
+                      </div>
+                    )}
+                    {url && employee && (
+                      <div className="flex flex-col items-center">
+                        <a
+                          href={url}
+                          download={`${employee.name}_salary_${month}.pdf`}
+                          className="py-2 px-4 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+                        >
+                          Download PDF
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </BlobProvider>
             )}
           </div>
         </div>
