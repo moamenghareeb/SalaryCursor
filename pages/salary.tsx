@@ -55,28 +55,55 @@ export default function Salary() {
 
   const [salaryCalc, setSalaryCalc] = useState<SalaryCalculation>(defaultSalaryCalc);
 
-  // Add a function to save inputs to localStorage
+  // Enhanced localStorage functions with debugging
   const saveInputsToLocalStorage = (data: SalaryCalculation) => {
     if (typeof window !== 'undefined' && employee?.id) {
-      // Store data with employee ID to keep separate for each employee
-      localStorage.setItem(`salary_inputs_${employee.id}`, JSON.stringify(data));
-      console.log('Saved salary inputs to localStorage');
+      const storageKey = `salary_inputs_${employee.id}`;
+      try {
+        // Store only user input fields, not calculated values
+        const inputsToSave = {
+          basicSalary: data.basicSalary,
+          costOfLiving: data.costOfLiving,
+          shiftAllowance: data.shiftAllowance,
+          overtimeHours: data.overtimeHours,
+          actAsPay: data.actAsPay,
+          pensionPlan: data.pensionPlan,
+          retroactiveDeduction: data.retroactiveDeduction,
+          premiumCardDeduction: data.premiumCardDeduction,
+          mobileDeduction: data.mobileDeduction,
+          absences: data.absences,
+          sickLeave: data.sickLeave,
+        };
+        localStorage.setItem(storageKey, JSON.stringify(inputsToSave));
+        console.log('✅ Saved salary inputs to localStorage:', inputsToSave);
+      } catch (error) {
+        console.error('Error saving to localStorage:', error);
+      }
+    } else {
+      console.warn('Cannot save to localStorage: employee ID not available');
     }
   };
 
-  // Add a function to load inputs from localStorage
+  // Enhanced loading function with better debugging
   const loadInputsFromLocalStorage = () => {
     if (typeof window !== 'undefined' && employee?.id) {
       try {
-        const savedData = localStorage.getItem(`salary_inputs_${employee.id}`);
+        const storageKey = `salary_inputs_${employee.id}`;
+        console.log('Looking for localStorage data with key:', storageKey);
+        
+        const savedData = localStorage.getItem(storageKey);
         if (savedData) {
           const parsedData = JSON.parse(savedData);
-          console.log('Loaded salary inputs from localStorage');
+          console.log('✅ Found and loaded salary inputs from localStorage:', parsedData);
           return parsedData;
+        } else {
+          console.log('No saved inputs found in localStorage');
         }
       } catch (error) {
         console.error('Error loading saved inputs:', error);
       }
+    } else {
+      console.warn('Cannot load from localStorage: employee ID not available');
     }
     return null;
   };
@@ -166,6 +193,54 @@ export default function Salary() {
     setCalculationLoading(false);
   };
 
+  // Modify the clear function to provide better feedback
+  const clearSavedInputs = () => {
+    if (typeof window !== 'undefined' && employee?.id) {
+      try {
+        const storageKey = `salary_inputs_${employee.id}`;
+        localStorage.removeItem(storageKey);
+        setSalaryCalc(defaultSalaryCalc);
+        alert('Form reset to default values. Your saved inputs have been cleared.');
+        console.log('✅ Cleared localStorage data for key:', storageKey);
+      } catch (error) {
+        console.error('Error clearing localStorage:', error);
+        alert('Error clearing saved data. Please try again.');
+      }
+    } else {
+      alert('Cannot clear saved data: Employee information not available');
+    }
+  };
+
+  // Add a function to apply localStorage data with priority
+  const applyLocalStorageData = () => {
+    if (employee?.id) {
+      const savedInputs = loadInputsFromLocalStorage();
+      if (savedInputs) {
+        console.log('Applying localStorage data with priority');
+        setSalaryCalc(prev => {
+          const newState = { ...prev };
+          
+          // Apply each field individually with explicit checks
+          if (savedInputs.basicSalary !== undefined) newState.basicSalary = savedInputs.basicSalary;
+          if (savedInputs.costOfLiving !== undefined) newState.costOfLiving = savedInputs.costOfLiving;
+          if (savedInputs.shiftAllowance !== undefined) newState.shiftAllowance = savedInputs.shiftAllowance;
+          if (savedInputs.overtimeHours !== undefined) newState.overtimeHours = savedInputs.overtimeHours;
+          if (savedInputs.actAsPay !== undefined) newState.actAsPay = savedInputs.actAsPay;
+          if (savedInputs.pensionPlan !== undefined) newState.pensionPlan = savedInputs.pensionPlan;
+          if (savedInputs.retroactiveDeduction !== undefined) newState.retroactiveDeduction = savedInputs.retroactiveDeduction;
+          if (savedInputs.premiumCardDeduction !== undefined) newState.premiumCardDeduction = savedInputs.premiumCardDeduction;
+          if (savedInputs.mobileDeduction !== undefined) newState.mobileDeduction = savedInputs.mobileDeduction;
+          if (savedInputs.absences !== undefined) newState.absences = savedInputs.absences;
+          if (savedInputs.sickLeave !== undefined) newState.sickLeave = savedInputs.sickLeave;
+          
+          return newState;
+        });
+        return true;
+      }
+    }
+    return false;
+  };
+
   const saveSalary = async () => {
     if (!employee || !exchangeRate) {
       alert('Missing employee information or exchange rate');
@@ -206,7 +281,7 @@ export default function Salary() {
       
       console.log('Saving salary data:', salaryData);
       
-      // Before making the API call, save inputs to localStorage
+      // Always save to localStorage before sending to API
       saveInputsToLocalStorage(salaryCalc);
       
       // Use the new unified API endpoint with explicit token
@@ -323,6 +398,9 @@ to add the missing absences column to the salaries table.
       
       // Refresh salary history immediately using the new API
       await fetchSalaryHistory();
+      
+      // Update localStorage again after successful save
+      saveInputsToLocalStorage(salaryCalc);
       
       alert('Salary saved successfully!');
     } catch (error) {
@@ -459,15 +537,6 @@ to add the missing absences column to the salaries table.
     }
   };
 
-  // Add function to clear saved inputs
-  const clearSavedInputs = () => {
-    if (typeof window !== 'undefined' && employee?.id) {
-      localStorage.removeItem(`salary_inputs_${employee.id}`);
-      setSalaryCalc(defaultSalaryCalc);
-      alert('Form reset to default values');
-    }
-  };
-
   // Update the fetchData function to apply localStorage data AFTER database loading
   const fetchData = async () => {
     try {
@@ -526,11 +595,8 @@ to add the missing absences column to the salaries table.
         return;
       }
 
-      // Set employee data first so we can access the employee ID
+      // Set employee data first
       setEmployee(employeeData);
-      
-      // Variable to track if we loaded salary data from the database
-      let loadedFromDatabase = false;
       
       // First try to get the latest calculation
       const { data: calcData, error: calcError } = await supabase
@@ -559,7 +625,6 @@ to add the missing absences column to the salaries table.
           totalSalary: calcData.total_salary,
           exchangeRate: calcData.exchange_rate,
         });
-        loadedFromDatabase = true;
       } else {
         // If no calculation found, try to get from salaries table
         const { data: salaryData, error: salaryError } = await supabase
@@ -588,44 +653,11 @@ to add the missing absences column to the salaries table.
             totalSalary: salaryData.total_salary,
             exchangeRate: salaryData.exchange_rate,
           });
-          loadedFromDatabase = true;
         }
       }
 
-      // IMPORTANT: After loading from database, check localStorage
-      // and prioritize those values if they exist
-      const savedInputs = loadInputsFromLocalStorage();
-      if (savedInputs) {
-        console.log('Overriding with localStorage data');
-        setSalaryCalc(prev => ({
-          ...prev,
-          // Apply localStorage values, overriding database values
-          basicSalary: savedInputs.basicSalary !== undefined ? savedInputs.basicSalary : prev.basicSalary,
-          costOfLiving: savedInputs.costOfLiving !== undefined ? savedInputs.costOfLiving : prev.costOfLiving,
-          shiftAllowance: savedInputs.shiftAllowance !== undefined ? savedInputs.shiftAllowance : prev.shiftAllowance,
-          overtimeHours: savedInputs.overtimeHours !== undefined ? savedInputs.overtimeHours : prev.overtimeHours,
-          actAsPay: savedInputs.actAsPay !== undefined ? savedInputs.actAsPay : prev.actAsPay,
-          pensionPlan: savedInputs.pensionPlan !== undefined ? savedInputs.pensionPlan : prev.pensionPlan,
-          retroactiveDeduction: savedInputs.retroactiveDeduction !== undefined ? savedInputs.retroactiveDeduction : prev.retroactiveDeduction,
-          premiumCardDeduction: savedInputs.premiumCardDeduction !== undefined ? savedInputs.premiumCardDeduction : prev.premiumCardDeduction,
-          mobileDeduction: savedInputs.mobileDeduction !== undefined ? savedInputs.mobileDeduction : prev.mobileDeduction,
-          absences: savedInputs.absences !== undefined ? savedInputs.absences : prev.absences,
-          sickLeave: savedInputs.sickLeave !== undefined ? savedInputs.sickLeave : prev.sickLeave,
-        }));
-      }
-
-      // Fetch salary history
-      const { data: historyData, error: historyError } = await supabase
-        .from('salaries')
-        .select('*')
-        .eq('employee_id', userData.user.id)
-        .order('month', { ascending: false });
-
-      if (historyError) {
-        console.error('Error fetching salary history:', historyError);
-      } else {
-        setSalaryHistory(historyData || []);
-      }
+      // Fetch other data like history
+      await fetchSalaryHistory();
 
       // Check if user is admin
       const { data: adminData, error: adminError } = await supabase
@@ -646,17 +678,41 @@ to add the missing absences column to the salaries table.
     }
   };
 
-  // Remove the useEffect that loads from localStorage since we now handle it in fetchData
+  // Modified useEffects to guarantee localStorage priority
   useEffect(() => {
     fetchData();
   }, []);
 
-  // Update the useEffect to only fetch salary history when the employee changes
+  // This separate useEffect ensures localStorage values are applied AFTER 
+  // the employee data has been set and database data has loaded
   useEffect(() => {
     if (employee?.id) {
+      // After a small delay, apply localStorage data with priority
+      const timer = setTimeout(() => {
+        applyLocalStorageData();
+        console.log('Applied localStorage data with delay for employee:', employee.id);
+      }, 500);
+      
       fetchSalaryHistory();
+      
+      return () => clearTimeout(timer);
     }
-  }, [employee]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [employee?.id]); // Only trigger when employee ID changes
+
+  // Add another timer to recheck after a longer delay to ensure localStorage values are applied
+  useEffect(() => {
+    if (employee?.id) {
+      const timer = setTimeout(() => {
+        // Double-check localStorage values were applied properly
+        applyLocalStorageData();
+        console.log('Final verification of localStorage data for employee:', employee.id);
+      }, 2000);
+      
+      return () => clearTimeout(timer);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [employee?.id]); // Only trigger when employee ID changes
 
   if (loading) {
     return (
