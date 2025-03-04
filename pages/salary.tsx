@@ -11,7 +11,7 @@ import { User } from '@supabase/supabase-js';
 // Register fonts
 Font.register({
   family: 'Roboto',
-  src: 'https://fonts.gstatic.com/s/roboto/v30/KFOmCnqEu92Fr1Me5Q.ttf'
+  src: '/fonts/Roboto-Light.ttf'
 });
 
 export default function Salary() {
