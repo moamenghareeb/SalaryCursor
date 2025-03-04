@@ -668,7 +668,7 @@ export default function Salary() {
             
             {salaryCalc.totalSalary > 0 && employee && (
               <div className="mt-6">
-                <BlobProvider 
+                <BlobProvider
                   document={
                     <Document>
                       <SalaryPDF 
@@ -679,18 +679,32 @@ export default function Salary() {
                     </Document>
                   }
                 >
-                  {({ blob, url, loading, error }) => {
+                  {({ url, loading, error }) => {
                     if (error) {
                       console.error('PDF generation error:', error);
-                      return <div className="text-red-600">Error generating PDF</div>;
+                      return (
+                        <div className="text-red-600">Error generating PDF. Please try again.</div>
+                      );
                     }
+
+                    if (!url && loading) {
+                      return (
+                        <button 
+                          className="block w-full sm:w-auto text-center bg-red-600 text-white px-6 py-3 rounded-lg text-base font-medium hover:bg-red-700 disabled:opacity-50"
+                          disabled
+                        >
+                          Generating PDF...
+                        </button>
+                      );
+                    }
+
                     return (
-                      <a 
-                        href={url || undefined} 
+                      <a
+                        href={url || '#'}
                         download={`salary-slip-${month}-${employee.name}.pdf`}
                         className="block w-full sm:w-auto text-center bg-red-600 text-white px-6 py-3 rounded-lg text-base font-medium hover:bg-red-700"
                       >
-                        {loading ? 'Generating PDF...' : 'Download PDF'}
+                        Download PDF
                       </a>
                     );
                   }}

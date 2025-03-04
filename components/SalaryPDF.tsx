@@ -1,6 +1,12 @@
 import React from 'react';
-import { Page, Text, View, StyleSheet } from '@react-pdf/renderer';
+import { Page, Text, View, StyleSheet, Font } from '@react-pdf/renderer';
 import { SalaryCalculation, Employee } from '../types';
+
+// Register fonts
+Font.register({
+  family: 'Roboto',
+  src: 'https://cdnjs.cloudflare.com/ajax/libs/ink/3.1.10/fonts/Roboto/roboto-light-webfont.ttf'
+});
 
 // Create styles
 const styles = StyleSheet.create({
@@ -8,6 +14,7 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     backgroundColor: '#fff',
     padding: 30,
+    fontFamily: 'Roboto'
   },
   header: {
     marginBottom: 20,
@@ -78,7 +85,7 @@ type SalaryPDFProps = {
   month: string;
 };
 
-const SalaryPDF = ({ salary, employee, month }: SalaryPDFProps) => {
+const SalaryPDF: React.FC<SalaryPDFProps> = ({ salary, employee, month }) => {
   const monthDate = new Date(month + '-01');
   const formattedMonth = monthDate.toLocaleDateString('en-US', { 
     month: 'long', 
