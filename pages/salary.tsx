@@ -1,5 +1,4 @@
-import React from 'react';
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Layout from '../components/Layout';
 import { supabase } from '../lib/supabase';
 import { SalaryCalculation, Employee } from '../types';
@@ -56,161 +55,62 @@ export default function Salary() {
 
   const [salaryCalc, setSalaryCalc] = useState<SalaryCalculation>(defaultSalaryCalc);
 
-  useEffect(() => {
-    const fetchData = async () => {
+  // Add a function to save inputs to localStorage
+  const saveInputsToLocalStorage = (data: SalaryCalculation) => {
+    if (typeof window !== 'undefined' && employee?.id) {
+      // Store data with employee ID to keep separate for each employee
+      localStorage.setItem(`salary_inputs_${employee.id}`, JSON.stringify(data));
+      console.log('Saved salary inputs to localStorage');
+    }
+  };
+
+  // Add a function to load inputs from localStorage
+  const loadInputsFromLocalStorage = () => {
+    if (typeof window !== 'undefined' && employee?.id) {
       try {
-        setAuthError(null);
-        
-        // Fetch exchange rate from cached endpoint
-        try {
-          console.log("Fetching exchange rate...");
-          const rateResponse = await fetch('/api/exchange-rate');
-          
-          if (rateResponse.ok) {
-            const rateData = await rateResponse.json();
-            if (rateData.rate) {
-              setExchangeRate(rateData.rate);
-              const lastUpdated = new Date(rateData.lastUpdated);
-              setRateLastUpdated(lastUpdated.toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-              }));
-            }
-          } else {
-            console.warn("API failed, using fallback rate");
-          }
-        } catch (err) {
-          console.warn("Exchange rate API error, using fallback", err);
+        const savedData = localStorage.getItem(`salary_inputs_${employee.id}`);
+        if (savedData) {
+          const parsedData = JSON.parse(savedData);
+          console.log('Loaded salary inputs from localStorage');
+          return parsedData;
         }
-
-        // Fetch employee data
-        const { data: userData, error: authError } = await supabase.auth.getUser();
-        
-        if (authError) {
-          setAuthError('Authentication failed. Please try logging in again.');
-          return;
-        }
-
-        if (!userData?.user) {
-          setAuthError('No user found. Please log in.');
-          return;
-        }
-
-        const { data: employeeData, error: employeeError } = await supabase
-          .from('employees')
-          .select('*')
-          .eq('id', userData.user.id)
-          .single();
-
-        if (employeeError) {
-          if (employeeError.code === 'PGRST116') {
-            setAuthError('Employee record not found. Please contact your administrator.');
-          } else {
-            setAuthError(`Error fetching employee data: ${employeeError.message}`);
-          }
-          return;
-        }
-
-        setEmployee(employeeData);
-
-        // First try to get the latest calculation
-        const { data: calcData, error: calcError } = await supabase
-          .from('salary_calculations')
-          .select('*')
-          .eq('employee_id', userData.user.id)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .single();
-
-        if (!calcError && calcData) {
-          setSalaryCalc({
-            basicSalary: calcData.basic_salary,
-            costOfLiving: calcData.cost_of_living,
-            shiftAllowance: calcData.shift_allowance,
-            overtimeHours: calcData.overtime_hours,
-            overtimePay: calcData.overtime_pay,
-            variablePay: calcData.variable_pay,
-            actAsPay: calcData.act_as_pay,
-            pensionPlan: calcData.pension_plan,
-            retroactiveDeduction: calcData.retroactive_deduction,
-            premiumCardDeduction: calcData.premium_card_deduction,
-            mobileDeduction: calcData.mobile_deduction,
-            absences: calcData.absences,
-            sickLeave: calcData.sick_leave,
-            totalSalary: calcData.total_salary,
-            exchangeRate: calcData.exchange_rate,
-          });
-        } else {
-          // If no calculation found, try to get from salaries table
-          const { data: salaryData, error: salaryError } = await supabase
-            .from('salaries')
-            .select('*')
-            .eq('employee_id', userData.user.id)
-            .order('month', { ascending: false })
-            .limit(1)
-            .single();
-
-          if (!salaryError && salaryData) {
-            setSalaryCalc({
-              basicSalary: salaryData.basic_salary,
-              costOfLiving: salaryData.cost_of_living,
-              shiftAllowance: salaryData.shift_allowance,
-              overtimeHours: salaryData.overtime_hours,
-              overtimePay: salaryData.overtime_pay,
-              variablePay: salaryData.variable_pay,
-              actAsPay: salaryData.act_as_pay,
-              pensionPlan: salaryData.pension_plan,
-              retroactiveDeduction: salaryData.retroactive_deduction,
-              premiumCardDeduction: salaryData.premium_card_deduction,
-              mobileDeduction: salaryData.mobile_deduction,
-              absences: salaryData.absences,
-              sickLeave: salaryData.sick_leave,
-              totalSalary: salaryData.total_salary,
-              exchangeRate: salaryData.exchange_rate,
-            });
-          }
-        }
-
-        // Fetch salary history
-        const { data: historyData, error: historyError } = await supabase
-          .from('salaries')
-          .select('*')
-          .eq('employee_id', userData.user.id)
-          .order('month', { ascending: false });
-
-        if (historyError) {
-          console.error('Error fetching salary history:', historyError);
-        } else {
-          setSalaryHistory(historyData || []);
-        }
-
-        // Check if user is admin
-        const { data: adminData, error: adminError } = await supabase
-          .from('employees')
-          .select('is_admin')
-          .eq('id', userData.user.id)
-          .single();
-        
-        if (!adminError && adminData) {
-          setIsAdmin(adminData.is_admin || false);
-        }
-
       } catch (error) {
-        console.error('Error fetching data:', error);
-        setAuthError('An unexpected error occurred. Please try again later.');
-      } finally {
-        setLoading(false);
+        console.error('Error loading saved inputs:', error);
       }
-    };
+    }
+    return null;
+  };
 
-    fetchData();
-  }, []);
+  // Add a function to debounce localStorage saves to avoid excessive storage operations
+  const useDebounce = (func: (...args: any[]) => void, delay: number) => {
+    const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+    
+    return (...args: any[]) => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+      
+      timeoutRef.current = setTimeout(() => {
+        func(...args);
+      }, delay);
+    };
+  };
+  
+  // Create a debounced version of the save function with 1 second delay
+  const debouncedSaveToLocalStorage = useDebounce((data: SalaryCalculation) => {
+    saveInputsToLocalStorage(data);
+  }, 1000);
 
   const handleInputChange = (field: keyof SalaryCalculation, value: number) => {
-    setSalaryCalc((prev) => ({ ...prev, [field]: value }));
+    const newCalc = {
+      ...salaryCalc,
+      [field]: value,
+    };
+    
+    setSalaryCalc(newCalc);
+    
+    // Save to localStorage with debounce as user types
+    debouncedSaveToLocalStorage(newCalc);
   };
 
   // Function to calculate variable pay based on basic salary
@@ -258,7 +158,10 @@ export default function Salary() {
     };
     
     setSalaryCalc(newCalc);
-
+    
+    // Save inputs to localStorage whenever calculation happens
+    saveInputsToLocalStorage(newCalc);
+    
     // Don't save calculation automatically after calculating
     setCalculationLoading(false);
   };
@@ -302,6 +205,9 @@ export default function Salary() {
       };
       
       console.log('Saving salary data:', salaryData);
+      
+      // Before making the API call, save inputs to localStorage
+      saveInputsToLocalStorage(salaryCalc);
       
       // Use the new unified API endpoint with explicit token
       const response = await fetch('/api/salary', {
@@ -553,6 +459,187 @@ to add the missing absences column to the salaries table.
     }
   };
 
+  // Add function to clear saved inputs
+  const clearSavedInputs = () => {
+    if (typeof window !== 'undefined' && employee?.id) {
+      localStorage.removeItem(`salary_inputs_${employee.id}`);
+      setSalaryCalc(defaultSalaryCalc);
+      alert('Form reset to default values');
+    }
+  };
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setAuthError(null);
+        
+        // Fetch exchange rate from cached endpoint
+        try {
+          console.log("Fetching exchange rate...");
+          const rateResponse = await fetch('/api/exchange-rate');
+          
+          if (rateResponse.ok) {
+            const rateData = await rateResponse.json();
+            if (rateData.rate) {
+              setExchangeRate(rateData.rate);
+              const lastUpdated = new Date(rateData.lastUpdated);
+              setRateLastUpdated(lastUpdated.toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+              }));
+            }
+          } else {
+            console.warn("API failed, using fallback rate");
+          }
+        } catch (err) {
+          console.warn("Exchange rate API error, using fallback", err);
+        }
+
+        // Fetch employee data
+        const { data: userData, error: authError } = await supabase.auth.getUser();
+        
+        if (authError) {
+          setAuthError('Authentication failed. Please try logging in again.');
+          return;
+        }
+
+        if (!userData?.user) {
+          setAuthError('No user found. Please log in.');
+          return;
+        }
+
+        const { data: employeeData, error: employeeError } = await supabase
+          .from('employees')
+          .select('*')
+          .eq('id', userData.user.id)
+          .single();
+
+        if (employeeError) {
+          if (employeeError.code === 'PGRST116') {
+            setAuthError('Employee record not found. Please contact your administrator.');
+          } else {
+            setAuthError(`Error fetching employee data: ${employeeError.message}`);
+          }
+          return;
+        }
+
+        setEmployee(employeeData);
+
+        // First try to get the latest calculation
+        const { data: calcData, error: calcError } = await supabase
+          .from('salary_calculations')
+          .select('*')
+          .eq('employee_id', userData.user.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+
+        if (!calcError && calcData) {
+          setSalaryCalc({
+            basicSalary: calcData.basic_salary,
+            costOfLiving: calcData.cost_of_living,
+            shiftAllowance: calcData.shift_allowance,
+            overtimeHours: calcData.overtime_hours,
+            overtimePay: calcData.overtime_pay,
+            variablePay: calcData.variable_pay,
+            actAsPay: calcData.act_as_pay,
+            pensionPlan: calcData.pension_plan,
+            retroactiveDeduction: calcData.retroactive_deduction,
+            premiumCardDeduction: calcData.premium_card_deduction,
+            mobileDeduction: calcData.mobile_deduction,
+            absences: calcData.absences,
+            sickLeave: calcData.sick_leave,
+            totalSalary: calcData.total_salary,
+            exchangeRate: calcData.exchange_rate,
+          });
+        } else {
+          // If no calculation found, try to get from salaries table
+          const { data: salaryData, error: salaryError } = await supabase
+            .from('salaries')
+            .select('*')
+            .eq('employee_id', userData.user.id)
+            .order('month', { ascending: false })
+            .limit(1)
+            .single();
+
+          if (!salaryError && salaryData) {
+            setSalaryCalc({
+              basicSalary: salaryData.basic_salary,
+              costOfLiving: salaryData.cost_of_living,
+              shiftAllowance: salaryData.shift_allowance,
+              overtimeHours: salaryData.overtime_hours,
+              overtimePay: salaryData.overtime_pay,
+              variablePay: salaryData.variable_pay,
+              actAsPay: salaryData.act_as_pay,
+              pensionPlan: salaryData.pension_plan,
+              retroactiveDeduction: salaryData.retroactive_deduction,
+              premiumCardDeduction: salaryData.premium_card_deduction,
+              mobileDeduction: salaryData.mobile_deduction,
+              absences: salaryData.absences,
+              sickLeave: salaryData.sick_leave,
+              totalSalary: salaryData.total_salary,
+              exchangeRate: salaryData.exchange_rate,
+            });
+          }
+        }
+
+        // Fetch salary history
+        const { data: historyData, error: historyError } = await supabase
+          .from('salaries')
+          .select('*')
+          .eq('employee_id', userData.user.id)
+          .order('month', { ascending: false });
+
+        if (historyError) {
+          console.error('Error fetching salary history:', historyError);
+        } else {
+          setSalaryHistory(historyData || []);
+        }
+
+        // Check if user is admin
+        const { data: adminData, error: adminError } = await supabase
+          .from('employees')
+          .select('is_admin')
+          .eq('id', userData.user.id)
+          .single();
+        
+        if (!adminError && adminData) {
+          setIsAdmin(adminData.is_admin || false);
+        }
+
+      } catch (error) {
+        console.error('Error fetching data:', error);
+        setAuthError('An unexpected error occurred. Please try again later.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  // Update useEffect to load saved inputs when employee changes
+  useEffect(() => {
+    if (employee?.id) {
+      const savedInputs = loadInputsFromLocalStorage();
+      if (savedInputs) {
+        // Merge saved inputs with default values
+        setSalaryCalc(prev => ({
+          ...prev,
+          ...savedInputs,
+          // Don't override these calculated values
+          overtimePay: prev.overtimePay,
+          variablePay: prev.variablePay,
+          totalSalary: prev.totalSalary,
+        }));
+      }
+      fetchSalaryHistory();
+    }
+  }, [employee]);
+
   if (loading) {
     return (
       <Layout>
@@ -763,6 +850,20 @@ to add the missing absences column to the salaries table.
                   >
                     {calculationLoading ? 'Saving...' : 'Save'}
                   </button>
+                </div>
+
+                {/* Add Reset Form button */}
+                <div className="mt-4 flex items-center space-x-4">
+                  <button
+                    onClick={clearSavedInputs}
+                    className="p-2 text-sm text-red-500 border border-red-300 rounded hover:bg-red-50 transition-colors"
+                    type="button"
+                  >
+                    Reset Form
+                  </button>
+                  <span className="text-sm text-gray-500">
+                    Clears all saved inputs and resets to defaults
+                  </span>
                 </div>
               </div>
             </div>
