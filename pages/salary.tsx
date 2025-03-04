@@ -700,9 +700,16 @@ export default function Salary() {
                                 overtimeHours: salary.overtime_hours,
                                 overtimePay: salary.overtime_pay,
                                 variablePay: salary.variable_pay,
+                                actAsPay: salary.act_as_pay,
+                                pensionPlan: salary.pension_plan,
+                                retroactiveDeduction: salary.retroactive_deduction,
+                                premiumCardDeduction: salary.premium_card_deduction,
+                                mobileDeduction: salary.mobile_deduction,
+                                absences: salary.absences,
+                                sickLeave: salary.sick_leave,
                                 totalSalary: salary.total_salary,
                                 exchangeRate: salary.exchange_rate,
-                              }} 
+                              }}
                               employee={employee as Employee} 
                               month={new Date(salary.month).toISOString().substring(0, 7)} 
                             />
