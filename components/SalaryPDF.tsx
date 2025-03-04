@@ -1,5 +1,5 @@
 import React from 'react';
-import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
+import { Page, Text, View, StyleSheet } from '@react-pdf/renderer';
 import { SalaryCalculation, Employee } from '../types';
 
 // Create styles
@@ -86,75 +86,73 @@ const SalaryPDF = ({ salary, employee, month }: SalaryPDFProps) => {
   });
 
   return (
-    <Document>
-      <Page size="A4" style={styles.page}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Salary Slip</Text>
-          <Text style={styles.subtitle}>{formattedMonth}</Text>
-        </View>
+    <Page size="A4" style={styles.page}>
+      <View style={styles.header}>
+        <Text style={styles.title}>Salary Slip</Text>
+        <Text style={styles.subtitle}>{formattedMonth}</Text>
+      </View>
 
-        <View style={styles.section}>
-          <Text style={{ fontSize: 16, marginBottom: 10, fontWeight: 'bold' }}>
-            Employee Information
-          </Text>
-          <View style={styles.row}>
-            <Text style={styles.label}>Name</Text>
-            <Text style={styles.value}>{employee.name}</Text>
-          </View>
-          <View style={styles.row}>
-            <Text style={styles.label}>Employee ID</Text>
-            <Text style={styles.value}>{employee.employee_id}</Text>
-          </View>
-          <View style={styles.row}>
-            <Text style={styles.label}>Position</Text>
-            <Text style={styles.value}>{employee.position}</Text>
-          </View>
+      <View style={styles.section}>
+        <Text style={{ fontSize: 16, marginBottom: 10, fontWeight: 'bold' }}>
+          Employee Information
+        </Text>
+        <View style={styles.row}>
+          <Text style={styles.label}>Name</Text>
+          <Text style={styles.value}>{employee.name}</Text>
         </View>
+        <View style={styles.row}>
+          <Text style={styles.label}>Employee ID</Text>
+          <Text style={styles.value}>{employee.employee_id}</Text>
+        </View>
+        <View style={styles.row}>
+          <Text style={styles.label}>Position</Text>
+          <Text style={styles.value}>{employee.position}</Text>
+        </View>
+      </View>
 
-        <View style={styles.section}>
-          <Text style={{ fontSize: 16, marginBottom: 10, fontWeight: 'bold' }}>
-            Salary Components
-          </Text>
-          <View style={styles.row}>
-            <Text style={styles.label}>Basic Salary (A)</Text>
-            <Text style={styles.value}>{salary.basicSalary.toFixed(2)} EGP</Text>
-          </View>
-          <View style={styles.row}>
-            <Text style={styles.label}>Cost of Living (B)</Text>
-            <Text style={styles.value}>{salary.costOfLiving.toFixed(2)} EGP</Text>
-          </View>
-          <View style={styles.row}>
-            <Text style={styles.label}>Shift Allowance (C)</Text>
-            <Text style={styles.value}>{salary.shiftAllowance.toFixed(2)} EGP</Text>
-          </View>
-          <View style={styles.row}>
-            <Text style={styles.label}>Overtime Hours</Text>
-            <Text style={styles.value}>{salary.overtimeHours} hours</Text>
-          </View>
-          <View style={styles.row}>
-            <Text style={styles.label}>Overtime Pay (D)</Text>
-            <Text style={styles.value}>{salary.overtimePay.toFixed(2)} EGP</Text>
-          </View>
-          <View style={styles.row}>
-            <Text style={styles.label}>USD to EGP Exchange Rate</Text>
-            <Text style={styles.value}>{salary.exchangeRate.toFixed(2)}</Text>
-          </View>
-          <View style={styles.row}>
-            <Text style={styles.label}>Variable Pay (E)</Text>
-            <Text style={styles.value}>{salary.variablePay.toFixed(2)} EGP</Text>
-          </View>
-          
-          <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Total Salary</Text>
-            <Text style={styles.totalValue}>{salary.totalSalary.toFixed(2)} EGP</Text>
-          </View>
+      <View style={styles.section}>
+        <Text style={{ fontSize: 16, marginBottom: 10, fontWeight: 'bold' }}>
+          Salary Components
+        </Text>
+        <View style={styles.row}>
+          <Text style={styles.label}>Basic Salary (A)</Text>
+          <Text style={styles.value}>{salary.basicSalary.toFixed(2)} EGP</Text>
         </View>
+        <View style={styles.row}>
+          <Text style={styles.label}>Cost of Living (B)</Text>
+          <Text style={styles.value}>{salary.costOfLiving.toFixed(2)} EGP</Text>
+        </View>
+        <View style={styles.row}>
+          <Text style={styles.label}>Shift Allowance (C)</Text>
+          <Text style={styles.value}>{salary.shiftAllowance.toFixed(2)} EGP</Text>
+        </View>
+        <View style={styles.row}>
+          <Text style={styles.label}>Overtime Hours</Text>
+          <Text style={styles.value}>{salary.overtimeHours} hours</Text>
+        </View>
+        <View style={styles.row}>
+          <Text style={styles.label}>Overtime Pay (D)</Text>
+          <Text style={styles.value}>{salary.overtimePay.toFixed(2)} EGP</Text>
+        </View>
+        <View style={styles.row}>
+          <Text style={styles.label}>USD to EGP Exchange Rate</Text>
+          <Text style={styles.value}>{salary.exchangeRate.toFixed(2)}</Text>
+        </View>
+        <View style={styles.row}>
+          <Text style={styles.label}>Variable Pay (E)</Text>
+          <Text style={styles.value}>{salary.variablePay.toFixed(2)} EGP</Text>
+        </View>
+        
+        <View style={styles.totalRow}>
+          <Text style={styles.totalLabel}>Total Salary</Text>
+          <Text style={styles.totalValue}>{salary.totalSalary.toFixed(2)} EGP</Text>
+        </View>
+      </View>
 
-        <View style={styles.footer}>
-          <Text>Generated on {new Date().toLocaleDateString()}</Text>
-        </View>
-      </Page>
-    </Document>
+      <View style={styles.footer}>
+        <Text>Generated on {new Date().toLocaleDateString()}</Text>
+      </View>
+    </Page>
   );
 };
 

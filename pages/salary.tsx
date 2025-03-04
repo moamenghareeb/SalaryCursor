@@ -3,9 +3,16 @@ import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { supabase } from '../lib/supabase';
 import { SalaryCalculation, Employee } from '../types';
-import { PDFDownloadLink, Document, Page, Text, View, StyleSheet, BlobProvider } from '@react-pdf/renderer';
+import { PDFDownloadLink, Document, Page, Text, View, StyleSheet, BlobProvider, PDFViewer, pdf } from '@react-pdf/renderer';
+import { Font } from '@react-pdf/renderer';
 import SalaryPDF from '../components/SalaryPDF';
 import { User } from '@supabase/supabase-js';
+
+// Register fonts
+Font.register({
+  family: 'Roboto',
+  src: 'https://cdnjs.cloudflare.com/ajax/libs/ink/3.1.10/fonts/Roboto/roboto-light-webfont.ttf',
+});
 
 export default function Salary() {
   const [employee, setEmployee] = useState<Employee | null>(null);
@@ -238,9 +245,13 @@ export default function Salary() {
 
     // Save calculation to database
     try {
-      const { data, error } = await supabase
-        .from('salary_calculations')
-        .insert([{
+      setCalculationLoading(true);
+      const response = await fetch('/api/salary_calculations', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
           employee_id: employee.id,
           basic_salary: basicSalary,
           cost_of_living: costOfLiving,
@@ -257,11 +268,31 @@ export default function Salary() {
           sick_leave: sickLeave,
           total_salary: totalSalary,
           exchange_rate: exchangeRate,
-        }]);
+        }),
+      });
 
-      if (error) throw error;
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Error saving calculation');
+      }
+
+      // Refresh salary history
+      const { data: historyData, error: historyError } = await supabase
+        .from('salaries')
+        .select('*')
+        .eq('employee_id', employee.id)
+        .order('month', { ascending: false });
+
+      if (historyError) {
+        console.error('Error fetching salary history:', historyError);
+      } else {
+        setSalaryHistory(historyData || []);
+      }
+
     } catch (error) {
       console.error('Error saving calculation:', error);
+    } finally {
+      setCalculationLoading(false);
     }
   };
 
@@ -637,22 +668,32 @@ export default function Salary() {
             
             {salaryCalc.totalSalary > 0 && employee && (
               <div className="mt-6">
-                <BlobProvider document={
-                  <SalaryPDF 
-                    salary={salaryCalc}
-                    employee={employee}
-                    month={month}
-                  />
-                }>
-                  {({ blob, url, loading, error }) => (
-                    <a 
-                      href={url || undefined} 
-                      download={`salary-slip-${month}-${employee.name}.pdf`}
-                      className="block w-full sm:w-auto text-center bg-red-600 text-white px-6 py-3 rounded-lg text-base font-medium hover:bg-red-700"
-                    >
-                      {loading ? 'Generating PDF...' : 'Download PDF'}
-                    </a>
-                  )}
+                <BlobProvider 
+                  document={
+                    <Document>
+                      <SalaryPDF 
+                        salary={salaryCalc}
+                        employee={employee}
+                        month={month}
+                      />
+                    </Document>
+                  }
+                >
+                  {({ blob, url, loading, error }) => {
+                    if (error) {
+                      console.error('PDF generation error:', error);
+                      return <div className="text-red-600">Error generating PDF</div>;
+                    }
+                    return (
+                      <a 
+                        href={url || undefined} 
+                        download={`salary-slip-${month}-${employee.name}.pdf`}
+                        className="block w-full sm:w-auto text-center bg-red-600 text-white px-6 py-3 rounded-lg text-base font-medium hover:bg-red-700"
+                      >
+                        {loading ? 'Generating PDF...' : 'Download PDF'}
+                      </a>
+                    );
+                  }}
                 </BlobProvider>
               </div>
             )}
