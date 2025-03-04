@@ -259,102 +259,8 @@ export default function Salary() {
     
     setSalaryCalc(newCalc);
 
-    // Save calculation to database
-    try {
-      setCalculationLoading(true);
-      const response = await fetch('/api/salary_calculations', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          employee_id: employee.id,
-          basic_salary: basicSalary,
-          cost_of_living: costOfLiving,
-          shift_allowance: shiftAllowance,
-          overtime_hours: overtimeHours,
-          overtime_pay: overtimePay,
-          variable_pay: variablePay,
-          act_as_pay: actAsPay,
-          pension_plan: pensionPlan,
-          retroactive_deduction: retroactiveDeduction,
-          premium_card_deduction: premiumCardDeduction,
-          mobile_deduction: mobileDeduction,
-          absences: absences,
-          sick_leave: sickLeave,
-          total_salary: totalSalary,
-          exchange_rate: exchangeRate,
-        }),
-      });
-
-      if (!response.ok) {
-        // Try to parse the error
-        let errorData;
-        try {
-          errorData = await response.json();
-        } catch (e) {
-          // If we can't parse JSON, just use the status text
-          throw new Error(`Failed to save: ${response.statusText}`);
-        }
-
-        if (errorData.error && errorData.error.includes('schema cache')) {
-          console.log('Schema cache error detected. Attempting to refresh...');
-          
-          // Try to refresh the schema cache
-          const refreshResponse = await fetch('/api/refresh-schema-cache', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          });
-          
-          if (!refreshResponse.ok) {
-            throw new Error(`Failed to refresh schema cache: ${refreshResponse.statusText}`);
-          }
-          
-          // Wait a moment for the cache to refresh
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          
-          // Try saving again
-          const retryResponse = await fetch('/api/salary_calculations', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              employee_id: employee.id,
-              basic_salary: basicSalary,
-              cost_of_living: costOfLiving,
-              shift_allowance: shiftAllowance,
-              overtime_hours: overtimeHours,
-              overtime_pay: overtimePay,
-              variable_pay: variablePay,
-              act_as_pay: actAsPay,
-              pension_plan: pensionPlan,
-              retroactive_deduction: retroactiveDeduction,
-              premium_card_deduction: premiumCardDeduction,
-              mobile_deduction: mobileDeduction,
-              absences: absences,
-              sick_leave: sickLeave,
-              total_salary: totalSalary,
-              exchange_rate: exchangeRate,
-            }),
-          });
-          
-          if (!retryResponse.ok) {
-            const retryError = await retryResponse.json();
-            throw new Error(`Failed to save after schema refresh: ${retryError.error || retryResponse.statusText}`);
-          }
-        } else {
-          throw new Error(`Failed to save: ${errorData.error || response.statusText}`);
-        }
-      }
-    } catch (error) {
-      console.error('Error saving calculation:', error);
-      alert(`Error: ${error instanceof Error ? error.message : 'Failed to save calculation'}`);
-    } finally {
-      setCalculationLoading(false);
-    }
+    // Don't save calculation automatically after calculating
+    setCalculationLoading(false);
   };
 
   const saveSalary = async () => {
@@ -367,19 +273,6 @@ export default function Salary() {
     
     try {
       console.log('Saving salary for month:', month);
-      
-      // Check if salary for this month already exists
-      const { data: existingSalary, error: checkError } = await supabase
-        .from('salaries')
-        .select('id')
-        .eq('employee_id', employee.id)
-        .eq('month', `${month}-01`)
-        .single();
-      
-      if (checkError && checkError.code !== 'PGRST116') {
-        console.error('Error checking existing salary:', checkError);
-        throw new Error(`Failed to check existing salary: ${checkError.message}`);
-      }
       
       const salaryData = {
         employee_id: employee.id,
@@ -403,82 +296,31 @@ export default function Salary() {
       
       console.log('Saving salary data:', salaryData);
       
-      try {
-        let response;
+      // Use the new unified API endpoint
+      const response = await fetch('/api/salary', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(salaryData),
+      });
+      
+      if (!response.ok) {
+        let errorText = 'Failed to save salary';
         
-        if (existingSalary) {
-          // Update existing record
-          response = await supabase
-            .from('salaries')
-            .update(salaryData)
-            .eq('id', existingSalary.id);
-        } else {
-          // Insert new record
-          response = await supabase
-            .from('salaries')
-            .insert(salaryData);
+        try {
+          const errorData = await response.json();
+          errorText = errorData.error || errorText;
+        } catch (e) {
+          // If we can't parse JSON, use the status text
+          errorText = `${errorText}: ${response.statusText}`;
         }
         
-        if (response.error) {
-          console.error('Error saving salary:', response.error);
-          
-          // Check for schema cache error
-          if (response.error.message && response.error.message.includes('schema cache')) {
-            console.log('Attempting to refresh schema cache...');
-            
-            // Try to refresh the schema cache
-            const refreshResponse = await fetch('/api/refresh-schema-cache', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-            });
-            
-            if (!refreshResponse.ok) {
-              throw new Error(`Failed to refresh schema cache: ${refreshResponse.statusText}`);
-            }
-            
-            // Wait a moment for the cache to refresh
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            
-            // Try saving again
-            if (existingSalary) {
-              response = await supabase
-                .from('salaries')
-                .update(salaryData)
-                .eq('id', existingSalary.id);
-            } else {
-              response = await supabase
-                .from('salaries')
-                .insert(salaryData);
-            }
-            
-            if (response.error) {
-              throw new Error(`Failed to save salary after schema refresh: ${response.error.message}`);
-            }
-          } else {
-            throw new Error(`Failed to save salary: ${response.error.message}`);
-          }
-        }
-      } catch (dbError) {
-        console.error('Database operation error:', dbError);
-        throw dbError; // Re-throw to be caught by the outer try/catch
+        throw new Error(errorText);
       }
       
-      // Refresh salary history immediately
-      const { data: historyData, error: historyError } = await supabase
-        .from('salaries')
-        .select('*')
-        .eq('employee_id', employee.id)
-        .order('month', { ascending: false });
-
-      if (historyError) {
-        console.error('Error fetching salary history:', historyError);
-        throw new Error(`Failed to refresh salary history: ${historyError.message}`);
-      }
-      
-      // Update the salary history state
-      setSalaryHistory(historyData || []);
+      // Refresh salary history immediately using the new API
+      await fetchSalaryHistory();
       
       alert('Salary saved successfully!');
     } catch (error) {
@@ -486,6 +328,25 @@ export default function Salary() {
       alert(error instanceof Error ? error.message : 'Failed to save salary. Please try again.');
     } finally {
       setCalculationLoading(false);
+    }
+  };
+  
+  const fetchSalaryHistory = async () => {
+    try {
+      if (!employee) return;
+      
+      // Use the new unified API endpoint
+      const response = await fetch(`/api/salary?employee_id=${employee.id}`);
+      
+      if (!response.ok) {
+        console.error('Error fetching salary history:', response.statusText);
+        return;
+      }
+      
+      const data = await response.json();
+      setSalaryHistory(data || []);
+    } catch (error) {
+      console.error('Error fetching salary history:', error);
     }
   };
 
@@ -728,20 +589,19 @@ export default function Salary() {
               </div>
               
               <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 pt-2">
-                <button
+                <button 
                   onClick={calculateSalary}
-                  className="w-full sm:w-auto bg-blue-600 text-white px-6 py-3 rounded-lg text-base font-medium hover:bg-blue-700 disabled:opacity-50"
-                  disabled={!exchangeRate}
+                  className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 mr-3"
+                  disabled={calculationLoading}
                 >
-                  Calculate
+                  {calculationLoading ? 'Calculating...' : 'Calculate'}
                 </button>
-                
-                <button
+                <button 
                   onClick={saveSalary}
-                  className="w-full sm:w-auto bg-green-600 text-white px-6 py-3 rounded-lg text-base font-medium hover:bg-green-700 disabled:opacity-50"
-                  disabled={!salaryCalc.totalSalary || calculationLoading}
+                  className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+                  disabled={calculationLoading || !salaryCalc.totalSalary}
                 >
-                  {calculationLoading ? 'Saving...' : 'Save Salary'}
+                  {calculationLoading ? 'Saving...' : 'Save'}
                 </button>
               </div>
             </div>
@@ -795,58 +655,64 @@ export default function Salary() {
                 <div className="mt-2 w-8 h-8 border-t-2 border-primary border-solid rounded-full animate-spin"></div>
               </div>
             ) : (
-              employee && salaryCalc?.totalSalary > 0 && (
-                <div className="mt-4">
-                  <div className="py-2 px-4 bg-blue-500 text-white rounded-md hover:bg-blue-600 text-center block w-full cursor-pointer"
+              salaryCalc.totalSalary > 0 && (
+                <div className="mt-8 p-4 border border-gray-200 rounded-lg">
+                  <h3 className="text-lg font-semibold mb-2">Results</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-gray-500">Overtime Pay</p>
+                      <p className="text-lg">{salaryCalc.overtimePay?.toFixed(2)} EGP</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Variable Pay</p>
+                      <p className="text-lg">{salaryCalc.variablePay?.toFixed(2)} EGP</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500 font-medium">Total Salary</p>
+                      <p className="text-xl font-bold text-green-600">{salaryCalc.totalSalary?.toFixed(2)} EGP</p>
+                      <p className="text-sm text-gray-500">≈ ${(salaryCalc.totalSalary / exchangeRate).toFixed(2)} USD</p>
+                    </div>
+                  </div>
+                  
+                  <div 
+                    className="mt-4 text-blue-600 hover:text-blue-800 cursor-pointer inline-flex items-center"
                     onClick={() => {
                       try {
+                        setPdfLoading(true);
+                        
                         const MyDocument = () => (
                           <Document>
-                            <Page size="A4" style={{
-                              flexDirection: 'column',
-                              backgroundColor: '#fff',
-                              padding: 30,
-                              fontFamily: 'Roboto'
-                            }}>
-                              <View style={{ marginBottom: 20, padding: 10, borderBottom: '1pt solid #112246' }}>
-                                <Text style={{ fontSize: 24, textAlign: 'center', color: '#112246', marginBottom: 10 }}>
-                                  Salary Slip
-                                </Text>
-                                <Text style={{ fontSize: 14, textAlign: 'center' }}>
-                                  {employee.name} | {new Date(month).toLocaleDateString('en-US', { year: 'numeric', month: 'long' })}
-                                </Text>
-                              </View>
-                              
-                              <View style={{ margin: 10, padding: 10 }}>
-                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8 }}>
-                                  <Text>Basic Salary</Text>
-                                  <Text>{salaryCalc.basicSalary.toFixed(2)}</Text>
-                                </View>
-                                
-                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', borderTop: '1pt solid #112246', marginTop: 16, paddingTop: 8 }}>
-                                  <Text style={{ fontWeight: 'bold' }}>Total Salary</Text>
-                                  <Text style={{ fontWeight: 'bold' }}>{salaryCalc.totalSalary.toFixed(2)} EGP</Text>
-                                </View>
-                              </View>
-                            </Page>
+                            <SalaryPDF 
+                              salary={salaryCalc}
+                              employee={employee as Employee} 
+                              month={month} 
+                            />
                           </Document>
                         );
                         
-                        const instance = pdf(<MyDocument />);
-                        instance.toBlob().then((blob) => {
+                        const pdfBlob = pdf(<MyDocument />).toBlob();
+                        pdfBlob.then(blob => {
+                          setPdfLoading(false);
                           const url = URL.createObjectURL(blob);
                           const link = document.createElement('a');
                           link.href = url;
-                          link.download = `${employee.name}_salary_${month}.pdf`;
+                          link.download = `${employee?.name}_salary_${month}.pdf`;
                           link.click();
+                          // Clean up the URL object after download
+                          setTimeout(() => URL.revokeObjectURL(url), 100);
+                        }).catch(error => {
+                          setPdfLoading(false);
+                          console.error('PDF generation error:', error);
+                          alert(`Error generating PDF: ${error.message || 'Unknown error'}`);
                         });
                       } catch (error) {
+                        setPdfLoading(false);
                         console.error('PDF generation error:', error);
-                        alert('Error generating PDF');
+                        alert(`Error generating PDF: ${error instanceof Error ? error.message : 'Unknown error'}`);
                       }
                     }}
                   >
-                    Download PDF
+                    {pdfLoading ? 'Generating PDF...' : 'Download PDF'}
                   </div>
                 </div>
               )
@@ -886,49 +752,57 @@ export default function Salary() {
                         <td className="px-3 py-3 text-sm">{(salary.variable_pay || 0).toFixed(0)}</td>
                         <td className="px-3 py-3 text-sm font-medium">{(salary.total_salary || 0).toFixed(0)}</td>
                         <td className="px-3 py-3 text-sm">
-                          <BlobProvider 
-                            document={
-                              <Document>
-                                <SalaryPDF 
-                                  salary={{
-                                    basicSalary: salary?.basic_salary || 0,
-                                    costOfLiving: salary?.cost_of_living || 0,
-                                    shiftAllowance: salary?.shift_allowance || 0,
-                                    overtimeHours: salary?.overtime_hours || 0,
-                                    overtimePay: salary?.overtime_pay || 0,
-                                    variablePay: salary?.variable_pay || 0,
-                                    actAsPay: salary?.act_as_pay || 0,
-                                    pensionPlan: salary?.pension_plan || 0,
-                                    retroactiveDeduction: salary?.retroactive_deduction || 0,
-                                    premiumCardDeduction: salary?.premium_card_deduction || 0,
-                                    mobileDeduction: salary?.mobile_deduction || 0,
-                                    absences: salary?.absences || 0,
-                                    sickLeave: salary?.sick_leave || 0,
-                                    totalSalary: salary?.total_salary || 0,
-                                    exchangeRate: salary?.exchange_rate || exchangeRate || 31.50,
-                                  }}
-                                  employee={employee as Employee} 
-                                  month={new Date(salary.month).toISOString().substring(0, 7)} 
-                                />
-                              </Document>
-                            }
-                          >
-                            {({ url, loading, error }) => {
-                              if (error) {
+                          <button 
+                            className="text-red-600 hover:text-red-800"
+                            onClick={() => {
+                              try {
+                                const MyDocument = () => (
+                                  <Document>
+                                    <SalaryPDF 
+                                      salary={{
+                                        basicSalary: salary?.basic_salary || 0,
+                                        costOfLiving: salary?.cost_of_living || 0,
+                                        shiftAllowance: salary?.shift_allowance || 0,
+                                        overtimeHours: salary?.overtime_hours || 0,
+                                        overtimePay: salary?.overtime_pay || 0,
+                                        variablePay: salary?.variable_pay || 0,
+                                        actAsPay: salary?.act_as_pay || 0,
+                                        pensionPlan: salary?.pension_plan || 0,
+                                        retroactiveDeduction: salary?.retroactive_deduction || 0,
+                                        premiumCardDeduction: salary?.premium_card_deduction || 0,
+                                        mobileDeduction: salary?.mobile_deduction || 0,
+                                        absences: salary?.absences || 0,
+                                        sickLeave: salary?.sick_leave || 0,
+                                        totalSalary: salary?.total_salary || 0,
+                                        exchangeRate: salary?.exchange_rate || exchangeRate || 31.50,
+                                      }}
+                                      employee={employee as Employee} 
+                                      month={new Date(salary.month).toISOString().substring(0, 7)} 
+                                    />
+                                  </Document>
+                                );
+                                
+                                const pdfBlob = pdf(<MyDocument />).toBlob();
+                                pdfBlob.then(blob => {
+                                  const url = URL.createObjectURL(blob);
+                                  const link = document.createElement('a');
+                                  link.href = url;
+                                  link.download = `${employee?.name}_salary_${new Date(salary.month).toISOString().substring(0, 7)}.pdf`;
+                                  link.click();
+                                  // Clean up the URL object after download
+                                  setTimeout(() => URL.revokeObjectURL(url), 100);
+                                }).catch(error => {
+                                  console.error('PDF generation error:', error);
+                                  alert(`Error generating PDF: ${error.message || 'Unknown error'}`);
+                                });
+                              } catch (error) {
                                 console.error('PDF generation error:', error);
-                                return <span className="text-red-600">Error</span>;
+                                alert(`Error generating PDF: ${error instanceof Error ? error.message : 'Unknown error'}`);
                               }
-                              return (
-                                <a 
-                                  href={url || '#'}
-                                  download={`salary-${new Date(salary.month).toISOString().substring(0, 7)}-${employee?.name}.pdf`}
-                                  className="text-red-600 hover:text-red-800"
-                                >
-                                  {loading ? '...' : 'PDF'}
-                                </a>
-                              );
                             }}
-                          </BlobProvider>
+                          >
+                            PDF
+                          </button>
                         </td>
                       </tr>
                     ))}
