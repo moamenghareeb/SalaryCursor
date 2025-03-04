@@ -183,30 +183,25 @@ export default async function handler(
         if (isSchemaError || isMissingAbsencesError) {
           console.log(`Schema issue detected: ${checkError.message}`);
           
-          if (isMissingAbsencesError) {
-            console.log('Attempting to add absences column to salaries table...');
-            
-            try {
-              // Try to add the column directly
-              await supabase.rpc('execute_sql', { 
-                sql: 'ALTER TABLE salaries ADD COLUMN IF NOT EXISTS absences DECIMAL(10, 2) DEFAULT 0;' 
-              });
-              console.log('Added absences column successfully');
-            } catch (addColumnErr) {
-              console.error('Could not add absences column:', addColumnErr);
-            }
+          // In production (especially Vercel), we can't modify schema directly
+          // Instead, return a clear error with instructions
+          if (process.env.VERCEL || process.env.NODE_ENV === 'production') {
+            return res.status(500).json({ 
+              error: `Database schema error: The 'absences' column is missing from the 'salaries' table.`,
+              details: `This is a production environment. Please run the migration script manually in your Supabase project.`,
+              instructions: `Run "ALTER TABLE salaries ADD COLUMN IF NOT EXISTS absences DECIMAL(10, 2) DEFAULT 0;" in SQL Editor`,
+              missingColumn: 'absences',
+              isProduction: true
+            });
           }
-          
+
+          // Try schema refresh but don't attempt schema modifications in production
           try {
             // Force schema cache refresh with direct SQL
             const { error: refreshError } = await supabase.rpc('refresh_schema_cache');
             
             if (refreshError) {
               console.error('Error refreshing schema cache via RPC:', refreshError);
-              
-              // If RPC fails, try direct SQL as fallback
-              const { error: sqlError } = await supabase.from('_temp_forced_refresh').select('*').limit(1);
-              console.log('Forced fallback schema refresh result:', sqlError ? 'Error' : 'Success');
             }
             
             // Wait longer for cache to update (3 seconds)
@@ -237,6 +232,7 @@ export default async function handler(
               return res.status(500).json({ 
                 error: `Database schema error: The 'absences' column is missing from the 'salaries' table.`,
                 details: `Please run the migration script to add this column to your database.`,
+                instructions: `Run "ALTER TABLE salaries ADD COLUMN IF NOT EXISTS absences DECIMAL(10, 2) DEFAULT 0;" in SQL Editor`,
                 missingColumn: 'absences'
               });
             }

@@ -1,34 +1,57 @@
 -- Create helper function to check if another function exists
-CREATE OR REPLACE FUNCTION function_exists(function_name TEXT)
-RETURNS BOOLEAN AS $$
-DECLARE
-  exists BOOLEAN;
+CREATE OR REPLACE FUNCTION function_exists(func_name TEXT)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
 BEGIN
-  SELECT COUNT(*) > 0 INTO exists
-  FROM pg_proc
-  WHERE proname = function_name;
-  
-  RETURN exists;
+  RETURN EXISTS (
+    SELECT 1 
+    FROM pg_proc 
+    WHERE proname = func_name
+  );
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
+
+-- Check if a column exists in a table
+CREATE OR REPLACE FUNCTION column_exists(table_name TEXT, column_name TEXT)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 
+    FROM information_schema.columns 
+    WHERE table_name = column_exists.table_name 
+    AND column_name = column_exists.column_name
+  );
+END;
+$$;
 
 -- Create execute_sql function for admin use (if it doesn't exist)
 CREATE OR REPLACE FUNCTION execute_sql(sql TEXT)
-RETURNS VOID AS $$
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
 BEGIN
   EXECUTE sql;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
 
 -- Make refresh_schema_cache function more robust
 CREATE OR REPLACE FUNCTION refresh_schema_cache()
-RETURNS VOID AS $$
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
 BEGIN
-  -- Use pg_notify to trigger a schema reload
-  PERFORM pg_notify('pgrst', 'reload schema');
+  -- Method 1: Send postgrest notification
+  NOTIFY pgrst, 'reload schema';
   
-  -- Add an entry to the temp table to force cache refresh
-  CREATE TABLE IF NOT EXISTS _temp_forced_refresh (id SERIAL PRIMARY KEY);
-  INSERT INTO _temp_forced_refresh (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
+  -- Method 2: Create and drop a temp table to force refresh
+  CREATE TEMP TABLE _force_schema_refresh ON COMMIT DROP AS SELECT 1;
+  DROP TABLE _force_schema_refresh;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER; 
+$$; 

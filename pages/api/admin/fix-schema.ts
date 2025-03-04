@@ -14,125 +14,180 @@ export default async function handler(
   
   // Authenticate request
   const authHeader = req.headers.authorization;
-  let token = null;
-  
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    token = authHeader.substring(7);
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Authorization required' });
   }
   
-  // Verify the token and check for admin rights
-  if (!token) {
-    return res.status(401).json({ error: 'Authentication required' });
+  const token = authHeader.substring(7);
+  
+  // Verify the token and check if user is admin
+  const { data: userData, error: userError } = await supabase.auth.getUser(token);
+  
+  if (userError || !userData.user) {
+    return res.status(401).json({ error: 'Invalid token' });
+  }
+  
+  // Check if user has admin role (modify this based on your role structure)
+  const isAdmin = userData.user.app_metadata?.role === 'admin';
+  if (!isAdmin) {
+    return res.status(403).json({ error: 'Admin access required' });
   }
   
   try {
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    
-    if (authError || !user) {
-      return res.status(401).json({ error: 'Invalid authentication token' });
-    }
-    
     // Get the fix type from request body
     const { fix, migration } = req.body;
     
-    if (!fix) {
-      return res.status(400).json({ error: 'Missing fix parameter' });
-    }
-    
-    // Handle different fix types
     if (fix === 'add_absences_column') {
-      console.log('Applying fix for missing absences column');
+      const isProduction = process.env.VERCEL === '1' || process.env.NODE_ENV === 'production';
       
-      // Direct SQL approach to add the column
-      try {
-        // Check if RPC function exists first
-        const { error: rpcCheckError } = await supabase.rpc('function_exists', { 
-          function_name: 'execute_sql'
-        });
-        
-        if (rpcCheckError) {
-          console.log('execute_sql function does not exist, attempting direct SQL');
-          
-          // Try adding column directly
-          const { error: addColumnError } = await supabase.from('salaries').select('id').limit(1);
-          
-          if (addColumnError && addColumnError.message.includes('absences')) {
-            // Add the column with a direct query via Supabase's database API
-            // This is not ideal but a workaround when permissions are limited
-            console.log('Attempting to create the column via special RPC call');
-            
-            // Try applying SQL directly if available
-            try {
-              const { error: sqlError } = await supabase.rpc('refresh_schema_cache');
-              
-              if (sqlError) {
-                throw new Error(`Schema refresh failed: ${sqlError.message}`);
-              }
-              
-              // Wait for schema cache to refresh
-              await new Promise(resolve => setTimeout(resolve, 2000));
-              
-              return res.status(200).json({ 
-                success: true,
-                message: 'Attempted schema refresh. Please try your operation again.',
-                fixType: 'refresh_only'
-              });
-            } catch (directError) {
-              console.error('Error executing direct SQL:', directError);
-              throw new Error('Cannot execute SQL commands directly');
-            }
-          }
-        } else {
-          // Execute the SQL to add the column
-          const { error: executeError } = await supabase.rpc('execute_sql', { 
-            sql: 'ALTER TABLE salaries ADD COLUMN IF NOT EXISTS absences DECIMAL(10, 2) DEFAULT 0;'
-          });
-          
-          if (executeError) {
-            throw new Error(`Error executing SQL: ${executeError.message}`);
-          }
-          
-          // Refresh schema cache
-          await supabase.rpc('refresh_schema_cache');
-          
-          // Wait for schema cache to refresh
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          
-          return res.status(200).json({ 
-            success: true,
-            message: 'Added absences column successfully',
-            fixType: 'column_added'
-          });
-        }
-      } catch (error) {
-        console.error('Error fixing schema:', error);
-        return res.status(500).json({ 
-          error: 'Failed to fix schema',
-          details: error instanceof Error ? error.message : String(error)
+      // In production environments, we'll provide the SQL to run manually
+      if (isProduction) {
+        return res.status(200).json({
+          message: 'Production environment detected',
+          isProduction: true,
+          instructions: `
+In a production environment, you need to run the SQL manually in the Supabase SQL Editor.
+
+Copy and paste this SQL into your Supabase SQL Editor and click "Run":
+
+-- Add the absences column with error handling
+DO $$
+BEGIN
+    BEGIN
+        ALTER TABLE salaries ADD COLUMN absences DECIMAL(10, 2) DEFAULT 0;
+        RAISE NOTICE 'Successfully added the absences column.';
+    EXCEPTION WHEN duplicate_column THEN
+        RAISE NOTICE 'The absences column already exists.';
+    END;
+    
+    BEGIN
+        NOTIFY pgrst, 'reload schema';
+        IF EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'refresh_schema_cache') THEN
+            PERFORM refresh_schema_cache();
+        END IF;
+    EXCEPTION WHEN OTHERS THEN
+        RAISE NOTICE 'Schema refresh error: %', SQLERRM;
+    END;
+END;
+$$;
+          `,
+          sqlToRun: "DO $$ BEGIN BEGIN ALTER TABLE salaries ADD COLUMN absences DECIMAL(10, 2) DEFAULT 0; EXCEPTION WHEN duplicate_column THEN NULL; END; BEGIN NOTIFY pgrst, 'reload schema'; IF EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'refresh_schema_cache') THEN PERFORM refresh_schema_cache(); END IF; EXCEPTION WHEN OTHERS THEN NULL; END; END; $$;"
         });
       }
       
-      // If direct SQL failed, provide instructions for manual migration
-      return res.status(200).json({
-        success: false,
-        message: 'Could not automatically fix the schema. You need to run the migration script manually.',
-        instructions: `
-          Please run the following SQL in your Supabase project:
+      // For non-production environments, attempt to fix automatically
+      
+      // Check if the RPC function exists
+      const { data: functionExists, error: functionCheckError } = await supabase.rpc('function_exists', { 
+        func_name: 'execute_sql' 
+      }).single();
+      
+      if (functionCheckError || !functionExists) {
+        console.log('The execute_sql function is not available, attempting direct SQL execution');
+        
+        try {
+          // Execute the SQL directly through the migration file (less secure)
+          let sql = '';
           
-          ALTER TABLE salaries ADD COLUMN IF NOT EXISTS absences DECIMAL(10, 2) DEFAULT 0;
-          SELECT refresh_schema_cache();
-        `,
-        fixType: 'instructions_only'
-      });
+          if (migration) {
+            // Try to read the migration file contents
+            try {
+              const fs = require('fs');
+              const path = require('path');
+              
+              // Construct path to the migration file
+              const migrationPath = path.join(process.cwd(), 'supabase', 'migrations', migration);
+              
+              // Check if file exists
+              if (fs.existsSync(migrationPath)) {
+                sql = fs.readFileSync(migrationPath, 'utf8');
+                console.log(`Read migration file: ${migration}`);
+              } else {
+                throw new Error(`Migration file not found: ${migration}`);
+              }
+            } catch (fileError) {
+              console.error('Failed to read migration file:', fileError);
+              sql = 'ALTER TABLE salaries ADD COLUMN IF NOT EXISTS absences DECIMAL(10, 2) DEFAULT 0; SELECT refresh_schema_cache();';
+            }
+          } else {
+            // Default SQL if no migration file specified
+            sql = 'ALTER TABLE salaries ADD COLUMN IF NOT EXISTS absences DECIMAL(10, 2) DEFAULT 0; SELECT refresh_schema_cache();';
+          }
+          
+          // Execute the SQL directly (this will only work in development)
+          const { error: sqlError } = await supabase.rpc('execute_sql', { sql });
+          
+          if (sqlError) {
+            console.error('Error executing SQL directly:', sqlError);
+            return res.status(500).json({
+              error: 'Failed to execute SQL',
+              details: sqlError.message,
+              recommendedAction: 'Please run the SQL manually in the Supabase SQL Editor',
+              sql
+            });
+          }
+          
+          return res.status(200).json({
+            message: 'Successfully added absences column to salaries table',
+            details: 'The schema has been updated and the cache has been refreshed.'
+          });
+        } catch (executionError) {
+          console.error('Error during direct SQL execution:', executionError);
+          return res.status(500).json({
+            error: 'Failed to fix schema',
+            details: executionError instanceof Error ? executionError.message : String(executionError),
+            recommendedAction: 'Please run the SQL manually in the Supabase SQL Editor',
+            sql: 'ALTER TABLE salaries ADD COLUMN IF NOT EXISTS absences DECIMAL(10, 2) DEFAULT 0; SELECT refresh_schema_cache();'
+          });
+        }
+      } else {
+        // Use the RPC function to execute SQL
+        const sql = 'ALTER TABLE salaries ADD COLUMN IF NOT EXISTS absences DECIMAL(10, 2) DEFAULT 0; SELECT refresh_schema_cache();';
+        
+        const { error: executeError } = await supabase.rpc('execute_sql', { sql });
+        
+        if (executeError) {
+          console.error('Error executing SQL via RPC:', executeError);
+          return res.status(500).json({
+            error: 'Failed to execute SQL via RPC',
+            details: executeError.message,
+            recommendedAction: 'Please run the SQL manually in the Supabase SQL Editor',
+            sql
+          });
+        }
+        
+        // Wait a moment for the schema to update
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // Verify the column exists
+        const { data: verifyData, error: verifyError } = await supabase.rpc('column_exists', {
+          table_name: 'salaries',
+          column_name: 'absences'
+        }).single();
+        
+        if (verifyError || !verifyData) {
+          console.error('Error verifying column existence:', verifyError);
+          return res.status(200).json({
+            message: 'SQL executed, but unable to verify column existence',
+            details: 'The SQL was executed successfully, but we could not verify if the column exists.',
+            status: 'unknown'
+          });
+        }
+        
+        return res.status(200).json({
+          message: 'Successfully added absences column to salaries table',
+          details: 'The schema has been updated and the cache has been refreshed.',
+          verified: true
+        });
+      }
+    } else {
+      return res.status(400).json({ error: 'Unsupported fix type' });
     }
-    
-    // Unknown fix type
-    return res.status(400).json({ error: `Unknown fix type: ${fix}` });
   } catch (error) {
     console.error('Error in fix-schema API:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'An unexpected error occurred',
-      details: error instanceof Error ? error.message : String(error)
+      details: error instanceof Error ? error.message : String(error),
     });
   }
 } 

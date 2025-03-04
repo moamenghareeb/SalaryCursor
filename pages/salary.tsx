@@ -331,58 +331,77 @@ export default function Salary() {
         
         // Special handling for missing absences column
         if (missingColumn === 'absences' || errorText.includes('absences column')) {
-          const fixIt = confirm(`
+          const isProduction = errorText.includes('production environment') || 
+                              window.location.hostname !== 'localhost';
+          
+          if (isProduction) {
+            // Show instructions for production environments
+            alert(`
+DATABASE SCHEMA ERROR: Missing 'absences' column
+
+This is a production environment where automated schema fixes aren't possible.
+Please have your database administrator run the following SQL in your Supabase SQL Editor:
+
+ALTER TABLE salaries ADD COLUMN IF NOT EXISTS absences DECIMAL(10, 2) DEFAULT 0;
+SELECT refresh_schema_cache();
+
+After running this SQL, refresh the page and try again.
+            `);
+          } else {
+            // For development environments, offer automated fix
+            const fixIt = confirm(`
 Database schema error: The 'absences' column is missing from your database.
 
 Would you like to automatically apply a fix to add this column?
-          `);
-          
-          if (fixIt) {
-            // Try to apply the fix directly
-            try {
-              console.log('Attempting to fix absences column...');
-              
-              const fixResponse = await fetch('/api/admin/fix-schema', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${session.access_token}`
-                },
-                body: JSON.stringify({ 
-                  fix: 'add_absences_column',
-                  migration: '20240305_add_absences_column.sql' 
-                })
-              });
-              
-              if (fixResponse.ok) {
-                alert('Schema fixed successfully! Retrying to save salary data...');
+            `);
+            
+            if (fixIt) {
+              // Try to apply the fix directly
+              try {
+                console.log('Attempting to fix absences column...');
                 
-                // Wait a moment for schema to update
-                await new Promise(resolve => setTimeout(resolve, 2000));
+                const fixResponse = await fetch('/api/admin/fix-schema', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.access_token}`
+                  },
+                  body: JSON.stringify({ 
+                    fix: 'add_absences_column',
+                    migration: '20240305_add_absences_column.sql' 
+                  })
+                });
                 
-                // Try saving again recursively (only once)
-                await saveSalary();
-                return;
-              } else {
-                const fixErrorData = await fixResponse.json();
-                throw new Error(`Failed to fix schema: ${fixErrorData.error || 'Unknown error'}`);
-              }
-            } catch (fixError) {
-              console.error('Error fixing schema:', fixError);
-              alert(`
+                if (fixResponse.ok) {
+                  alert('Schema fixed successfully! Retrying to save salary data...');
+                  
+                  // Wait a moment for schema to update
+                  await new Promise(resolve => setTimeout(resolve, 2000));
+                  
+                  // Try saving again recursively (only once)
+                  await saveSalary();
+                  return;
+                } else {
+                  const fixErrorData = await fixResponse.json();
+                  throw new Error(`Failed to fix schema: ${fixErrorData.error || 'Unknown error'}`);
+                }
+              } catch (fixError) {
+                console.error('Error fixing schema:', fixError);
+                alert(`
 Could not automatically fix the database schema. Please:
 
 1. Run the migration script "20240305_add_absences_column.sql" in your Supabase project
 2. Refresh the page and try again
 
 Technical details: ${fixError instanceof Error ? fixError.message : 'Unknown error'}
-              `);
-            }
-          } else {
-            alert(`
+                `);
+              }
+            } else {
+              alert(`
 Please have your database administrator run the migration script "20240305_add_absences_column.sql"
 to add the missing absences column to the salaries table.
-            `);
+              `);
+            }
           }
           
           throw new Error(errorText);
