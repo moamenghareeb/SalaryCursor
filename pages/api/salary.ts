@@ -5,44 +5,69 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
-  // Get auth token from request cookies
-  const authCookie = req.cookies['sb-access-token'] || req.cookies['supabase-auth-token'];
+  // Check for token in Authorization header (Bearer token)
   let token = null;
+  const authHeader = req.headers.authorization;
   
-  // Try to extract token from the cookie
-  if (authCookie) {
-    try {
-      // Handle both direct token and JSON format
-      if (authCookie.startsWith('[')) {
-        // Parse JSON format (['token', 'refresh'])
-        const parsed = JSON.parse(authCookie);
-        token = parsed[0];
-      } else {
-        token = authCookie;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    token = authHeader.substring(7); // Remove 'Bearer ' prefix
+    console.log('Using token from Authorization header');
+  }
+  
+  // If no token in header, try cookies
+  if (!token) {
+    // Get auth token from request cookies
+    const authCookie = req.cookies['sb-access-token'] || req.cookies['supabase-auth-token'];
+    
+    // Try to extract token from the cookie
+    if (authCookie) {
+      try {
+        // Handle both direct token and JSON format
+        if (authCookie.startsWith('[')) {
+          // Parse JSON format (['token', 'refresh'])
+          const parsed = JSON.parse(authCookie);
+          token = parsed[0];
+          console.log('Using token from cookie (JSON format)');
+        } else {
+          token = authCookie;
+          console.log('Using token from cookie (direct format)');
+        }
+      } catch (e) {
+        console.error('Error parsing auth cookie:', e);
       }
-    } catch (e) {
-      console.error('Error parsing auth cookie:', e);
     }
   }
   
-  // Check auth from cookie OR from session
+  // Check auth from token OR from session
   let userSession = null;
   
   // If we have a token, set it for this request
   if (token) {
-    const { data: { user } } = await supabase.auth.getUser(token);
-    if (user) {
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+    if (error) {
+      console.error('Token validation error:', error.message);
+    } else if (user) {
       userSession = user;
+      console.log('User authenticated via token:', user.email);
     }
   }
   
   // If no token or token invalid, try session-based auth as fallback
   if (!userSession) {
-    const { data: { session } } = await supabase.auth.getSession();
-    userSession = session?.user || null;
+    console.log('Falling back to session-based auth');
+    const { data: { session }, error } = await supabase.auth.getSession();
+    if (error) {
+      console.error('Session auth error:', error.message);
+    } else if (session?.user) {
+      userSession = session.user;
+      console.log('User authenticated via session:', session.user.email);
+    } else {
+      console.log('No session user found');
+    }
   }
   
   if (!userSession) {
+    console.log('Authentication failed');
     return res.status(401).json({ error: 'Unauthorized' });
   }
 

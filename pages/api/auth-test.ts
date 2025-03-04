@@ -5,35 +5,46 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
-  // Log cookies for debugging
+  // Log cookies and headers for debugging
   console.log('Request cookies:', req.cookies);
+  console.log('Auth header:', req.headers.authorization ? 'Present' : 'Missing');
   
-  // Get auth token from request cookies
-  const authCookie = req.cookies['sb-access-token'] || req.cookies['supabase-auth-token'];
+  // Check for token in Authorization header (Bearer token)
   let token = null;
+  const authHeader = req.headers.authorization;
   
-  // Try to extract token from the cookie
-  if (authCookie) {
-    try {
-      console.log('Auth cookie found:', typeof authCookie);
-      // Handle both direct token and JSON format
-      if (authCookie.startsWith('[')) {
-        // Parse JSON format (['token', 'refresh'])
-        const parsed = JSON.parse(authCookie);
-        token = parsed[0];
-        console.log('Parsed token from JSON');
-      } else {
-        token = authCookie;
-        console.log('Using direct token');
-      }
-    } catch (e) {
-      console.error('Error parsing auth cookie:', e);
-    }
-  } else {
-    console.log('No auth cookie found');
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    token = authHeader.substring(7); // Remove 'Bearer ' prefix
+    console.log('Using token from Authorization header');
   }
   
-  // Check auth from cookie OR from session
+  // If no token in header, try cookies
+  if (!token) {
+    // Get auth token from request cookies
+    const authCookie = req.cookies['sb-access-token'] || req.cookies['supabase-auth-token'];
+    
+    if (authCookie) {
+      try {
+        console.log('Auth cookie found:', typeof authCookie);
+        // Handle both direct token and JSON format
+        if (authCookie.startsWith('[')) {
+          // Parse JSON format (['token', 'refresh'])
+          const parsed = JSON.parse(authCookie);
+          token = parsed[0];
+          console.log('Parsed token from JSON');
+        } else {
+          token = authCookie;
+          console.log('Using direct token');
+        }
+      } catch (e) {
+        console.error('Error parsing auth cookie:', e);
+      }
+    } else {
+      console.log('No auth cookie found');
+    }
+  }
+  
+  // Check auth from token OR from session
   let userSession = null;
   
   // If we have a token, set it for this request
@@ -72,6 +83,7 @@ export default async function handler(
       error: 'Unauthorized',
       message: 'No valid authentication found',
       cookies: Object.keys(req.cookies),
+      hadAuthHeader: !!authHeader
     });
   }
   
@@ -81,6 +93,7 @@ export default async function handler(
     user: {
       id: userSession.id,
       email: userSession.email,
-    }
+    },
+    authMethod: token ? (authHeader ? 'auth_header' : 'cookie') : 'session'
   });
 } 

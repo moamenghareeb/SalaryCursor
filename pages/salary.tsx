@@ -272,6 +272,13 @@ export default function Salary() {
     setCalculationLoading(true);
     
     try {
+      // Get the current session to extract the access token
+      const { data: { session }, error: authError } = await supabase.auth.getSession();
+      
+      if (authError || !session) {
+        throw new Error('Authentication error. Please sign in again.');
+      }
+      
       console.log('Saving salary for month:', month);
       
       const salaryData = {
@@ -296,14 +303,15 @@ export default function Salary() {
       
       console.log('Saving salary data:', salaryData);
       
-      // Use the new unified API endpoint
+      // Use the new unified API endpoint with explicit token
       const response = await fetch('/api/salary', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
         },
         body: JSON.stringify(salaryData),
-        credentials: 'include', // Include cookies in the request
+        credentials: 'include', // Still include cookies as a fallback
       });
       
       if (!response.ok) {
@@ -336,9 +344,19 @@ export default function Salary() {
     try {
       if (!employee) return;
       
-      // Use the new unified API endpoint
+      // Get the current session to extract the access token
+      const { data: { session }, error: authError } = await supabase.auth.getSession();
+      
+      if (authError || !session) {
+        throw new Error('Authentication error. Please sign in again.');
+      }
+      
+      // Use the new unified API endpoint with explicit token
       const response = await fetch(`/api/salary?employee_id=${employee.id}`, {
-        credentials: 'include', // Include cookies in the request
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        credentials: 'include', // Still include cookies as a fallback
       });
       
       if (!response.ok) {
@@ -412,8 +430,25 @@ export default function Salary() {
   // Add a test function for authentication
   const testAuth = async () => {
     try {
+      // Get the current session to extract the access token
+      const { data: { session }, error: authError } = await supabase.auth.getSession();
+      
+      if (authError) {
+        console.error('Session error:', authError);
+      }
+      
+      // Prepare headers based on session availability
+      const headers: HeadersInit = {};
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+        console.log('Using access_token in Authorization header');
+      } else {
+        console.log('No access_token available');
+      }
+      
       const response = await fetch('/api/auth-test', {
-        credentials: 'include', // Include cookies in the request
+        headers,
+        credentials: 'include', // Include cookies as fallback
       });
       
       const data = await response.json();
@@ -422,7 +457,7 @@ export default function Salary() {
         alert(`Auth test failed: ${data.message || data.error || 'Unknown error'}`);
         console.error('Auth test failed:', data);
       } else {
-        alert(`Auth test successful! User: ${data.user.email}`);
+        alert(`Auth test successful! User: ${data.user.email} (Method: ${data.authMethod})`);
         console.log('Auth test successful:', data);
       }
     } catch (error) {
