@@ -204,32 +204,35 @@ export default function Salary() {
     setSalaryCalc((prev) => ({ ...prev, [field]: value }));
   };
 
-  const calculateSalary = async () => {
-    console.log('Calculate button clicked');
-    
-    if (!exchangeRate || !employee) return;
-    
-    const { 
-      basicSalary, 
-      costOfLiving, 
-      shiftAllowance, 
-      overtimeHours,
-      actAsPay,
-      pensionPlan,
-      retroactiveDeduction,
-      premiumCardDeduction,
-      mobileDeduction,
-      absences,
-      sickLeave
-    } = salaryCalc;
-    
-    // Calculate overtime pay: D = ((A+B)/210)*overtimeHours
-    const overtimePay = ((basicSalary + costOfLiving) / 210) * overtimeHours;
-    
+  // Function to calculate variable pay based on basic salary
+  const calculateVariablePay = (basicSalary: number): number => {
     // Calculate variable pay: E = ((A+B+C+D)*((exchangeRate/31)-1)
-    const variablePay = 
-      (basicSalary + costOfLiving + shiftAllowance + overtimePay) * 
+    return (basicSalary + salaryCalc.costOfLiving + salaryCalc.shiftAllowance + salaryCalc.overtimePay) * 
       ((exchangeRate / 31) - 1);
+  };
+
+  const calculateSalary = async () => {
+    if (!employee) return;
+    
+    // Process input values
+    const basicSalary = salaryCalc.basicSalary || 0;
+    const costOfLiving = salaryCalc.costOfLiving || 0;
+    const shiftAllowance = salaryCalc.shiftAllowance || 0;
+    const overtimeHours = salaryCalc.overtimeHours || 0;
+    const actAsPay = salaryCalc.actAsPay || 0;
+    const pensionPlan = salaryCalc.pensionPlan || 0;
+    const retroactiveDeduction = salaryCalc.retroactiveDeduction || 0;
+    const premiumCardDeduction = salaryCalc.premiumCardDeduction || 0;
+    const mobileDeduction = salaryCalc.mobileDeduction || 0;
+    const absences = salaryCalc.absences || 0;
+    const sickLeave = salaryCalc.sickLeave || 0;
+    
+    // Calculate overtime pay: (basic + cost of living) / 240 * 1.5 * overtime hours
+    const overtimeRate = (basicSalary + costOfLiving) / 240 * 1.5;
+    const overtimePay = overtimeRate * overtimeHours;
+    
+    // Calculate variable pay for each formula segment
+    const variablePay = calculateVariablePay(basicSalary);
     
     // Calculate total salary
     const totalSalary = 
@@ -276,25 +279,70 @@ export default function Salary() {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Error saving calculation');
+        // Try to parse the error
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch (e) {
+          // If we can't parse JSON, just use the status text
+          throw new Error(`Failed to save: ${response.statusText}`);
+        }
+
+        if (errorData.error && errorData.error.includes('schema cache')) {
+          console.log('Schema cache error detected. Attempting to refresh...');
+          
+          // Try to refresh the schema cache
+          const refreshResponse = await fetch('/api/refresh-schema-cache', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          });
+          
+          if (!refreshResponse.ok) {
+            throw new Error(`Failed to refresh schema cache: ${refreshResponse.statusText}`);
+          }
+          
+          // Wait a moment for the cache to refresh
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
+          // Try saving again
+          const retryResponse = await fetch('/api/salary_calculations', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              employee_id: employee.id,
+              basic_salary: basicSalary,
+              cost_of_living: costOfLiving,
+              shift_allowance: shiftAllowance,
+              overtime_hours: overtimeHours,
+              overtime_pay: overtimePay,
+              variable_pay: variablePay,
+              act_as_pay: actAsPay,
+              pension_plan: pensionPlan,
+              retroactive_deduction: retroactiveDeduction,
+              premium_card_deduction: premiumCardDeduction,
+              mobile_deduction: mobileDeduction,
+              absences: absences,
+              sick_leave: sickLeave,
+              total_salary: totalSalary,
+              exchange_rate: exchangeRate,
+            }),
+          });
+          
+          if (!retryResponse.ok) {
+            const retryError = await retryResponse.json();
+            throw new Error(`Failed to save after schema refresh: ${retryError.error || retryResponse.statusText}`);
+          }
+        } else {
+          throw new Error(`Failed to save: ${errorData.error || response.statusText}`);
+        }
       }
-
-      // Refresh salary history
-      const { data: historyData, error: historyError } = await supabase
-        .from('salaries')
-        .select('*')
-        .eq('employee_id', employee.id)
-        .order('month', { ascending: false });
-
-      if (historyError) {
-        console.error('Error fetching salary history:', historyError);
-      } else {
-        setSalaryHistory(historyData || []);
-      }
-
     } catch (error) {
       console.error('Error saving calculation:', error);
+      alert(`Error: ${error instanceof Error ? error.message : 'Failed to save calculation'}`);
     } finally {
       setCalculationLoading(false);
     }
@@ -346,9 +394,9 @@ export default function Salary() {
       
       console.log('Saving salary data:', salaryData);
       
-      let response;
-      
       try {
+        let response;
+        
         if (existingSalary) {
           // Update existing record
           response = await supabase
@@ -367,10 +415,41 @@ export default function Salary() {
           
           // Check for schema cache error
           if (response.error.message && response.error.message.includes('schema cache')) {
-            throw new Error(`Database schema issue: ${response.error.message}. Try refreshing the page or contact support.`);
+            console.log('Attempting to refresh schema cache...');
+            
+            // Try to refresh the schema cache
+            const refreshResponse = await fetch('/api/refresh-schema-cache', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+            });
+            
+            if (!refreshResponse.ok) {
+              throw new Error(`Failed to refresh schema cache: ${refreshResponse.statusText}`);
+            }
+            
+            // Wait a moment for the cache to refresh
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // Try saving again
+            if (existingSalary) {
+              response = await supabase
+                .from('salaries')
+                .update(salaryData)
+                .eq('id', existingSalary.id);
+            } else {
+              response = await supabase
+                .from('salaries')
+                .insert(salaryData);
+            }
+            
+            if (response.error) {
+              throw new Error(`Failed to save salary after schema refresh: ${response.error.message}`);
+            }
+          } else {
+            throw new Error(`Failed to save salary: ${response.error.message}`);
           }
-          
-          throw new Error(`Failed to save salary: ${response.error.message}`);
         }
       } catch (dbError) {
         console.error('Database operation error:', dbError);
