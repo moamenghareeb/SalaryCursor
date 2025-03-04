@@ -123,36 +123,64 @@ const SalaryPDF: React.FC<SalaryPDFProps> = ({ salary, employee, month }) => {
         </Text>
         <View style={styles.row}>
           <Text style={styles.label}>Basic Salary (A)</Text>
-          <Text style={styles.value}>{salary.basicSalary.toFixed(2)} EGP</Text>
+          <Text style={styles.value}>{(salary.basicSalary || 0).toFixed(2)} EGP</Text>
         </View>
         <View style={styles.row}>
           <Text style={styles.label}>Cost of Living (B)</Text>
-          <Text style={styles.value}>{salary.costOfLiving.toFixed(2)} EGP</Text>
+          <Text style={styles.value}>{(salary.costOfLiving || 0).toFixed(2)} EGP</Text>
         </View>
         <View style={styles.row}>
           <Text style={styles.label}>Shift Allowance (C)</Text>
-          <Text style={styles.value}>{salary.shiftAllowance.toFixed(2)} EGP</Text>
+          <Text style={styles.value}>{(salary.shiftAllowance || 0).toFixed(2)} EGP</Text>
         </View>
         <View style={styles.row}>
           <Text style={styles.label}>Overtime Hours</Text>
-          <Text style={styles.value}>{salary.overtimeHours} hours</Text>
+          <Text style={styles.value}>{(salary.overtimeHours || 0)} hours</Text>
         </View>
         <View style={styles.row}>
           <Text style={styles.label}>Overtime Pay (D)</Text>
-          <Text style={styles.value}>{salary.overtimePay.toFixed(2)} EGP</Text>
-        </View>
-        <View style={styles.row}>
-          <Text style={styles.label}>USD to EGP Exchange Rate</Text>
-          <Text style={styles.value}>{salary.exchangeRate.toFixed(2)}</Text>
+          <Text style={styles.value}>{(salary.overtimePay || 0).toFixed(2)} EGP</Text>
         </View>
         <View style={styles.row}>
           <Text style={styles.label}>Variable Pay (E)</Text>
-          <Text style={styles.value}>{salary.variablePay.toFixed(2)} EGP</Text>
+          <Text style={styles.value}>{(salary.variablePay || 0).toFixed(2)} EGP</Text>
+        </View>
+        <View style={styles.row}>
+          <Text style={styles.label}>Act As Pay (F)</Text>
+          <Text style={styles.value}>{(salary.actAsPay || 0).toFixed(2)} EGP</Text>
+        </View>
+
+        <Text style={{ fontSize: 16, marginTop: 20, marginBottom: 10, fontWeight: 'bold' }}>
+          Deductions
+        </Text>
+        <View style={styles.row}>
+          <Text style={styles.label}>Pension Plan (G)</Text>
+          <Text style={styles.value}>{(salary.pensionPlan || 0).toFixed(2)} EGP</Text>
+        </View>
+        <View style={styles.row}>
+          <Text style={styles.label}>Retroactive Deduction (H)</Text>
+          <Text style={styles.value}>{(salary.retroactiveDeduction || 0).toFixed(2)} EGP</Text>
+        </View>
+        <View style={styles.row}>
+          <Text style={styles.label}>Premium Card Deduction (I)</Text>
+          <Text style={styles.value}>{(salary.premiumCardDeduction || 0).toFixed(2)} EGP</Text>
+        </View>
+        <View style={styles.row}>
+          <Text style={styles.label}>Mobile Deduction (J)</Text>
+          <Text style={styles.value}>{(salary.mobileDeduction || 0).toFixed(2)} EGP</Text>
+        </View>
+        <View style={styles.row}>
+          <Text style={styles.label}>Absences (K)</Text>
+          <Text style={styles.value}>{(salary.absences || 0).toFixed(2)} EGP</Text>
+        </View>
+        <View style={styles.row}>
+          <Text style={styles.label}>Sick Leave (L)</Text>
+          <Text style={styles.value}>{(salary.sickLeave || 0).toFixed(2)} EGP</Text>
         </View>
         
         <View style={styles.totalRow}>
           <Text style={styles.totalLabel}>Total Salary</Text>
-          <Text style={styles.totalValue}>{salary.totalSalary.toFixed(2)} EGP</Text>
+          <Text style={styles.totalValue}>{(salary.totalSalary || 0).toFixed(2)} EGP</Text>
         </View>
       </View>
 

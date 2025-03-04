@@ -315,20 +315,20 @@ export default function Salary() {
       const salaryData = {
         employee_id: employee.id,
         month: `${month}-01`,
-        basic_salary: salaryCalc.basicSalary,
-        cost_of_living: salaryCalc.costOfLiving,
-        shift_allowance: salaryCalc.shiftAllowance,
-        overtime_hours: salaryCalc.overtimeHours,
-        overtime_pay: salaryCalc.overtimePay,
-        variable_pay: salaryCalc.variablePay,
-        act_as_pay: salaryCalc.actAsPay,
-        pension_plan: salaryCalc.pensionPlan,
-        retroactive_deduction: salaryCalc.retroactiveDeduction,
-        premium_card_deduction: salaryCalc.premiumCardDeduction,
-        mobile_deduction: salaryCalc.mobileDeduction,
-        absences: salaryCalc.absences,
-        sick_leave: salaryCalc.sickLeave,
-        total_salary: salaryCalc.totalSalary,
+        basic_salary: salaryCalc.basicSalary || 0,
+        cost_of_living: salaryCalc.costOfLiving || 0,
+        shift_allowance: salaryCalc.shiftAllowance || 0,
+        overtime_hours: salaryCalc.overtimeHours || 0,
+        overtime_pay: salaryCalc.overtimePay || 0,
+        variable_pay: salaryCalc.variablePay || 0,
+        act_as_pay: salaryCalc.actAsPay || 0,
+        pension_plan: salaryCalc.pensionPlan || 0,
+        retroactive_deduction: salaryCalc.retroactiveDeduction || 0,
+        premium_card_deduction: salaryCalc.premiumCardDeduction || 0,
+        mobile_deduction: salaryCalc.mobileDeduction || 0,
+        absences: salaryCalc.absences || 0,
+        sick_leave: salaryCalc.sickLeave || 0,
+        total_salary: salaryCalc.totalSalary || 0,
         exchange_rate: exchangeRate,
       };
       
@@ -349,7 +349,7 @@ export default function Salary() {
       
       if (response.error) throw response.error;
       
-      // Refresh salary history
+      // Refresh salary history immediately
       const { data: historyData, error: historyError } = await supabase
         .from('salaries')
         .select('*')
@@ -357,6 +357,8 @@ export default function Salary() {
         .order('month', { ascending: false });
 
       if (historyError) throw historyError;
+      
+      // Update the salary history state
       setSalaryHistory(historyData || []);
       
       alert('Salary saved successfully!');
