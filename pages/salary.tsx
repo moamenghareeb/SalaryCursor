@@ -611,19 +611,19 @@ export default function Salary() {
               
               <div className="p-3 bg-gray-50 rounded-lg">
                 <p className="text-gray-600 text-sm font-medium">Act As Pay (F)</p>
-                <p className="text-lg font-medium mt-1">{salaryCalc.actAsPay.toFixed(2)} EGP</p>
+                <p className="text-lg font-medium mt-1">{(salaryCalc.actAsPay || 0).toFixed(2)} EGP</p>
               </div>
               
               <div className="p-3 bg-gray-50 rounded-lg">
                 <p className="text-gray-600 text-sm font-medium">Deductions (G+H+I+J+K+L)</p>
                 <p className="text-lg font-medium mt-1 text-red-600">
                   {(
-                    salaryCalc.pensionPlan +
-                    salaryCalc.retroactiveDeduction +
-                    salaryCalc.premiumCardDeduction +
-                    salaryCalc.mobileDeduction +
-                    salaryCalc.absences +
-                    salaryCalc.sickLeave
+                    (salaryCalc.pensionPlan || 0) +
+                    (salaryCalc.retroactiveDeduction || 0) +
+                    (salaryCalc.premiumCardDeduction || 0) +
+                    (salaryCalc.mobileDeduction || 0) +
+                    (salaryCalc.absences || 0) +
+                    (salaryCalc.sickLeave || 0)
                   ).toFixed(2)} EGP
                 </p>
               </div>
