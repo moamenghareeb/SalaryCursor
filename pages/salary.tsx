@@ -25,7 +25,7 @@ export default function Salary() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
 
-  const [salaryCalc, setSalaryCalc] = useState<SalaryCalculation>({
+  const defaultSalaryCalc: SalaryCalculation = {
     basicSalary: 0,
     costOfLiving: 0,
     shiftAllowance: 0,
@@ -40,8 +40,10 @@ export default function Salary() {
     absences: 0,
     sickLeave: 0,
     totalSalary: 0,
-    exchangeRate: 0,
-  });
+    exchangeRate: exchangeRate,
+  };
+
+  const [salaryCalc, setSalaryCalc] = useState<SalaryCalculation>(defaultSalaryCalc);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -630,43 +632,43 @@ export default function Salary() {
             <div className="space-y-4">
               <div className="p-3 bg-gray-50 rounded-lg">
                 <p className="text-gray-600 text-sm font-medium">Overtime Pay (D)</p>
-                <p className="text-lg font-medium mt-1">{salaryCalc.overtimePay.toFixed(2)} EGP</p>
+                <p className="text-lg font-medium mt-1">{(salaryCalc?.overtimePay || 0).toFixed(2)} EGP</p>
                 <p className="text-xs text-gray-500 mt-1">((A+B)/210) * Overtime Hours</p>
               </div>
               
               <div className="p-3 bg-gray-50 rounded-lg">
                 <p className="text-gray-600 text-sm font-medium">Variable Pay (E)</p>
-                <p className="text-lg font-medium mt-1">{salaryCalc.variablePay.toFixed(2)} EGP</p>
+                <p className="text-lg font-medium mt-1">{(salaryCalc?.variablePay || 0).toFixed(2)} EGP</p>
                 <p className="text-xs text-gray-500 mt-1">((A+B+C+D) * ((exchange rate/31) - 1))</p>
               </div>
               
               <div className="p-3 bg-gray-50 rounded-lg">
                 <p className="text-gray-600 text-sm font-medium">Act As Pay (F)</p>
-                <p className="text-lg font-medium mt-1">{(salaryCalc.actAsPay || 0).toFixed(2)} EGP</p>
+                <p className="text-lg font-medium mt-1">{(salaryCalc?.actAsPay || 0).toFixed(2)} EGP</p>
               </div>
               
               <div className="p-3 bg-gray-50 rounded-lg">
                 <p className="text-gray-600 text-sm font-medium">Deductions (G+H+I+J+K+L)</p>
                 <p className="text-lg font-medium mt-1 text-red-600">
                   {(
-                    (salaryCalc.pensionPlan || 0) +
-                    (salaryCalc.retroactiveDeduction || 0) +
-                    (salaryCalc.premiumCardDeduction || 0) +
-                    (salaryCalc.mobileDeduction || 0) +
-                    (salaryCalc.absences || 0) +
-                    (salaryCalc.sickLeave || 0)
+                    (salaryCalc?.pensionPlan || 0) +
+                    (salaryCalc?.retroactiveDeduction || 0) +
+                    (salaryCalc?.premiumCardDeduction || 0) +
+                    (salaryCalc?.mobileDeduction || 0) +
+                    (salaryCalc?.absences || 0) +
+                    (salaryCalc?.sickLeave || 0)
                   ).toFixed(2)} EGP
                 </p>
               </div>
               
               <div className="p-4 bg-green-50 rounded-lg mt-4">
                 <p className="text-gray-600 text-sm font-medium">Total Salary</p>
-                <p className="text-2xl font-bold text-green-600 mt-1">{salaryCalc.totalSalary.toFixed(2)} EGP</p>
+                <p className="text-2xl font-bold text-green-600 mt-1">{(salaryCalc?.totalSalary || 0).toFixed(2)} EGP</p>
                 <p className="text-xs text-gray-500 mt-1">A + B + C + D + E + F - (G + H + I + J + K + L)</p>
               </div>
             </div>
             
-            {salaryCalc.totalSalary > 0 && employee && (
+            {(salaryCalc?.totalSalary > 0 || false) && employee && (
               <div className="mt-6">
                 <BlobProvider
                   document={
@@ -739,45 +741,53 @@ export default function Salary() {
                         <td className="px-3 py-3 text-sm">
                           {new Date(salary.month).toLocaleDateString('en-US', { month: 'short', year: '2-digit' })}
                         </td>
-                        <td className="px-3 py-3 text-sm">{salary.basic_salary.toFixed(0)}</td>
-                        <td className="px-3 py-3 text-sm">{salary.cost_of_living.toFixed(0)}</td>
-                        <td className="px-3 py-3 text-sm">{salary.shift_allowance.toFixed(0)}</td>
-                        <td className="px-3 py-3 text-sm">{salary.overtime_pay.toFixed(0)}</td>
-                        <td className="px-3 py-3 text-sm">{salary.variable_pay.toFixed(0)}</td>
-                        <td className="px-3 py-3 text-sm font-medium">{salary.total_salary.toFixed(0)}</td>
+                        <td className="px-3 py-3 text-sm">{(salary.basic_salary || 0).toFixed(0)}</td>
+                        <td className="px-3 py-3 text-sm">{(salary.cost_of_living || 0).toFixed(0)}</td>
+                        <td className="px-3 py-3 text-sm">{(salary.shift_allowance || 0).toFixed(0)}</td>
+                        <td className="px-3 py-3 text-sm">{(salary.overtime_pay || 0).toFixed(0)}</td>
+                        <td className="px-3 py-3 text-sm">{(salary.variable_pay || 0).toFixed(0)}</td>
+                        <td className="px-3 py-3 text-sm font-medium">{(salary.total_salary || 0).toFixed(0)}</td>
                         <td className="px-3 py-3 text-sm">
                           <BlobProvider document={
-                            <SalaryPDF 
-                              salary={{
-                                basicSalary: salary.basic_salary,
-                                costOfLiving: salary.cost_of_living,
-                                shiftAllowance: salary.shift_allowance,
-                                overtimeHours: salary.overtime_hours,
-                                overtimePay: salary.overtime_pay,
-                                variablePay: salary.variable_pay,
-                                actAsPay: salary.act_as_pay,
-                                pensionPlan: salary.pension_plan,
-                                retroactiveDeduction: salary.retroactive_deduction,
-                                premiumCardDeduction: salary.premium_card_deduction,
-                                mobileDeduction: salary.mobile_deduction,
-                                absences: salary.absences,
-                                sickLeave: salary.sick_leave,
-                                totalSalary: salary.total_salary,
-                                exchangeRate: salary.exchange_rate,
-                              }}
-                              employee={employee as Employee} 
-                              month={new Date(salary.month).toISOString().substring(0, 7)} 
-                            />
+                            <Document>
+                              <SalaryPDF 
+                                salary={{
+                                  basicSalary: salary.basic_salary || 0,
+                                  costOfLiving: salary.cost_of_living || 0,
+                                  shiftAllowance: salary.shift_allowance || 0,
+                                  overtimeHours: salary.overtime_hours || 0,
+                                  overtimePay: salary.overtime_pay || 0,
+                                  variablePay: salary.variable_pay || 0,
+                                  actAsPay: salary.act_as_pay || 0,
+                                  pensionPlan: salary.pension_plan || 0,
+                                  retroactiveDeduction: salary.retroactive_deduction || 0,
+                                  premiumCardDeduction: salary.premium_card_deduction || 0,
+                                  mobileDeduction: salary.mobile_deduction || 0,
+                                  absences: salary.absences || 0,
+                                  sickLeave: salary.sick_leave || 0,
+                                  totalSalary: salary.total_salary || 0,
+                                  exchangeRate: salary.exchange_rate || exchangeRate,
+                                }}
+                                employee={employee as Employee} 
+                                month={new Date(salary.month).toISOString().substring(0, 7)} 
+                              />
+                            </Document>
                           }>
-                            {({ blob, url, loading, error }) => (
-                              <a 
-                                href={url || undefined} 
-                                download={`salary-${new Date(salary.month).toISOString().substring(0, 7)}-${employee?.name}.pdf`}
-                                className="text-red-600 hover:text-red-800"
-                              >
-                                {loading ? '...' : 'PDF'}
-                              </a>
-                            )}
+                            {({ url, loading, error }) => {
+                              if (error) {
+                                console.error('PDF generation error:', error);
+                                return <span className="text-red-600">Error</span>;
+                              }
+                              return (
+                                <a 
+                                  href={url || '#'}
+                                  download={`salary-${new Date(salary.month).toISOString().substring(0, 7)}-${employee?.name}.pdf`}
+                                  className="text-red-600 hover:text-red-800"
+                                >
+                                  {loading ? '...' : 'PDF'}
+                                </a>
+                              );
+                            }}
                           </BlobProvider>
                         </td>
                       </tr>
