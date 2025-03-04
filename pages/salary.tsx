@@ -346,22 +346,33 @@ export default function Salary() {
       
       let response;
       
-      if (existingSalary) {
-        // Update existing record
-        response = await supabase
-          .from('salaries')
-          .update(salaryData)
-          .eq('id', existingSalary.id);
-      } else {
-        // Insert new record
-        response = await supabase
-          .from('salaries')
-          .insert(salaryData);
-      }
-      
-      if (response.error) {
-        console.error('Error saving salary:', response.error);
-        throw new Error(`Failed to save salary: ${response.error.message}`);
+      try {
+        if (existingSalary) {
+          // Update existing record
+          response = await supabase
+            .from('salaries')
+            .update(salaryData)
+            .eq('id', existingSalary.id);
+        } else {
+          // Insert new record
+          response = await supabase
+            .from('salaries')
+            .insert(salaryData);
+        }
+        
+        if (response.error) {
+          console.error('Error saving salary:', response.error);
+          
+          // Check for schema cache error
+          if (response.error.message && response.error.message.includes('schema cache')) {
+            throw new Error(`Database schema issue: ${response.error.message}. Try refreshing the page or contact support.`);
+          }
+          
+          throw new Error(`Failed to save salary: ${response.error.message}`);
+        }
+      } catch (dbError) {
+        console.error('Database operation error:', dbError);
+        throw dbError; // Re-throw to be caught by the outer try/catch
       }
       
       // Refresh salary history immediately
