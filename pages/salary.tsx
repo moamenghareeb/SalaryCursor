@@ -25,6 +25,13 @@ export default function Salary() {
     overtimeHours: 0,
     overtimePay: 0,
     variablePay: 0,
+    actAsPay: 0,
+    pensionPlan: 0,
+    retroactiveDeduction: 0,
+    premiumCardDeduction: 0,
+    mobileDeduction: 0,
+    absences: 0,
+    sickLeave: 0,
     totalSalary: 0,
     exchangeRate: 0,
   });
@@ -106,6 +113,13 @@ export default function Salary() {
             overtimeHours: calcData.overtime_hours,
             overtimePay: calcData.overtime_pay,
             variablePay: calcData.variable_pay,
+            actAsPay: calcData.act_as_pay,
+            pensionPlan: calcData.pension_plan,
+            retroactiveDeduction: calcData.retroactive_deduction,
+            premiumCardDeduction: calcData.premium_card_deduction,
+            mobileDeduction: calcData.mobile_deduction,
+            absences: calcData.absences,
+            sickLeave: calcData.sick_leave,
             totalSalary: calcData.total_salary,
             exchangeRate: calcData.exchange_rate,
           });
@@ -127,6 +141,13 @@ export default function Salary() {
               overtimeHours: salaryData.overtime_hours,
               overtimePay: salaryData.overtime_pay,
               variablePay: salaryData.variable_pay,
+              actAsPay: salaryData.act_as_pay,
+              pensionPlan: salaryData.pension_plan,
+              retroactiveDeduction: salaryData.retroactive_deduction,
+              premiumCardDeduction: salaryData.premium_card_deduction,
+              mobileDeduction: salaryData.mobile_deduction,
+              absences: salaryData.absences,
+              sickLeave: salaryData.sick_leave,
               totalSalary: salaryData.total_salary,
               exchangeRate: salaryData.exchange_rate,
             });
@@ -177,7 +198,19 @@ export default function Salary() {
     
     if (!exchangeRate || !employee) return;
     
-    const { basicSalary, costOfLiving, shiftAllowance, overtimeHours } = salaryCalc;
+    const { 
+      basicSalary, 
+      costOfLiving, 
+      shiftAllowance, 
+      overtimeHours,
+      actAsPay,
+      pensionPlan,
+      retroactiveDeduction,
+      premiumCardDeduction,
+      mobileDeduction,
+      absences,
+      sickLeave
+    } = salaryCalc;
     
     // Calculate overtime pay: D = ((A+B)/210)*overtimeHours
     const overtimePay = ((basicSalary + costOfLiving) / 210) * overtimeHours;
@@ -188,7 +221,10 @@ export default function Salary() {
       ((exchangeRate / 31) - 1);
     
     // Calculate total salary
-    const totalSalary = basicSalary + costOfLiving + shiftAllowance + overtimePay + variablePay;
+    const totalSalary = 
+      basicSalary + costOfLiving + shiftAllowance + overtimePay + variablePay +
+      actAsPay - pensionPlan - retroactiveDeduction - premiumCardDeduction -
+      mobileDeduction - absences - sickLeave;
     
     const newCalc = {
       ...salaryCalc,
@@ -212,6 +248,13 @@ export default function Salary() {
           overtime_hours: overtimeHours,
           overtime_pay: overtimePay,
           variable_pay: variablePay,
+          act_as_pay: actAsPay,
+          pension_plan: pensionPlan,
+          retroactive_deduction: retroactiveDeduction,
+          premium_card_deduction: premiumCardDeduction,
+          mobile_deduction: mobileDeduction,
+          absences: absences,
+          sick_leave: sickLeave,
           total_salary: totalSalary,
           exchange_rate: exchangeRate,
         }]);
@@ -245,6 +288,13 @@ export default function Salary() {
         overtime_hours: salaryCalc.overtimeHours,
         overtime_pay: salaryCalc.overtimePay,
         variable_pay: salaryCalc.variablePay,
+        act_as_pay: salaryCalc.actAsPay,
+        pension_plan: salaryCalc.pensionPlan,
+        retroactive_deduction: salaryCalc.retroactiveDeduction,
+        premium_card_deduction: salaryCalc.premiumCardDeduction,
+        mobile_deduction: salaryCalc.mobileDeduction,
+        absences: salaryCalc.absences,
+        sick_leave: salaryCalc.sickLeave,
         total_salary: salaryCalc.totalSalary,
         exchange_rate: exchangeRate,
       };
@@ -446,6 +496,83 @@ export default function Salary() {
                 />
               </div>
               
+              <div>
+                <label className="block text-sm font-medium mb-1">Act As Pay (F)</label>
+                <input
+                  type="number"
+                  value={salaryCalc.actAsPay || ''}
+                  onChange={(e) => handleInputChange('actAsPay', parseFloat(e.target.value) || 0)}
+                  className="w-full p-3 border rounded text-base"
+                  placeholder="Enter act as pay"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-1">Pension Plan Employee Contribution (G)</label>
+                <input
+                  type="number"
+                  value={salaryCalc.pensionPlan || ''}
+                  onChange={(e) => handleInputChange('pensionPlan', parseFloat(e.target.value) || 0)}
+                  className="w-full p-3 border rounded text-base"
+                  placeholder="Enter pension plan contribution"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-1">Retroactive Deduction (H)</label>
+                <input
+                  type="number"
+                  value={salaryCalc.retroactiveDeduction || ''}
+                  onChange={(e) => handleInputChange('retroactiveDeduction', parseFloat(e.target.value) || 0)}
+                  className="w-full p-3 border rounded text-base"
+                  placeholder="Enter retroactive deduction"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-1">Premium Card Deduction (I)</label>
+                <input
+                  type="number"
+                  value={salaryCalc.premiumCardDeduction || ''}
+                  onChange={(e) => handleInputChange('premiumCardDeduction', parseFloat(e.target.value) || 0)}
+                  className="w-full p-3 border rounded text-base"
+                  placeholder="Enter premium card deduction"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-1">Mobile Deduction (J)</label>
+                <input
+                  type="number"
+                  value={salaryCalc.mobileDeduction || ''}
+                  onChange={(e) => handleInputChange('mobileDeduction', parseFloat(e.target.value) || 0)}
+                  className="w-full p-3 border rounded text-base"
+                  placeholder="Enter mobile deduction"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-1">Absences (K)</label>
+                <input
+                  type="number"
+                  value={salaryCalc.absences || ''}
+                  onChange={(e) => handleInputChange('absences', parseFloat(e.target.value) || 0)}
+                  className="w-full p-3 border rounded text-base"
+                  placeholder="Enter absences"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-1">Sick Leave (L)</label>
+                <input
+                  type="number"
+                  value={salaryCalc.sickLeave || ''}
+                  onChange={(e) => handleInputChange('sickLeave', parseFloat(e.target.value) || 0)}
+                  className="w-full p-3 border rounded text-base"
+                  placeholder="Enter sick leave"
+                />
+              </div>
+              
               <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 pt-2">
                 <button
                   onClick={calculateSalary}
@@ -482,10 +609,29 @@ export default function Salary() {
                 <p className="text-xs text-gray-500 mt-1">((A+B+C+D) * ((exchange rate/31) - 1))</p>
               </div>
               
+              <div className="p-3 bg-gray-50 rounded-lg">
+                <p className="text-gray-600 text-sm font-medium">Act As Pay (F)</p>
+                <p className="text-lg font-medium mt-1">{salaryCalc.actAsPay.toFixed(2)} EGP</p>
+              </div>
+              
+              <div className="p-3 bg-gray-50 rounded-lg">
+                <p className="text-gray-600 text-sm font-medium">Deductions (G+H+I+J+K+L)</p>
+                <p className="text-lg font-medium mt-1 text-red-600">
+                  {(
+                    salaryCalc.pensionPlan +
+                    salaryCalc.retroactiveDeduction +
+                    salaryCalc.premiumCardDeduction +
+                    salaryCalc.mobileDeduction +
+                    salaryCalc.absences +
+                    salaryCalc.sickLeave
+                  ).toFixed(2)} EGP
+                </p>
+              </div>
+              
               <div className="p-4 bg-green-50 rounded-lg mt-4">
                 <p className="text-gray-600 text-sm font-medium">Total Salary</p>
                 <p className="text-2xl font-bold text-green-600 mt-1">{salaryCalc.totalSalary.toFixed(2)} EGP</p>
-                <p className="text-xs text-gray-500 mt-1">A + B + C + D + E</p>
+                <p className="text-xs text-gray-500 mt-1">A + B + C + D + E + F - (G + H + I + J + K + L)</p>
               </div>
             </div>
             
