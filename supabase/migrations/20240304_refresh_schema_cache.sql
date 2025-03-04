@@ -1,7 +1,7 @@
 -- Force a schema cache refresh
 SELECT pg_notify('pgrst', 'reload schema');
 
--- Verify columns exist
+-- Verify the absences column exists
 DO $$ 
 BEGIN
     IF NOT EXISTS (
