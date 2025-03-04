@@ -5,10 +5,44 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
-  // Check authentication
-  const { data: { session }, error: authError } = await supabase.auth.getSession();
+  // Get auth token from request cookies
+  const authCookie = req.cookies['sb-access-token'] || req.cookies['supabase-auth-token'];
+  let token = null;
   
-  if (authError || !session) {
+  // Try to extract token from the cookie
+  if (authCookie) {
+    try {
+      // Handle both direct token and JSON format
+      if (authCookie.startsWith('[')) {
+        // Parse JSON format (['token', 'refresh'])
+        const parsed = JSON.parse(authCookie);
+        token = parsed[0];
+      } else {
+        token = authCookie;
+      }
+    } catch (e) {
+      console.error('Error parsing auth cookie:', e);
+    }
+  }
+  
+  // Check auth from cookie OR from session
+  let userSession = null;
+  
+  // If we have a token, set it for this request
+  if (token) {
+    const { data: { user } } = await supabase.auth.getUser(token);
+    if (user) {
+      userSession = user;
+    }
+  }
+  
+  // If no token or token invalid, try session-based auth as fallback
+  if (!userSession) {
+    const { data: { session } } = await supabase.auth.getSession();
+    userSession = session?.user || null;
+  }
+  
+  if (!userSession) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
