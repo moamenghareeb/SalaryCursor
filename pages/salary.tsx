@@ -676,7 +676,23 @@ export default function Salary() {
                   document={
                     <Document>
                       <SalaryPDF 
-                        salary={salaryCalc}
+                        salary={{
+                          basicSalary: salaryCalc.basicSalary || 0,
+                          costOfLiving: salaryCalc.costOfLiving || 0,
+                          shiftAllowance: salaryCalc.shiftAllowance || 0,
+                          overtimeHours: salaryCalc.overtimeHours || 0,
+                          overtimePay: salaryCalc.overtimePay || 0,
+                          variablePay: salaryCalc.variablePay || 0,
+                          actAsPay: salaryCalc.actAsPay || 0,
+                          pensionPlan: salaryCalc.pensionPlan || 0,
+                          retroactiveDeduction: salaryCalc.retroactiveDeduction || 0,
+                          premiumCardDeduction: salaryCalc.premiumCardDeduction || 0,
+                          mobileDeduction: salaryCalc.mobileDeduction || 0,
+                          absences: salaryCalc.absences || 0,
+                          sickLeave: salaryCalc.sickLeave || 0,
+                          totalSalary: salaryCalc.totalSalary || 0,
+                          exchangeRate: exchangeRate,
+                        }}
                         employee={employee}
                         month={month}
                       />
