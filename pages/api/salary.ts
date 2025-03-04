@@ -116,89 +116,200 @@ export default async function handler(
     }
     
     try {
+      // Define interface for salary data
+      interface SalaryData {
+        employee_id: string;
+        month: string;
+        basic_salary: number;
+        cost_of_living: number;
+        shift_allowance: number;
+        overtime_hours: number;
+        overtime_pay: number;
+        variable_pay: number;
+        act_as_pay: number;
+        pension_plan: number;
+        retroactive_deduction: number;
+        premium_card_deduction: number;
+        mobile_deduction: number;
+        sick_leave: number;
+        total_salary: number;
+        exchange_rate: number;
+        absences?: number; // Optional
+      }
+      
+      // Validate and sanitize input data to prevent schema issues
+      const sanitizedData: SalaryData = {
+        employee_id: salaryData.employee_id,
+        month: salaryData.month,
+        basic_salary: salaryData.basic_salary || 0,
+        cost_of_living: salaryData.cost_of_living || 0,
+        shift_allowance: salaryData.shift_allowance || 0,
+        overtime_hours: salaryData.overtime_hours || 0,
+        overtime_pay: salaryData.overtime_pay || 0,
+        variable_pay: salaryData.variable_pay || 0,
+        act_as_pay: salaryData.act_as_pay || 0,
+        pension_plan: salaryData.pension_plan || 0,
+        retroactive_deduction: salaryData.retroactive_deduction || 0,
+        premium_card_deduction: salaryData.premium_card_deduction || 0,
+        mobile_deduction: salaryData.mobile_deduction || 0,
+        sick_leave: salaryData.sick_leave || 0,
+        total_salary: salaryData.total_salary || 0,
+        exchange_rate: salaryData.exchange_rate || 0,
+      };
+
+      // Add absences field if present, otherwise default to 0
+      if ('absences' in salaryData) {
+        sanitizedData.absences = salaryData.absences || 0;
+      }
+      
       // Check if a record already exists for this employee and month
       let existingRecord = null;
       const { data: recordData, error: checkError } = await supabase
         .from('salaries')
         .select('id')
-        .eq('employee_id', salaryData.employee_id)
-        .eq('month', salaryData.month)
+        .eq('employee_id', sanitizedData.employee_id)
+        .eq('month', sanitizedData.month)
         .single();
       
       if (recordData) {
         existingRecord = recordData;
       }
       
-      // Handle schema cache errors with a direct refresh
-      if (checkError && checkError.message.includes('schema cache')) {
-        console.log('Schema cache error detected, attempting to refresh...');
+      // Handle schema cache errors or missing column errors
+      if (checkError) {
+        let isSchemaError = checkError.message.includes('schema cache');
+        let isMissingAbsencesError = checkError.message.includes('absences') && checkError.message.includes('column');
         
-        try {
-          // Force schema cache refresh with direct SQL
-          const { error: refreshError } = await supabase.rpc('refresh_schema_cache');
+        if (isSchemaError || isMissingAbsencesError) {
+          console.log(`Schema issue detected: ${checkError.message}`);
           
-          if (refreshError) {
-            console.error('Error refreshing schema cache via RPC:', refreshError);
+          if (isMissingAbsencesError) {
+            console.log('Attempting to add absences column to salaries table...');
             
-            // If RPC fails, try direct SQL as fallback
-            const { error: sqlError } = await supabase.from('_temp_forced_refresh').select('*').limit(1);
-            console.log('Forced fallback schema refresh result:', sqlError ? 'Error' : 'Success');
+            try {
+              // Try to add the column directly
+              await supabase.rpc('execute_sql', { 
+                sql: 'ALTER TABLE salaries ADD COLUMN IF NOT EXISTS absences DECIMAL(10, 2) DEFAULT 0;' 
+              });
+              console.log('Added absences column successfully');
+            } catch (addColumnErr) {
+              console.error('Could not add absences column:', addColumnErr);
+            }
           }
           
-          // Wait for cache to update
-          await new Promise(resolve => setTimeout(resolve, 1000));
+          try {
+            // Force schema cache refresh with direct SQL
+            const { error: refreshError } = await supabase.rpc('refresh_schema_cache');
+            
+            if (refreshError) {
+              console.error('Error refreshing schema cache via RPC:', refreshError);
+              
+              // If RPC fails, try direct SQL as fallback
+              const { error: sqlError } = await supabase.from('_temp_forced_refresh').select('*').limit(1);
+              console.log('Forced fallback schema refresh result:', sqlError ? 'Error' : 'Success');
+            }
+            
+            // Wait longer for cache to update (3 seconds)
+            await new Promise(resolve => setTimeout(resolve, 3000));
+            
+            // Remove problematic field if it's causing errors
+            if (isMissingAbsencesError && 'absences' in sanitizedData) {
+              console.log('Removing absences field from data due to schema issue');
+              delete sanitizedData.absences;
+            }
+            
+          } catch (refreshErr) {
+            console.error('Error during schema refresh attempt:', refreshErr);
+          }
           
-        } catch (refreshErr) {
-          console.error('Error during schema refresh attempt:', refreshErr);
+          // Try checking again after refresh
+          const { data: recheckedRecord, error: recheckError } = await supabase
+            .from('salaries')
+            .select('id')
+            .eq('employee_id', sanitizedData.employee_id)
+            .eq('month', sanitizedData.month)
+            .single();
+          
+          if (recheckError && recheckError.code !== 'PGRST116') {
+            console.error('Error rechecking after schema refresh:', recheckError);
+            
+            if (recheckError.message.includes('absences')) {
+              return res.status(500).json({ 
+                error: `Database schema error: The 'absences' column is missing from the 'salaries' table.`,
+                details: `Please run the migration script to add this column to your database.`,
+                missingColumn: 'absences'
+              });
+            }
+            
+            return res.status(500).json({ 
+              error: `Database error: ${recheckError.message}`,
+              details: 'Schema refresh failed to resolve the issue.'
+            });
+          }
+          
+          if (recheckedRecord) {
+            existingRecord = recheckedRecord;
+          }
+        } else if (checkError.code !== 'PGRST116') {
+          // PGRST116 means no rows returned, which is expected if no record exists
+          console.error('Error checking existing record:', checkError);
+          return res.status(500).json({ 
+            error: `Database error: ${checkError.message}`,
+            details: 'Error occurred while checking for existing records.'
+          });
         }
-        
-        // Try checking again after refresh
-        const { data: recheckedRecord, error: recheckError } = await supabase
-          .from('salaries')
-          .select('id')
-          .eq('employee_id', salaryData.employee_id)
-          .eq('month', salaryData.month)
-          .single();
-        
-        if (recheckError && recheckError.code !== 'PGRST116') {
-          console.error('Error rechecking after schema refresh:', recheckError);
-          return res.status(500).json({ error: `Database error: ${recheckError.message}` });
-        }
-        
-        if (recheckedRecord) {
-          existingRecord = recheckedRecord;
-        }
-      } else if (checkError && checkError.code !== 'PGRST116') {
-        // PGRST116 means no rows returned, which is expected if no record exists
-        console.error('Error checking existing record:', checkError);
-        return res.status(500).json({ error: `Database error: ${checkError.message}` });
       }
       
       let result;
       
-      if (existingRecord) {
-        // Update existing record
-        result = await supabase
-          .from('salaries')
-          .update(salaryData)
-          .eq('id', existingRecord.id);
-      } else {
-        // Insert new record
-        result = await supabase
-          .from('salaries')
-          .insert(salaryData);
+      try {
+        if (existingRecord) {
+          // Update existing record
+          result = await supabase
+            .from('salaries')
+            .update(sanitizedData)
+            .eq('id', existingRecord.id);
+        } else {
+          // Insert new record
+          result = await supabase
+            .from('salaries')
+            .insert(sanitizedData);
+        }
+        
+        if (result.error) {
+          console.error('Error saving salary data:', result.error);
+          
+          // Special handling for absences column errors
+          if (result.error.message.includes('absences')) {
+            return res.status(500).json({ 
+              error: `Failed to save salary data: Could not find the 'absences' column of 'salaries' in the schema cache`,
+              details: 'The database schema is missing the absences column. Please apply the 20240305_add_absences_column.sql migration.',
+              missingColumn: 'absences'
+            });
+          }
+          
+          return res.status(500).json({ 
+            error: `Failed to save salary data: ${result.error.message}`,
+            details: 'Error occurred during the save operation.'
+          });
+        }
+        
+        return res.status(200).json({ 
+          message: 'Salary data saved successfully',
+          operation: existingRecord ? 'updated' : 'inserted'
+        });
+      } catch (saveError) {
+        console.error('Exception during save operation:', saveError);
+        return res.status(500).json({ 
+          error: 'An unexpected error occurred while saving salary data',
+          details: saveError instanceof Error ? saveError.message : String(saveError),
+          suggestion: 'Check server logs for more information'
+        });
       }
-      
-      if (result.error) {
-        console.error('Error saving salary data:', result.error);
-        return res.status(500).json({ error: `Failed to save salary data: ${result.error.message}` });
-      }
-      
-      return res.status(200).json({ message: 'Salary data saved successfully' });
     } catch (error) {
-      console.error('Unexpected error saving salary data:', error);
+      console.error('Unexpected error in salary API:', error);
       return res.status(500).json({ 
-        error: 'An unexpected error occurred while saving salary data',
+        error: 'An unexpected error occurred while processing the request',
         details: error instanceof Error ? error.message : String(error)
       });
     }
