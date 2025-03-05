@@ -215,7 +215,10 @@ export default function Leave() {
       setLoading(true);
       const { data: user } = await supabase.auth.getUser();
       
-      if (!user.user) return;
+      if (!user.user) {
+        setLoading(false);
+        return;
+      }
 
       // Fetch employee details
       const { data: employeeData, error: employeeError } = await supabase
@@ -224,7 +227,11 @@ export default function Leave() {
         .eq('id', user.user.id)
         .single();
 
-      if (employeeError) throw employeeError;
+      if (employeeError) {
+        console.error('Error fetching employee data:', employeeError);
+        setLoading(false);
+        throw employeeError;
+      }
       
       setEmployee(employeeData);
       setYearsOfService(employeeData.years_of_service);
@@ -249,8 +256,13 @@ export default function Leave() {
         .eq('employee_id', user.user.id)
         .order('start_date', { ascending: false });
 
-      if (leaveError) throw leaveError;
+      if (leaveError) {
+        console.error('Error fetching leave data:', leaveError);
+        setLoading(false);
+        throw leaveError;
+      }
       
+      console.log('Fetched leaves:', leaveData?.length || 0);
       setLeaves(leaveData || []);
 
       // Fetch in-lieu records
@@ -260,21 +272,28 @@ export default function Leave() {
         .eq('employee_id', user.user.id)
         .order('created_at', { ascending: false });
 
-      if (inLieuError) throw inLieuError;
+      if (inLieuError) {
+        console.error('Error fetching in-lieu data:', inLieuError);
+        setLoading(false);
+        throw inLieuError;
+      }
       
+      console.log('Fetched in-lieu records:', inLieuData?.length || 0);
       setInLieuRecords(inLieuData || []);
 
       // Calculate total days taken for current year
       const currentYear = new Date().getFullYear();
       const currentYearLeaves = (leaveData || []).filter(leave => {
-        const leaveStartYear = new Date(leave.start_date).getFullYear();
-        return leaveStartYear === currentYear;
+        return new Date(leave.start_date).getFullYear() === currentYear;
       });
       
       const total = currentYearLeaves.reduce((sum, item) => sum + item.days_taken, 0);
       setLeaveTaken(total);
+      
+      console.log('Leave taken this year:', total);
+      
     } catch (error) {
-      console.error('Error fetching data:', error);
+      console.error('Error in fetchData:', error);
     } finally {
       setLoading(false);
     }
@@ -521,12 +540,114 @@ export default function Leave() {
         return;
       }
 
-      // Refresh data
+      // Manually remove the leave from the current state to update UI immediately
+      setLeaves(leaves.filter(l => l.id !== leave.id));
+      
+      // Update leave taken count
+      if (new Date(leave.start_date).getFullYear() === new Date().getFullYear()) {
+        setLeaveTaken(prev => Math.max(0, prev - leave.days_taken));
+      }
+      
+      // Then refresh all data to ensure everything is in sync
       await fetchData();
       setSuccess('Leave deleted successfully');
     } catch (error: any) {
       console.error('Error deleting leave:', error);
       setError(error.message || 'Failed to delete leave request');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteInLieu = async (record: InLieuRecord) => {
+    if (!confirm(`Are you sure you want to delete this in-lieu record? This will reduce your leave balance by ${record.leave_days_added} days.`)) {
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const { data: user } = await supabase.auth.getUser();
+      
+      if (!user.user) {
+        setError('User not authenticated');
+        setLoading(false);
+        return;
+      }
+
+      console.log('Attempting to delete in-lieu record:', record.id);
+      
+      // First get the current balance
+      const { data: currentEmployee, error: fetchError } = await supabase
+        .from('employees')
+        .select('annual_leave_balance')
+        .eq('id', user.user.id)
+        .single();
+
+      if (fetchError) {
+        console.error('Error fetching employee record:', fetchError);
+        setError(`Cannot fetch employee record: ${fetchError.message}`);
+        setLoading(false);
+        return;
+      }
+
+      // Calculate new balance, ensuring it doesn't go below 0
+      const currentBalance = Number(currentEmployee.annual_leave_balance || 0);
+      const newBalance = Math.max(0, currentBalance - record.leave_days_added);
+      
+      console.log('In-lieu deletion calculation:', {
+        currentBalance, 
+        daysToRemove: record.leave_days_added,
+        newBalance
+      });
+
+      // Update the leave balance in the database
+      const { error: updateError } = await supabase
+        .from('employees')
+        .update({ annual_leave_balance: newBalance })
+        .eq('id', user.user.id);
+
+      if (updateError) {
+        console.error('Error updating balance:', updateError);
+        setError(`Failed to update leave balance: ${updateError.message}`);
+        setLoading(false);
+        return;
+      }
+
+      // Delete the in-lieu record
+      const { error: deleteError } = await supabase
+        .from('in_lieu_records')
+        .delete()
+        .eq('id', record.id);
+
+      if (deleteError) {
+        console.error('Error deleting in-lieu record:', deleteError);
+        setError(`Failed to delete in-lieu record: ${deleteError.message}`);
+        setLoading(false);
+        return;
+      }
+
+      // Update state immediately to provide instant feedback
+      setInLieuRecords(inLieuRecords.filter(r => r.id !== record.id));
+      
+      // Update leave balance in UI
+      if (additionalLeaveBalance) {
+        const newAdditionalBalance = Math.max(0, additionalLeaveBalance - record.leave_days_added);
+        setAdditionalLeaveBalance(newAdditionalBalance);
+        
+        if (leaveBalance !== null) {
+          setLeaveBalance(baseLeaveBalance !== null ? baseLeaveBalance + newAdditionalBalance : newAdditionalBalance);
+        }
+      }
+      
+      // Then refresh all data to ensure everything is in sync
+      await fetchData();
+      setSuccess('In-lieu record deleted successfully');
+    } catch (error: any) {
+      console.error('Error deleting in-lieu record:', error);
+      setError(error.message || 'Failed to delete in-lieu record');
     } finally {
       setLoading(false);
     }
@@ -864,6 +985,7 @@ export default function Leave() {
                     <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Days Worked</th>
                     <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Leave Days Added</th>
                     <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date Added</th>
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -881,12 +1003,21 @@ export default function Leave() {
                           <td className="px-3 py-3 text-sm">{record.days_count}</td>
                           <td className="px-3 py-3 text-sm">{record.leave_days_added}</td>
                           <td className="px-3 py-3 text-sm">{createdDate.toLocaleDateString()}</td>
+                          <td className="px-3 py-3 text-sm">
+                            <button
+                              onClick={() => handleDeleteInLieu(record)}
+                              className="text-red-600 hover:text-red-800 font-medium"
+                              disabled={loading}
+                            >
+                              Delete
+                            </button>
+                          </td>
                         </tr>
                       );
                     })
                   ) : (
                     <tr>
-                      <td colSpan={4} className="px-3 py-4 text-sm text-center text-gray-500">
+                      <td colSpan={5} className="px-3 py-4 text-sm text-center text-gray-500">
                         No in-lieu records found
                       </td>
                     </tr>
