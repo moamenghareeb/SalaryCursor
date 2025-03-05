@@ -210,9 +210,13 @@ export default function Leave() {
     fetchData();
   }, []);
 
-  const fetchData = async () => {
+  const fetchData = async (preserveSuccess = false) => {
     setLoading(true);
     setError(null);
+
+    if (!preserveSuccess) {
+      setSuccess(null);
+    }
 
     try {
       // Get user
@@ -324,8 +328,10 @@ export default function Leave() {
       console.log('Leave taken this year:', total);
       setLeaveTaken(total);
       
-      // Clear any previous success messages after a data refresh
-      setSuccess(null);
+      // Clear any previous success messages after a data refresh, unless preserveSuccess is true
+      if (!preserveSuccess) {
+        setSuccess(null);
+      }
     } catch (error: any) {
       console.error('Error in fetchData:', error);
       setError('An unexpected error occurred: ' + error.message);
@@ -544,6 +550,14 @@ export default function Leave() {
       // Immediately remove from UI to provide instant feedback
       setLeaves(prevLeaves => prevLeaves.filter(l => l.id !== leave.id));
       
+      // Recalculate leave taken
+      const currentYear = new Date().getFullYear();
+      const isCurrentYearLeave = new Date(leave.start_date).getFullYear() === currentYear;
+      
+      if (isCurrentYearLeave) {
+        setLeaveTaken(prev => Math.max(0, prev - leave.days_taken));
+      }
+      
       // Attempt to delete the record
       const { error: deleteError } = await supabase
         .from('leaves')
@@ -560,10 +574,11 @@ export default function Leave() {
         return;
       }
 
-      // On successful deletion, do a complete data refresh
-      await fetchData();
-      
+      // On successful deletion, set success message
       setSuccess('Leave deleted successfully');
+      
+      // Do a complete data refresh in the background to ensure consistency
+      fetchData(true);
     } catch (error: any) {
       console.error('Error deleting leave:', error);
       setError(error.message || 'Failed to delete leave request');
@@ -628,6 +643,10 @@ export default function Leave() {
         newBalance
       });
 
+      // Immediately update the leave balance in the UI for instant feedback
+      setAdditionalLeaveBalance(newBalance);
+      setLeaveBalance((baseLeaveBalance || 0) + newBalance);
+
       // Step 3: Delete the in-lieu record FIRST
       // This way, if the update fails, the record still exists and can be tried again
       const { error: deleteError } = await supabase
@@ -662,14 +681,11 @@ export default function Leave() {
         return;
       }
 
-      // On successful transaction, refetch all data to ensure balance is updated
-      await fetchData();
-      
-      // Also directly update the balance in the UI for immediate feedback
-      setAdditionalLeaveBalance(newBalance);
-      setLeaveBalance((baseLeaveBalance || 0) + newBalance);
-      
+      // Set success message
       setSuccess('In-lieu record deleted successfully');
+      
+      // Do a complete data refresh in the background to ensure consistency
+      fetchData(true);
     } catch (error: any) {
       console.error('Error deleting in-lieu record:', error);
       setError(error.message || 'Failed to delete in-lieu record');
