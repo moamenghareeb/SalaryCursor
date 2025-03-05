@@ -270,22 +270,7 @@ export default function Leave() {
       // Calculate base leave balance based on years of service
       const baseLeave = employeeData.years_of_service >= 10 ? 24.67 : 18.67;
       
-      // Add any additional leave balance from in-lieu time
-      const additionalLeave = Number(employeeData.annual_leave_balance || 0);
-      const totalLeaveBalance = baseLeave + additionalLeave;
-      
-      // Set the various leave balances
-      setBaseLeaveBalance(baseLeave);
-      setAdditionalLeaveBalance(additionalLeave);
-      setLeaveBalance(totalLeaveBalance);
-      console.log('Leave balance calculation:', {
-        baseLeave,
-        additionalLeave,
-        totalLeaveBalance,
-        employeeBalance: employeeData.annual_leave_balance
-      });
-
-      // Fetch all leaves - in parallel with in-lieu records for efficiency
+      // Fetch all leaves and in-lieu records before calculating balances
       console.log('Fetching leaves for employee:', userId);
       const leavesPromise = supabase
         .from('leaves')
@@ -327,6 +312,41 @@ export default function Leave() {
       console.log('Fetched in-lieu query result:', inLieuResult);
       console.log('Fetched in-lieu records:', inLieuData.length, inLieuData);
       setInLieuRecords(inLieuData);
+      
+      // IMPORTANT: Check if the employee's database balance doesn't match the actual records
+      // If no in-lieu records exist but balance is not 0, reset it to 0 in database
+      if (inLieuData.length === 0 && employeeData.annual_leave_balance > 0) {
+        console.log('No in-lieu records found but balance is not 0, resetting to 0');
+        // Reset the employee's annual_leave_balance to 0
+        const { error: resetError } = await supabase
+          .from('employees')
+          .update({ annual_leave_balance: 0 })
+          .eq('id', userId);
+        
+        if (resetError) {
+          console.error('Error resetting leave balance:', resetError);
+        } else {
+          console.log('Successfully reset leave balance to 0');
+          // Update local value to match database
+          employeeData.annual_leave_balance = 0;
+        }
+      }
+      
+      // Add any additional leave balance from in-lieu time
+      const additionalLeave = Number(employeeData.annual_leave_balance || 0);
+      const totalLeaveBalance = baseLeave + additionalLeave;
+      
+      // Set the various leave balances
+      setBaseLeaveBalance(baseLeave);
+      setAdditionalLeaveBalance(additionalLeave);
+      setLeaveBalance(totalLeaveBalance);
+      console.log('Leave balance calculation:', {
+        baseLeave,
+        additionalLeave,
+        totalLeaveBalance,
+        employeeBalance: employeeData.annual_leave_balance,
+        inLieuRecordCount: inLieuData.length
+      });
 
       // Calculate total days taken for current year
       const currentYear = new Date().getFullYear();
@@ -658,6 +678,9 @@ export default function Leave() {
       console.log('Attempting to delete in-lieu record:', record.id);
       console.log('In-lieu record details:', record);
       
+      // Check if this is the last in-lieu record
+      const isLastRecord = inLieuRecords.length === 1;
+      
       // Immediately remove from UI for instant feedback
       setInLieuRecords(prevRecords => prevRecords.filter(r => r.id !== record.id));
       
@@ -688,12 +711,16 @@ export default function Leave() {
       console.log('In-lieu deletion calculation:', {
         currentBalance, 
         daysToRemove: record.leave_days_added,
-        newBalance
+        newBalance,
+        isLastRecord
       });
 
+      // If this is the last record, force new balance to be exactly 0
+      const finalBalance = isLastRecord ? 0 : newBalance;
+
       // Immediately update the leave balance in the UI for instant feedback
-      setAdditionalLeaveBalance(newBalance);
-      setLeaveBalance((baseLeaveBalance || 0) + newBalance);
+      setAdditionalLeaveBalance(finalBalance);
+      setLeaveBalance((baseLeaveBalance || 0) + finalBalance);
 
       // Step 3: Delete the in-lieu record FIRST with detailed logging
       console.log('Executing Supabase delete for in-lieu ID:', record.id);
@@ -725,10 +752,10 @@ export default function Leave() {
       }
 
       // Step 4: Update the leave balance
-      console.log('Updating employee leave balance to:', newBalance);
+      console.log('Updating employee leave balance to:', finalBalance);
       const updateResponse = await supabase
         .from('employees')
-        .update({ annual_leave_balance: newBalance })
+        .update({ annual_leave_balance: finalBalance })
         .eq('id', user.user.id);
 
       console.log('Update response:', updateResponse);
