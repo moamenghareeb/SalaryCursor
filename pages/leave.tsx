@@ -541,6 +541,9 @@ export default function Leave() {
 
       console.log('Attempting to delete leave:', leave.id);
       
+      // Immediately remove from UI to provide instant feedback
+      setLeaves(prevLeaves => prevLeaves.filter(l => l.id !== leave.id));
+      
       // Attempt to delete the record
       const { error: deleteError } = await supabase
         .from('leaves')
@@ -550,18 +553,23 @@ export default function Leave() {
       if (deleteError) {
         console.error('Supabase Delete Error:', deleteError);
         setError(`Failed to delete leave: ${deleteError.message}`);
+        
+        // Revert UI if deletion failed
+        fetchData();
         setLoading(false);
         return;
       }
 
-      // On successful deletion, refetch all data
-      // Avoid optimistic UI updates to prevent confusion
+      // On successful deletion, do a complete data refresh
       await fetchData();
       
       setSuccess('Leave deleted successfully');
     } catch (error: any) {
       console.error('Error deleting leave:', error);
       setError(error.message || 'Failed to delete leave request');
+      
+      // Revert UI if deletion failed
+      fetchData();
     } finally {
       setLoading(false);
     }
@@ -587,6 +595,9 @@ export default function Leave() {
 
       console.log('Attempting to delete in-lieu record:', record.id);
       
+      // Immediately remove from UI for instant feedback
+      setInLieuRecords(prevRecords => prevRecords.filter(r => r.id !== record.id));
+      
       // Use an API endpoint to handle this as a transaction
       // If you don't have an API endpoint, we'll do it directly but risks inconsistency
       
@@ -600,6 +611,9 @@ export default function Leave() {
       if (fetchError) {
         console.error('Error fetching employee record:', fetchError);
         setError(`Cannot fetch employee record: ${fetchError.message}`);
+        
+        // Revert UI if update process failed
+        fetchData();
         setLoading(false);
         return;
       }
@@ -624,6 +638,9 @@ export default function Leave() {
       if (deleteError) {
         console.error('Error deleting in-lieu record:', deleteError);
         setError(`Failed to delete in-lieu record: ${deleteError.message}`);
+        
+        // Revert UI if deletion failed
+        fetchData();
         setLoading(false);
         return;
       }
@@ -638,17 +655,27 @@ export default function Leave() {
         console.error('Error updating balance:', updateError);
         // Critical error: Record deleted but balance not updated
         setError(`CRITICAL ERROR: Record was deleted but leave balance could not be updated: ${updateError.message}. Please contact an administrator.`);
+        
+        // Even in critical error, refresh data to show current state
+        fetchData();
         setLoading(false);
         return;
       }
 
-      // On successful transaction, refetch all data
+      // On successful transaction, refetch all data to ensure balance is updated
       await fetchData();
+      
+      // Also directly update the balance in the UI for immediate feedback
+      setAdditionalLeaveBalance(newBalance);
+      setLeaveBalance((baseLeaveBalance || 0) + newBalance);
       
       setSuccess('In-lieu record deleted successfully');
     } catch (error: any) {
       console.error('Error deleting in-lieu record:', error);
       setError(error.message || 'Failed to delete in-lieu record');
+      
+      // Revert UI if deletion failed
+      fetchData();
     } finally {
       setLoading(false);
     }
