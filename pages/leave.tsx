@@ -1,5 +1,4 @@
-import React from 'react';
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Layout from '../components/Layout';
 import { supabase } from '../lib/supabase';
 import type { Employee as BaseEmployee, Leave, InLieuRecord } from '../types';
@@ -206,6 +205,12 @@ export default function Leave() {
   const [baseLeaveBalance, setBaseLeaveBalance] = useState<number | null>(null);
   const [additionalLeaveBalance, setAdditionalLeaveBalance] = useState<number>(0);
 
+  // Calculate remaining leave - will update whenever leaveBalance or leaveTaken changes
+  const remainingLeave = useMemo(() => {
+    if (leaveBalance === null) return null;
+    return leaveBalance - leaveTaken;
+  }, [leaveBalance, leaveTaken]);
+
   useEffect(() => {
     fetchData();
   }, []);
@@ -276,7 +281,8 @@ export default function Leave() {
       console.log('Leave balance calculation:', {
         baseLeave,
         additionalLeave,
-        totalLeaveBalance
+        totalLeaveBalance,
+        employeeBalance: employeeData.annual_leave_balance
       });
 
       // Fetch all leaves - in parallel with in-lieu records for efficiency
@@ -303,7 +309,7 @@ export default function Leave() {
       }
       
       const leaveData = leavesResult.data || [];
-      console.log('Fetched leaves:', leaveData.length);
+      console.log('Fetched leaves:', leaveData.length, leaveData);
       setLeaves(leaveData);
 
       // Handle in-lieu data
@@ -325,7 +331,12 @@ export default function Leave() {
       );
       
       const total = currentYearLeaves.reduce((sum, item) => sum + item.days_taken, 0);
-      console.log('Leave taken this year:', total);
+      console.log('Leave taken this year calculation:', {
+        currentYear,
+        currentYearLeaves,
+        total,
+        remaining: totalLeaveBalance - total
+      });
       setLeaveTaken(total);
       
       // Clear any previous success messages after a data refresh, unless preserveSuccess is true
@@ -550,12 +561,27 @@ export default function Leave() {
       // Immediately remove from UI to provide instant feedback
       setLeaves(prevLeaves => prevLeaves.filter(l => l.id !== leave.id));
       
-      // Recalculate leave taken
+      // Recalculate leave taken for the current year
       const currentYear = new Date().getFullYear();
       const isCurrentYearLeave = new Date(leave.start_date).getFullYear() === currentYear;
       
       if (isCurrentYearLeave) {
-        setLeaveTaken(prev => Math.max(0, prev - leave.days_taken));
+        // Update leave taken for the current year
+        setLeaveTaken(prev => {
+          const newLeaveTaken = Math.max(0, prev - leave.days_taken);
+          console.log(`Updating leave taken from ${prev} to ${newLeaveTaken} days after deleting ${leave.days_taken} days`);
+          return newLeaveTaken;
+        });
+
+        // Log current leave balance state for debugging
+        console.log('Current leave balance state:', {
+          baseLeaveBalance,
+          additionalLeaveBalance,
+          totalLeaveBalance: leaveBalance,
+          leaveTaken,
+          remainingBefore: leaveBalance !== null ? leaveBalance - leaveTaken : null,
+          remainingAfter: leaveBalance !== null ? leaveBalance - (leaveTaken - leave.days_taken) : null
+        });
       }
       
       // Attempt to delete the record
@@ -578,6 +604,7 @@ export default function Leave() {
       setSuccess('Leave deleted successfully');
       
       // Do a complete data refresh in the background to ensure consistency
+      // but don't wait for it to complete
       fetchData(true);
     } catch (error: any) {
       console.error('Error deleting leave:', error);
@@ -824,7 +851,7 @@ export default function Leave() {
                 <div className="bg-purple-50 p-4 rounded-lg">
                   <h3 className="text-lg font-medium text-purple-900 mb-2">Remaining Leave</h3>
                   <div className="text-3xl font-bold text-purple-700">
-                    {leaveBalance !== null ? (leaveBalance - leaveTaken).toFixed(2) : '-'} days
+                    {remainingLeave !== null ? remainingLeave.toFixed(2) : '-'} days
                   </div>
                   <div className="text-sm text-purple-600 mt-1">
                     As of {new Date().toLocaleDateString()}
