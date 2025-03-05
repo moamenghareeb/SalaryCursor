@@ -2,7 +2,7 @@ import React from 'react';
 import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { supabase } from '../lib/supabase';
-import type { Employee as BaseEmployee, Leave } from '../types';
+import type { Employee as BaseEmployee, Leave, InLieuRecord } from '../types';
 import type { Leave as LeaveType } from '../types/models';
 import { PDFDownloadLink, Document, Page, Text, View, StyleSheet, BlobProvider } from '@react-pdf/renderer';
 
@@ -191,12 +191,14 @@ export default function Leave() {
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [loading, setLoading] = useState(true);
   const [leaves, setLeaves] = useState<Leave[]>([]);
+  const [inLieuRecords, setInLieuRecords] = useState<InLieuRecord[]>([]);
   const [leaveBalance, setLeaveBalance] = useState<number | null>(null);
   const [leaveTaken, setLeaveTaken] = useState<number>(0);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [reason, setReason] = useState('');
   const [editingLeave, setEditingLeave] = useState<Leave | null>(null);
+  const [showInLieuForm, setShowInLieuForm] = useState(false);
   const [yearsOfService, setYearsOfService] = useState<number>(0);
   const [isEditingYears, setIsEditingYears] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -238,7 +240,17 @@ export default function Leave() {
       if (leaveError) throw leaveError;
       
       setLeaves(leaveData || []);
-      console.log(leaves);
+
+      // Fetch in-lieu records
+      const { data: inLieuData, error: inLieuError } = await supabase
+        .from('in_lieu_records')
+        .select('*')
+        .eq('employee_id', user.user.id)
+        .order('created_at', { ascending: false });
+
+      if (inLieuError) throw inLieuError;
+      
+      setInLieuRecords(inLieuData || []);
 
       // Calculate total days taken for current year
       const currentYear = new Date().getFullYear();
@@ -560,76 +572,131 @@ export default function Leave() {
           </div>
 
           <div className="bg-white shadow rounded-lg p-4 sm:p-6">
-            <h2 className="text-lg sm:text-xl font-semibold mb-4">
-              {editingLeave ? 'Edit Leave Request' : 'Submit Leave Request'}
-            </h2>
-
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Start Date</label>
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full p-3 border rounded text-base"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">End Date</label>
-                <input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="w-full p-3 border rounded text-base"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">Reason</label>
-                <textarea
-                  value={reason}
-                  onChange={(e) => setReason(e.target.value)}
-                  className="w-full p-3 border rounded text-base"
-                  rows={3}
-                  required
-                />
-              </div>
-
-              <div className="flex gap-2">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg sm:text-xl font-semibold">Leave Request</h2>
+              
+              <div className="flex items-center space-x-2">
                 <button
-                  type="submit"
-                  className="w-full sm:w-auto bg-blue-600 text-white px-6 py-3 rounded-lg text-base font-medium hover:bg-blue-700"
+                  type="button"
+                  onClick={() => setShowInLieuForm(!showInLieuForm)}
+                  className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700"
+                >
+                  {showInLieuForm ? 'Cancel In-Lieu Entry' : 'Add In-Lieu Time'}
+                </button>
+              </div>
+            </div>
+            
+            {/* Only show regular leave form if not showing in-lieu form */}
+            {!showInLieuForm && (
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Start Date</label>
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="w-full p-3 border rounded text-base"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">End Date</label>
+                  <input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="w-full p-3 border rounded text-base"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">Reason</label>
+                  <textarea
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value)}
+                    className="w-full p-3 border rounded text-base"
+                    rows={3}
+                    required
+                  />
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    type="submit"
+                    className="w-full sm:w-auto bg-blue-600 text-white px-6 py-3 rounded-lg text-base font-medium hover:bg-blue-700"
+                    disabled={loading}
+                  >
+                    {editingLeave ? 'Update Leave' : 'Submit Leave'}
+                  </button>
+
+                  {editingLeave && (
+                    <button
+                      type="button"
+                      onClick={handleCancelEdit}
+                      className="w-full sm:w-auto bg-gray-600 text-white px-6 py-3 rounded-lg text-base font-medium hover:bg-gray-700"
+                      disabled={loading}
+                    >
+                      Cancel Edit
+                    </button>
+                  )}
+                </div>
+              </form>
+            )}
+            
+            {/* In-Lieu Form */}
+            {showInLieuForm && (
+              <div className="bg-green-50 p-4 rounded-lg">
+                <h3 className="text-md font-medium text-green-800 mb-3">Record In-Lieu Time</h3>
+                <p className="text-sm text-green-700 mb-3">
+                  Record days you worked (e.g., on holidays or weekends) to convert to leave days. 
+                  Each day worked adds 0.667 days to your leave balance.
+                </p>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                    <input
+                      type="date"
+                      className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-green-500"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+                    <input
+                      type="date"
+                      className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-green-500"
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+                
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Days to be Added</label>
+                  <div className="p-2 bg-white border border-gray-300 rounded">
+                    {startDate && endDate ? 
+                      `${(calculateDays(startDate, endDate) * 0.667).toFixed(2)} days will be added to your balance` : 
+                      'Select dates to calculate'
+                    }
+                  </div>
+                </div>
+                
+                <button
+                  type="button"
+                  onClick={handleInLieuOf}
+                  className="w-full bg-green-600 text-white px-6 py-3 rounded-lg text-base font-medium hover:bg-green-700"
                   disabled={loading}
                 >
-                  {editingLeave ? 'Update Leave' : 'Submit Leave'}
+                  Submit In-Lieu Time
                 </button>
-
-                {editingLeave && (
-                  <button
-                    type="button"
-                    onClick={handleCancelEdit}
-                    className="w-full sm:w-auto bg-gray-600 text-white px-6 py-3 rounded-lg text-base font-medium hover:bg-gray-700"
-                    disabled={loading}
-                  >
-                    Cancel Edit
-                  </button>
-                )}
-                
-                {!editingLeave && (
-                  <button
-                    type="button"
-                    onClick={handleInLieuOf}
-                    className="w-full sm:w-auto bg-green-600 text-white px-6 py-3 rounded-lg text-base font-medium hover:bg-green-700"
-                    disabled={loading}
-                  >
-                    Add In-Lieu Of
-                  </button>
-                )}
               </div>
-            </form>
+            )}
           </div>
 
           <div className="bg-white shadow rounded-lg p-4 sm:p-6 overflow-hidden">
@@ -712,6 +779,54 @@ export default function Leave() {
             ) : (
               <p className="text-gray-500 text-sm">No leave history available.</p>
             )}
+          </div>
+
+          <div className="bg-white shadow rounded-lg p-4 sm:p-6 mt-6 overflow-hidden">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg sm:text-xl font-semibold">In-Lieu Records</h2>
+              <div className="text-sm text-gray-500">
+                Showing all in-lieu time recorded
+              </div>
+            </div>
+            
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dates Worked</th>
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Days Worked</th>
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Leave Days Added</th>
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date Added</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {inLieuRecords.length > 0 ? (
+                    inLieuRecords.map((record) => {
+                      const startDate = new Date(record.start_date);
+                      const endDate = new Date(record.end_date);
+                      const createdDate = new Date(record.created_at);
+                      
+                      return (
+                        <tr key={record.id} className="hover:bg-gray-50">
+                          <td className="px-3 py-3 text-sm">
+                            {startDate.toLocaleDateString()} - {endDate.toLocaleDateString()}
+                          </td>
+                          <td className="px-3 py-3 text-sm">{record.days_count}</td>
+                          <td className="px-3 py-3 text-sm">{record.leave_days_added}</td>
+                          <td className="px-3 py-3 text-sm">{createdDate.toLocaleDateString()}</td>
+                        </tr>
+                      );
+                    })
+                  ) : (
+                    <tr>
+                      <td colSpan={4} className="px-3 py-4 text-sm text-center text-gray-500">
+                        No in-lieu records found
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>

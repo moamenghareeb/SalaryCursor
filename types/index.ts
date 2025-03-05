@@ -56,4 +56,15 @@ export interface SalaryCalculation {
   mobileDeduction?: number;
   absences?: number;
   sickLeave?: number;
+}
+
+export interface InLieuRecord {
+  id: string;
+  employee_id: string;
+  start_date: string;
+  end_date: string;
+  days_count: number;
+  leave_days_added: number;
+  created_at: string;
+  updated_at: string;
 } 

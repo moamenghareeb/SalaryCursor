@@ -2,7 +2,7 @@ import ProtectedRoute from '../components/ProtectedRoute';
 import Layout from '../components/Layout';
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { Employee, Salary, Leave } from '../types';
+import { Employee, Salary, Leave, InLieuRecord } from '../types';
 import Link from 'next/link';
 
 export default function Dashboard() {
@@ -11,6 +11,7 @@ export default function Dashboard() {
   const [latestSalary, setLatestSalary] = useState<Salary | null>(null);
   const [leaveBalance, setLeaveBalance] = useState<number | null>(null);
   const [leaveTaken, setLeaveTaken] = useState<number>(0);
+  const [inLieuSummary, setInLieuSummary] = useState({ count: 0, daysAdded: 0 });
 
   useEffect(() => {
     const fetchData = async () => {
@@ -62,6 +63,28 @@ export default function Dashboard() {
           const total = currentYearLeaves.reduce((sum, item) => sum + item.days_taken, 0);
           setLeaveTaken(total);
         }
+
+        // Fetch in-lieu records for the current year
+        const yearStart = new Date(currentYear, 0, 1).toISOString();
+        const yearEnd = new Date(currentYear, 11, 31).toISOString();
+        
+        const { data: inLieuData, error: inLieuError } = await supabase
+          .from('in_lieu_records')
+          .select('*')
+          .eq('employee_id', user.user.id)
+          .gte('created_at', yearStart)
+          .lte('created_at', yearEnd);
+          
+        if (inLieuError) throw inLieuError;
+        
+        // Calculate in-lieu summary
+        const totalRecords = inLieuData?.length || 0;
+        const totalDaysAdded = inLieuData?.reduce((sum, record) => sum + record.leave_days_added, 0) || 0;
+        
+        setInLieuSummary({
+          count: totalRecords,
+          daysAdded: Number(totalDaysAdded.toFixed(2))
+        });
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {
@@ -179,6 +202,25 @@ export default function Dashboard() {
                   </Link>
                 </div>
               )}
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow p-5">
+            <h3 className="text-lg font-semibold text-gray-800 mb-3">In-Lieu Summary</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm text-gray-500">Records This Year</p>
+                <p className="text-xl font-bold text-gray-800">{inLieuSummary.count}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Days Added</p>
+                <p className="text-xl font-bold text-green-600">{inLieuSummary.daysAdded}</p>
+              </div>
+            </div>
+            <div className="mt-4">
+              <Link href="/leave" className="text-blue-600 hover:underline text-sm">
+                View All In-Lieu Records →
+              </Link>
             </div>
           </div>
         </div>
