@@ -211,26 +211,48 @@ export default function Leave() {
   }, []);
 
   const fetchData = async () => {
+    setLoading(true);
+    setError(null);
+
     try {
-      setLoading(true);
-      const { data: user } = await supabase.auth.getUser();
+      // Get user
+      const { data: userData, error: userError } = await supabase.auth.getUser();
       
-      if (!user.user) {
+      if (userError) {
+        console.error('Auth error:', userError);
+        setError('Authentication error: ' + userError.message);
         setLoading(false);
         return;
       }
+      
+      if (!userData.user) {
+        setError('Not authenticated');
+        setLoading(false);
+        return;
+      }
+
+      const userId = userData.user.id;
+      console.log('Fetching data for user:', userId);
 
       // Fetch employee details
       const { data: employeeData, error: employeeError } = await supabase
         .from('employees')
         .select('*')
-        .eq('id', user.user.id)
+        .eq('id', userId)
         .single();
 
       if (employeeError) {
         console.error('Error fetching employee data:', employeeError);
+        setError('Failed to fetch employee data: ' + employeeError.message);
         setLoading(false);
-        throw employeeError;
+        return;
+      }
+
+      if (!employeeData) {
+        console.error('No employee data found');
+        setError('Employee record not found');
+        setLoading(false);
+        return;
       }
       
       setEmployee(employeeData);
@@ -240,60 +262,73 @@ export default function Leave() {
       const baseLeave = employeeData.years_of_service >= 10 ? 24.67 : 18.67;
       
       // Add any additional leave balance from in-lieu time
-      const additionalLeave = Number(employeeData.annual_leave_balance) || 0;
+      const additionalLeave = Number(employeeData.annual_leave_balance || 0);
       const totalLeaveBalance = baseLeave + additionalLeave;
       
       // Set the various leave balances
       setBaseLeaveBalance(baseLeave);
       setAdditionalLeaveBalance(additionalLeave);
       setLeaveBalance(totalLeaveBalance);
-      console.log('Total leave balance:', totalLeaveBalance, 'Base:', baseLeave, 'Additional:', employeeData.annual_leave_balance);
+      console.log('Leave balance calculation:', {
+        baseLeave,
+        additionalLeave,
+        totalLeaveBalance
+      });
 
-      // Fetch all leaves
-      const { data: leaveData, error: leaveError } = await supabase
+      // Fetch all leaves - in parallel with in-lieu records for efficiency
+      const leavesPromise = supabase
         .from('leaves')
         .select('*')
-        .eq('employee_id', user.user.id)
+        .eq('employee_id', userId)
         .order('start_date', { ascending: false });
-
-      if (leaveError) {
-        console.error('Error fetching leave data:', leaveError);
-        setLoading(false);
-        throw leaveError;
-      }
-      
-      console.log('Fetched leaves:', leaveData?.length || 0);
-      setLeaves(leaveData || []);
-
-      // Fetch in-lieu records
-      const { data: inLieuData, error: inLieuError } = await supabase
+        
+      const inLieuPromise = supabase
         .from('in_lieu_records')
         .select('*')
-        .eq('employee_id', user.user.id)
+        .eq('employee_id', userId)
         .order('created_at', { ascending: false });
-
-      if (inLieuError) {
-        console.error('Error fetching in-lieu data:', inLieuError);
+        
+      const [leavesResult, inLieuResult] = await Promise.all([leavesPromise, inLieuPromise]);
+      
+      // Handle leaves data
+      if (leavesResult.error) {
+        console.error('Error fetching leaves:', leavesResult.error);
+        setError('Failed to fetch leave data: ' + leavesResult.error.message);
         setLoading(false);
-        throw inLieuError;
+        return;
       }
       
-      console.log('Fetched in-lieu records:', inLieuData?.length || 0);
-      setInLieuRecords(inLieuData || []);
+      const leaveData = leavesResult.data || [];
+      console.log('Fetched leaves:', leaveData.length);
+      setLeaves(leaveData);
+
+      // Handle in-lieu data
+      if (inLieuResult.error) {
+        console.error('Error fetching in-lieu records:', inLieuResult.error);
+        setError('Failed to fetch in-lieu data: ' + inLieuResult.error.message);
+        setLoading(false);
+        return;
+      }
+      
+      const inLieuData = inLieuResult.data || [];
+      console.log('Fetched in-lieu records:', inLieuData.length);
+      setInLieuRecords(inLieuData);
 
       // Calculate total days taken for current year
       const currentYear = new Date().getFullYear();
-      const currentYearLeaves = (leaveData || []).filter(leave => {
-        return new Date(leave.start_date).getFullYear() === currentYear;
-      });
+      const currentYearLeaves = leaveData.filter(leave => 
+        new Date(leave.start_date).getFullYear() === currentYear
+      );
       
       const total = currentYearLeaves.reduce((sum, item) => sum + item.days_taken, 0);
+      console.log('Leave taken this year:', total);
       setLeaveTaken(total);
       
-      console.log('Leave taken this year:', total);
-      
-    } catch (error) {
+      // Clear any previous success messages after a data refresh
+      setSuccess(null);
+    } catch (error: any) {
       console.error('Error in fetchData:', error);
+      setError('An unexpected error occurred: ' + error.message);
     } finally {
       setLoading(false);
     }
@@ -506,27 +541,6 @@ export default function Leave() {
 
       console.log('Attempting to delete leave:', leave.id);
       
-      // First, check if we can read the record (to verify it exists and we have access)
-      const { data: leaveData, error: readError } = await supabase
-        .from('leaves')
-        .select('*')
-        .eq('id', leave.id)
-        .eq('employee_id', user.user.id)
-        .single();
-        
-      if (readError) {
-        console.error('Error verifying leave record:', readError);
-        setError(`Cannot verify leave record: ${readError.message}`);
-        setLoading(false);
-        return;
-      }
-      
-      if (!leaveData) {
-        setError('Leave record not found or you do not have permission to delete it');
-        setLoading(false);
-        return;
-      }
-
       // Attempt to delete the record
       const { error: deleteError } = await supabase
         .from('leaves')
@@ -540,16 +554,10 @@ export default function Leave() {
         return;
       }
 
-      // Manually remove the leave from the current state to update UI immediately
-      setLeaves(leaves.filter(l => l.id !== leave.id));
-      
-      // Update leave taken count
-      if (new Date(leave.start_date).getFullYear() === new Date().getFullYear()) {
-        setLeaveTaken(prev => Math.max(0, prev - leave.days_taken));
-      }
-      
-      // Then refresh all data to ensure everything is in sync
+      // On successful deletion, refetch all data
+      // Avoid optimistic UI updates to prevent confusion
       await fetchData();
+      
       setSuccess('Leave deleted successfully');
     } catch (error: any) {
       console.error('Error deleting leave:', error);
@@ -579,7 +587,10 @@ export default function Leave() {
 
       console.log('Attempting to delete in-lieu record:', record.id);
       
-      // First get the current balance
+      // Use an API endpoint to handle this as a transaction
+      // If you don't have an API endpoint, we'll do it directly but risks inconsistency
+      
+      // Step 1: Get current balance
       const { data: currentEmployee, error: fetchError } = await supabase
         .from('employees')
         .select('annual_leave_balance')
@@ -593,7 +604,7 @@ export default function Leave() {
         return;
       }
 
-      // Calculate new balance, ensuring it doesn't go below 0
+      // Step 2: Calculate new balance, ensuring it doesn't go below 0
       const currentBalance = Number(currentEmployee.annual_leave_balance || 0);
       const newBalance = Math.max(0, currentBalance - record.leave_days_added);
       
@@ -603,20 +614,8 @@ export default function Leave() {
         newBalance
       });
 
-      // Update the leave balance in the database
-      const { error: updateError } = await supabase
-        .from('employees')
-        .update({ annual_leave_balance: newBalance })
-        .eq('id', user.user.id);
-
-      if (updateError) {
-        console.error('Error updating balance:', updateError);
-        setError(`Failed to update leave balance: ${updateError.message}`);
-        setLoading(false);
-        return;
-      }
-
-      // Delete the in-lieu record
+      // Step 3: Delete the in-lieu record FIRST
+      // This way, if the update fails, the record still exists and can be tried again
       const { error: deleteError } = await supabase
         .from('in_lieu_records')
         .delete()
@@ -629,21 +628,23 @@ export default function Leave() {
         return;
       }
 
-      // Update state immediately to provide instant feedback
-      setInLieuRecords(inLieuRecords.filter(r => r.id !== record.id));
-      
-      // Update leave balance in UI
-      if (additionalLeaveBalance) {
-        const newAdditionalBalance = Math.max(0, additionalLeaveBalance - record.leave_days_added);
-        setAdditionalLeaveBalance(newAdditionalBalance);
-        
-        if (leaveBalance !== null) {
-          setLeaveBalance(baseLeaveBalance !== null ? baseLeaveBalance + newAdditionalBalance : newAdditionalBalance);
-        }
+      // Step 4: Update the leave balance
+      const { error: updateError } = await supabase
+        .from('employees')
+        .update({ annual_leave_balance: newBalance })
+        .eq('id', user.user.id);
+
+      if (updateError) {
+        console.error('Error updating balance:', updateError);
+        // Critical error: Record deleted but balance not updated
+        setError(`CRITICAL ERROR: Record was deleted but leave balance could not be updated: ${updateError.message}. Please contact an administrator.`);
+        setLoading(false);
+        return;
       }
-      
-      // Then refresh all data to ensure everything is in sync
+
+      // On successful transaction, refetch all data
       await fetchData();
+      
       setSuccess('In-lieu record deleted successfully');
     } catch (error: any) {
       console.error('Error deleting in-lieu record:', error);
@@ -663,18 +664,49 @@ export default function Leave() {
 
   return (
     <Layout>
-      <div className="px-4 sm:px-0">
-        <h1 className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-6">Annual Leave Management</h1>
-
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-4">
+          Leave Management
+        </h1>
+        
+        {/* Error and Success Messages */}
         {error && (
-          <div className="mb-4 bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded">
-            {error}
+          <div className="mb-6 p-4 border border-red-300 bg-red-50 rounded-md text-red-800">
+            <div className="flex items-start">
+              <svg className="h-5 w-5 text-red-400 mt-0.5 mr-2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+              <div>
+                <h3 className="text-sm font-medium">Error</h3>
+                <p className="mt-1 text-sm">{error}</p>
+                <button 
+                  className="mt-2 text-xs text-red-600 hover:text-red-800 font-medium"
+                  onClick={() => setError(null)}
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
           </div>
         )}
-
+        
         {success && (
-          <div className="mb-4 bg-green-50 border border-green-200 text-green-600 px-4 py-3 rounded">
-            {success}
+          <div className="mb-6 p-4 border border-green-300 bg-green-50 rounded-md text-green-800">
+            <div className="flex items-start">
+              <svg className="h-5 w-5 text-green-400 mt-0.5 mr-2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+              <div>
+                <h3 className="text-sm font-medium">Success</h3>
+                <p className="mt-1 text-sm">{success}</p>
+                <button 
+                  className="mt-2 text-xs text-green-600 hover:text-green-800 font-medium"
+                  onClick={() => setSuccess(null)}
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
@@ -943,17 +975,18 @@ export default function Leave() {
                               {true && (
                                 <>
                                   <button
-                                    onClick={() => handleEdit(leave)}
-                                    className="text-blue-600 hover:text-blue-800 font-medium mr-2"
-                                  >
-                                    Edit
-                                  </button>
-                                  <button
-                                    onClick={() => handleDelete(leave)}
-                                    className="text-red-600 hover:text-red-800 font-medium"
-                                  >
-                                    Delete
-                                  </button>
+                                  onClick={() => handleEdit(leave)}
+                                  className="text-blue-600 hover:text-blue-800 font-medium mr-2"
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  onClick={() => handleDelete(leave)}
+                                  className="text-red-600 hover:text-red-800 font-medium"
+                                  disabled={loading}
+                                >
+                                  {loading ? 'Deleting...' : 'Delete'}
+                                </button>
                                 </>
                               )}
                             </td>
@@ -1009,7 +1042,7 @@ export default function Leave() {
                               className="text-red-600 hover:text-red-800 font-medium"
                               disabled={loading}
                             >
-                              Delete
+                              {loading ? 'Deleting...' : 'Delete'}
                             </button>
                           </td>
                         </tr>
