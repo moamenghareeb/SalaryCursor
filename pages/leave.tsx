@@ -2,9 +2,15 @@ import React from 'react';
 import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { supabase } from '../lib/supabase';
-import type { Employee, Leave } from '../types';
+import type { Employee as BaseEmployee, Leave } from '../types';
 import type { Leave as LeaveType } from '../types/models';
 import { PDFDownloadLink, Document, Page, Text, View, StyleSheet, BlobProvider } from '@react-pdf/renderer';
+
+// Extend the Employee type to include annual_leave_balance
+interface Employee extends BaseEmployee {
+  annual_leave_balance: number;
+  leave_balance?: number; // For backward compatibility
+}
 
 // Create styles for PDF
 const styles = StyleSheet.create({
@@ -326,6 +332,81 @@ export default function Leave() {
     }
   };
 
+  // Function to handle In-Lieu Of submission
+  const handleInLieuOf = async () => {
+    if (!employee || !startDate || !endDate) {
+      setError('Please fill in all required fields');
+      return;
+    }
+
+    setError(null);
+    setSuccess(null);
+    setLoading(true);
+
+    try {
+      // Calculate days between dates
+      const days = calculateDays(startDate, endDate);
+      
+      // Calculate additional leave balance (0.667 days per day)
+      const additionalBalance = Number((days * 0.667).toFixed(2));
+
+      // First get the current balance
+      const { data: currentEmployee, error: fetchError } = await supabase
+        .from('employees')
+        .select('annual_leave_balance')
+        .eq('id', employee.id)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      const newBalance = Number(currentEmployee.annual_leave_balance || 0) + additionalBalance;
+
+      // Update the leave balance in the database
+      const { data, error } = await supabase
+        .from('employees')
+        .update({ annual_leave_balance: newBalance })
+        .eq('id', employee.id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Record the in-lieu addition
+      const { error: recordError } = await supabase
+        .from('in_lieu_records')
+        .insert({
+          employee_id: employee.id,
+          start_date: startDate,
+          end_date: endDate,
+          days_count: days,
+          leave_days_added: additionalBalance
+        });
+
+      if (recordError) throw recordError;
+
+      // Reset form
+      setStartDate('');
+      setEndDate('');
+      setReason('');
+      
+      // Update local state
+      setEmployee({
+        ...employee,
+        annual_leave_balance: newBalance
+      });
+      
+      // Refresh data to update UI
+      await fetchData();
+      
+      setSuccess(`Successfully added ${additionalBalance} days to your leave balance`);
+    } catch (error: any) {
+      console.error('Error adding in-lieu days:', error);
+      setError(error.message || 'Failed to add in-lieu days');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleEdit = (leave: Leave) => {
     setEditingLeave(leave);
     setStartDate(leave.start_date);
@@ -521,6 +602,7 @@ export default function Leave() {
                 <button
                   type="submit"
                   className="w-full sm:w-auto bg-blue-600 text-white px-6 py-3 rounded-lg text-base font-medium hover:bg-blue-700"
+                  disabled={loading}
                 >
                   {editingLeave ? 'Update Leave' : 'Submit Leave'}
                 </button>
@@ -530,8 +612,20 @@ export default function Leave() {
                     type="button"
                     onClick={handleCancelEdit}
                     className="w-full sm:w-auto bg-gray-600 text-white px-6 py-3 rounded-lg text-base font-medium hover:bg-gray-700"
+                    disabled={loading}
                   >
                     Cancel Edit
+                  </button>
+                )}
+                
+                {!editingLeave && (
+                  <button
+                    type="button"
+                    onClick={handleInLieuOf}
+                    className="w-full sm:w-auto bg-green-600 text-white px-6 py-3 rounded-lg text-base font-medium hover:bg-green-700"
+                    disabled={loading}
+                  >
+                    Add In-Lieu Of
                   </button>
                 )}
               </div>
