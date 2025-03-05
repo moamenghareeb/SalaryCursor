@@ -43,9 +43,22 @@ export default function Dashboard() {
           setLatestSalary(salaryData);
         }
 
-        // Calculate leave balance
-        const totalLeave = employeeData.years_of_service >= 10 ? 24.67 : 18.67;
-        setLeaveBalance(totalLeave);
+        // Calculate base leave balance based on years of service
+        const baseLeave = employeeData.years_of_service >= 10 ? 24.67 : 18.67;
+        
+        // Add additional leave balance from in-lieu time
+        const additionalLeave = Number(employeeData.annual_leave_balance || 0);
+        const totalLeaveBalance = baseLeave + additionalLeave;
+        
+        // Set the total leave balance
+        setLeaveBalance(totalLeaveBalance);
+        
+        console.log('Dashboard leave balance calculation:', {
+          baseLeave,
+          additionalLeave,
+          totalLeaveBalance,
+          employeeBalance: employeeData.annual_leave_balance
+        });
 
         // Calculate leave taken this year
         const currentYear = new Date().getFullYear();
@@ -174,15 +187,21 @@ export default function Dashboard() {
             
             <div className="bg-white shadow rounded-lg p-4 sm:p-6">
               <h2 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4">Annual Leave</h2>
-              {leaveBalance !== null && (
+              {leaveBalance !== null && employee && (
                 <div className="space-y-4">
                   <div className="p-3 bg-gray-50 rounded-lg">
                     <p className="text-sm text-gray-600">Years of Service</p>
-                    <p className="text-lg font-medium mt-1">{employee?.years_of_service} years</p>
+                    <p className="text-lg font-medium mt-1">{employee.years_of_service} years</p>
                   </div>
                   <div className="p-3 bg-gray-50 rounded-lg">
                     <p className="text-sm text-gray-600">Annual Leave Entitlement</p>
-                    <p className="text-lg font-medium mt-1">{leaveBalance} days</p>
+                    <p className="text-lg font-medium mt-1">{leaveBalance.toFixed(2)} days</p>
+                    <div className="mt-1 text-sm text-gray-600">
+                      <div>Base: {employee.years_of_service >= 10 ? 24.67 : 18.67} days</div>
+                      {(employee.annual_leave_balance || 0) > 0 && (
+                        <div className="font-medium">+{Number(employee.annual_leave_balance || 0).toFixed(2)} in-lieu days</div>
+                      )}
+                    </div>
                   </div>
                   <div className="p-3 bg-gray-50 rounded-lg">
                     <p className="text-sm text-gray-600">Leave Taken This Year</p>

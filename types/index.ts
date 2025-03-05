@@ -5,6 +5,7 @@ export interface Employee {
   employee_id: string;
   position: string;
   years_of_service: number;
+  annual_leave_balance?: number;
   is_admin: boolean;
   created_at: string;
   updated_at: string;
