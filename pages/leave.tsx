@@ -203,6 +203,8 @@ export default function Leave() {
   const [isEditingYears, setIsEditingYears] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [baseLeaveBalance, setBaseLeaveBalance] = useState<number | null>(null);
+  const [additionalLeaveBalance, setAdditionalLeaveBalance] = useState<number>(0);
 
   useEffect(() => {
     fetchData();
@@ -210,6 +212,7 @@ export default function Leave() {
 
   const fetchData = async () => {
     try {
+      setLoading(true);
       const { data: user } = await supabase.auth.getUser();
       
       if (!user.user) return;
@@ -226,9 +229,18 @@ export default function Leave() {
       setEmployee(employeeData);
       setYearsOfService(employeeData.years_of_service);
 
-      // Calculate leave balance
-      const totalLeave = employeeData.years_of_service >= 10 ? 24.67 : 18.67;
-      setLeaveBalance(totalLeave);
+      // Calculate base leave balance based on years of service
+      const baseLeave = employeeData.years_of_service >= 10 ? 24.67 : 18.67;
+      
+      // Add any additional leave balance from in-lieu time
+      const additionalLeave = Number(employeeData.annual_leave_balance) || 0;
+      const totalLeaveBalance = baseLeave + additionalLeave;
+      
+      // Set the various leave balances
+      setBaseLeaveBalance(baseLeave);
+      setAdditionalLeaveBalance(additionalLeave);
+      setLeaveBalance(totalLeaveBalance);
+      console.log('Total leave balance:', totalLeaveBalance, 'Base:', baseLeave, 'Additional:', employeeData.annual_leave_balance);
 
       // Fetch all leaves
       const { data: leaveData, error: leaveError } = await supabase
@@ -371,7 +383,16 @@ export default function Leave() {
 
       if (fetchError) throw fetchError;
 
-      const newBalance = Number(currentEmployee.annual_leave_balance || 0) + additionalBalance;
+      // Calculate new balance, ensuring we handle null values properly
+      const currentBalance = Number(currentEmployee.annual_leave_balance || 0);
+      const newBalance = currentBalance + additionalBalance;
+      
+      console.log('In-lieu calculation:', {
+        currentBalance,
+        additionalBalance,
+        newBalance,
+        days
+      });
 
       // Update the leave balance in the database
       const { data, error } = await supabase
@@ -400,14 +421,9 @@ export default function Leave() {
       setStartDate('');
       setEndDate('');
       setReason('');
+      setShowInLieuForm(false);
       
-      // Update local state
-      setEmployee({
-        ...employee,
-        annual_leave_balance: newBalance
-      });
-      
-      // Refresh data to update UI
+      // Properly refresh all data including leave balance
       await fetchData();
       
       setSuccess(`Successfully added ${additionalBalance} days to your leave balance`);
@@ -452,23 +468,56 @@ export default function Leave() {
   };
 
   const handleDelete = async (leave: Leave) => {
+    if (!confirm('Are you sure you want to delete this leave record?')) {
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    setSuccess(null);
+
     try {
       const { data: user } = await supabase.auth.getUser();
       
       if (!user.user) {
         setError('User not authenticated');
+        setLoading(false);
         return;
       }
 
+      console.log('Attempting to delete leave:', leave.id);
+      
+      // First, check if we can read the record (to verify it exists and we have access)
+      const { data: leaveData, error: readError } = await supabase
+        .from('leaves')
+        .select('*')
+        .eq('id', leave.id)
+        .eq('employee_id', user.user.id)
+        .single();
+        
+      if (readError) {
+        console.error('Error verifying leave record:', readError);
+        setError(`Cannot verify leave record: ${readError.message}`);
+        setLoading(false);
+        return;
+      }
+      
+      if (!leaveData) {
+        setError('Leave record not found or you do not have permission to delete it');
+        setLoading(false);
+        return;
+      }
+
+      // Attempt to delete the record
       const { error: deleteError } = await supabase
         .from('leaves')
         .delete()
-        .eq('id', leave.id)
-        .eq('employee_id', user.user.id);  // Add employee_id check for security
+        .eq('id', leave.id);
 
       if (deleteError) {
         console.error('Supabase Delete Error:', deleteError);
         setError(`Failed to delete leave: ${deleteError.message}`);
+        setLoading(false);
         return;
       }
 
@@ -478,6 +527,8 @@ export default function Leave() {
     } catch (error: any) {
       console.error('Error deleting leave:', error);
       setError(error.message || 'Failed to delete leave request');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -552,21 +603,37 @@ export default function Leave() {
                 </div>
               )}
 
-              <div className="p-3 bg-gray-50 rounded-lg">
-                <p className="text-sm text-gray-600">Annual Leave Entitlement</p>
-                <p className="text-lg font-medium mt-1">{leaveBalance} days</p>
-              </div>
-
-              <div className="p-3 bg-gray-50 rounded-lg">
-                <p className="text-sm text-gray-600">Leave Taken This Year</p>
-                <p className="text-lg font-medium mt-1">{leaveTaken} days</p>
-              </div>
-
-              <div className="p-4 bg-blue-50 rounded-lg">
-                <p className="text-sm text-gray-600">Remaining Leave</p>
-                <p className="text-2xl font-bold text-blue-600 mt-1">
-                  {((leaveBalance || 0) - leaveTaken).toFixed(2)} days
-                </p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <h3 className="text-lg font-medium text-blue-900 mb-2">Annual Leave Balance</h3>
+                  <div className="text-3xl font-bold text-blue-700">
+                    {leaveBalance !== null ? leaveBalance.toFixed(2) : '-'} days
+                  </div>
+                  <div className="text-sm text-blue-600 mt-1">
+                    <div>Base: {baseLeaveBalance !== null ? baseLeaveBalance.toFixed(2) : '-'} days</div>
+                    {additionalLeaveBalance > 0 && (
+                      <div className="font-medium">+{additionalLeaveBalance.toFixed(2)} in-lieu days</div>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="bg-green-50 p-4 rounded-lg">
+                  <h3 className="text-lg font-medium text-green-900 mb-2">Leave Taken (This Year)</h3>
+                  <div className="text-3xl font-bold text-green-700">{leaveTaken} days</div>
+                  <div className="text-sm text-green-600 mt-1">
+                    From {leaves.length} leave requests
+                  </div>
+                </div>
+                
+                <div className="bg-purple-50 p-4 rounded-lg">
+                  <h3 className="text-lg font-medium text-purple-900 mb-2">Remaining Leave</h3>
+                  <div className="text-3xl font-bold text-purple-700">
+                    {leaveBalance !== null ? (leaveBalance - leaveTaken).toFixed(2) : '-'} days
+                  </div>
+                  <div className="text-sm text-purple-600 mt-1">
+                    As of {new Date().toLocaleDateString()}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
