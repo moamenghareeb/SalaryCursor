@@ -45,13 +45,15 @@ export interface SalaryCalculation {
   overtimeHours: number;
   overtimePay: number;
   variablePay: number;
-  actAsPay: number;
-  pensionPlan: number;
-  retroactiveDeduction: number;
-  premiumCardDeduction: number;
-  mobileDeduction: number;
-  absences: number;
-  sickLeave: number;
+  deduction: number;
   totalSalary: number;
   exchangeRate: number;
+  
+  // Additional fields used in PDF generation
+  actAsPay?: number;
+  pensionPlan?: number;
+  premiumCardDeduction?: number;
+  mobileDeduction?: number;
+  absences?: number;
+  sickLeave?: number;
 } 

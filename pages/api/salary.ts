@@ -1,6 +1,21 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { supabase } from '../../lib/supabase';
 
+// Define SalaryData interface
+interface SalaryData {
+  employee_id: string;
+  month: string;
+  basic_salary: number;
+  cost_of_living: number;
+  shift_allowance: number;
+  overtime_hours: number;
+  overtime_pay: number;
+  variable_pay: number;
+  deduction: number;
+  total_salary: number;
+  exchange_rate: number;
+}
+
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
@@ -109,58 +124,28 @@ export default async function handler(
   
   // Handle POST request to save salary data
   if (req.method === 'POST') {
-    const salaryData = req.body;
-    
-    if (!salaryData.employee_id || !salaryData.month) {
-      return res.status(400).json({ error: 'Employee ID and month are required' });
-    }
-    
     try {
-      // Define interface for salary data
-      interface SalaryData {
-        employee_id: string;
-        month: string;
-        basic_salary: number;
-        cost_of_living: number;
-        shift_allowance: number;
-        overtime_hours: number;
-        overtime_pay: number;
-        variable_pay: number;
-        act_as_pay: number;
-        pension_plan: number;
-        retroactive_deduction: number;
-        premium_card_deduction: number;
-        mobile_deduction: number;
-        sick_leave: number;
-        total_salary: number;
-        exchange_rate: number;
-        absences?: number; // Optional
+      // Validate request body
+      const { employee_id, month, ...salaryData } = req.body;
+      
+      if (!employee_id || !month) {
+        return res.status(400).json({ error: 'Employee ID and month are required' });
       }
       
-      // Validate and sanitize input data to prevent schema issues
+      // Create sanitized data object with proper defaults for any missing fields
       const sanitizedData: SalaryData = {
-        employee_id: salaryData.employee_id,
-        month: salaryData.month,
+        employee_id,
+        month,
         basic_salary: salaryData.basic_salary || 0,
         cost_of_living: salaryData.cost_of_living || 0,
         shift_allowance: salaryData.shift_allowance || 0,
         overtime_hours: salaryData.overtime_hours || 0,
         overtime_pay: salaryData.overtime_pay || 0,
         variable_pay: salaryData.variable_pay || 0,
-        act_as_pay: salaryData.act_as_pay || 0,
-        pension_plan: salaryData.pension_plan || 0,
-        retroactive_deduction: salaryData.retroactive_deduction || 0,
-        premium_card_deduction: salaryData.premium_card_deduction || 0,
-        mobile_deduction: salaryData.mobile_deduction || 0,
-        sick_leave: salaryData.sick_leave || 0,
+        deduction: salaryData.deduction || 0,
         total_salary: salaryData.total_salary || 0,
         exchange_rate: salaryData.exchange_rate || 0,
       };
-
-      // Add absences field if present, otherwise default to 0
-      if ('absences' in salaryData) {
-        sanitizedData.absences = salaryData.absences || 0;
-      }
       
       // Check if a record already exists for this employee and month
       let existingRecord = null;

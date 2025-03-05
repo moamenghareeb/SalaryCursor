@@ -35,6 +35,20 @@ export default function Salary() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
 
+  // Update the SalaryCalculation interface
+  interface SalaryCalculation {
+    basicSalary: number;
+    costOfLiving: number;
+    shiftAllowance: number;
+    overtimeHours: number;
+    overtimePay: number;
+    variablePay: number;
+    deduction: number;
+    totalSalary: number;
+    exchangeRate: number;
+  }
+
+  // Update default calculation values
   const defaultSalaryCalc: SalaryCalculation = {
     basicSalary: 0,
     costOfLiving: 0,
@@ -42,15 +56,9 @@ export default function Salary() {
     overtimeHours: 0,
     overtimePay: 0,
     variablePay: 0,
-    actAsPay: 0,
-    pensionPlan: 0,
-    retroactiveDeduction: 0,
-    premiumCardDeduction: 0,
-    mobileDeduction: 0,
-    absences: 0,
-    sickLeave: 0,
+    deduction: 0,
     totalSalary: 0,
-    exchangeRate: exchangeRate,
+    exchangeRate: 0,
   };
 
   const [salaryCalc, setSalaryCalc] = useState<SalaryCalculation>(defaultSalaryCalc);
@@ -66,13 +74,7 @@ export default function Salary() {
           costOfLiving: data.costOfLiving,
           shiftAllowance: data.shiftAllowance,
           overtimeHours: data.overtimeHours,
-          actAsPay: data.actAsPay,
-          pensionPlan: data.pensionPlan,
-          retroactiveDeduction: data.retroactiveDeduction,
-          premiumCardDeduction: data.premiumCardDeduction,
-          mobileDeduction: data.mobileDeduction,
-          absences: data.absences,
-          sickLeave: data.sickLeave,
+          deduction: data.deduction,
         };
         localStorage.setItem(storageKey, JSON.stringify(inputsToSave));
         console.log('✅ Saved salary inputs to localStorage:', inputsToSave);
@@ -95,7 +97,10 @@ export default function Salary() {
         if (savedData) {
           const parsedData = JSON.parse(savedData);
           console.log('✅ Found and loaded salary inputs from localStorage:', parsedData);
-          return parsedData;
+          return {
+            ...parsedData,
+            deduction: parsedData.deduction || 0,
+          };
         } else {
           console.log('No saved inputs found in localStorage');
         }
@@ -148,20 +153,14 @@ export default function Salary() {
   };
 
   const calculateSalary = async () => {
-    if (!employee) return;
+    setCalculationLoading(true);
     
-    // Process input values
+    // Extract values from state
     const basicSalary = salaryCalc.basicSalary || 0;
     const costOfLiving = salaryCalc.costOfLiving || 0;
     const shiftAllowance = salaryCalc.shiftAllowance || 0;
     const overtimeHours = salaryCalc.overtimeHours || 0;
-    const actAsPay = salaryCalc.actAsPay || 0;
-    const pensionPlan = salaryCalc.pensionPlan || 0;
-    const retroactiveDeduction = salaryCalc.retroactiveDeduction || 0;
-    const premiumCardDeduction = salaryCalc.premiumCardDeduction || 0;
-    const mobileDeduction = salaryCalc.mobileDeduction || 0;
-    const absences = salaryCalc.absences || 0;
-    const sickLeave = salaryCalc.sickLeave || 0;
+    const deduction = salaryCalc.deduction || 0;
     
     // Calculate overtime pay: (basic + cost of living) / 240 * 1.5 * overtime hours
     const overtimeRate = (basicSalary + costOfLiving) / 240 * 1.5;
@@ -170,11 +169,10 @@ export default function Salary() {
     // Calculate variable pay for each formula segment
     const variablePay = calculateVariablePay(basicSalary);
     
-    // Calculate total salary
+    // Calculate total salary with simplified deductions
     const totalSalary = 
-      basicSalary + costOfLiving + shiftAllowance + overtimePay + variablePay +
-      actAsPay - pensionPlan - retroactiveDeduction - premiumCardDeduction -
-      mobileDeduction - absences - sickLeave;
+      basicSalary + costOfLiving + shiftAllowance + overtimePay + variablePay - 
+      deduction;
     
     const newCalc = {
       ...salaryCalc,
@@ -225,13 +223,7 @@ export default function Salary() {
           if (savedInputs.costOfLiving !== undefined) newState.costOfLiving = savedInputs.costOfLiving;
           if (savedInputs.shiftAllowance !== undefined) newState.shiftAllowance = savedInputs.shiftAllowance;
           if (savedInputs.overtimeHours !== undefined) newState.overtimeHours = savedInputs.overtimeHours;
-          if (savedInputs.actAsPay !== undefined) newState.actAsPay = savedInputs.actAsPay;
-          if (savedInputs.pensionPlan !== undefined) newState.pensionPlan = savedInputs.pensionPlan;
-          if (savedInputs.retroactiveDeduction !== undefined) newState.retroactiveDeduction = savedInputs.retroactiveDeduction;
-          if (savedInputs.premiumCardDeduction !== undefined) newState.premiumCardDeduction = savedInputs.premiumCardDeduction;
-          if (savedInputs.mobileDeduction !== undefined) newState.mobileDeduction = savedInputs.mobileDeduction;
-          if (savedInputs.absences !== undefined) newState.absences = savedInputs.absences;
-          if (savedInputs.sickLeave !== undefined) newState.sickLeave = savedInputs.sickLeave;
+          if (savedInputs.deduction !== undefined) newState.deduction = savedInputs.deduction;
           
           return newState;
         });
@@ -268,13 +260,7 @@ export default function Salary() {
         overtime_hours: salaryCalc.overtimeHours || 0,
         overtime_pay: salaryCalc.overtimePay || 0,
         variable_pay: salaryCalc.variablePay || 0,
-        act_as_pay: salaryCalc.actAsPay || 0,
-        pension_plan: salaryCalc.pensionPlan || 0,
-        retroactive_deduction: salaryCalc.retroactiveDeduction || 0,
-        premium_card_deduction: salaryCalc.premiumCardDeduction || 0,
-        mobile_deduction: salaryCalc.mobileDeduction || 0,
-        absences: salaryCalc.absences || 0,
-        sick_leave: salaryCalc.sickLeave || 0,
+        deduction: salaryCalc.deduction || 0,
         total_salary: salaryCalc.totalSalary || 0,
         exchange_rate: exchangeRate,
       };
@@ -615,13 +601,7 @@ to add the missing absences column to the salaries table.
           overtimeHours: calcData.overtime_hours,
           overtimePay: calcData.overtime_pay,
           variablePay: calcData.variable_pay,
-          actAsPay: calcData.act_as_pay,
-          pensionPlan: calcData.pension_plan,
-          retroactiveDeduction: calcData.retroactive_deduction,
-          premiumCardDeduction: calcData.premium_card_deduction,
-          mobileDeduction: calcData.mobile_deduction,
-          absences: calcData.absences,
-          sickLeave: calcData.sick_leave,
+          deduction: calcData.deduction,
           totalSalary: calcData.total_salary,
           exchangeRate: calcData.exchange_rate,
         });
@@ -643,13 +623,7 @@ to add the missing absences column to the salaries table.
             overtimeHours: salaryData.overtime_hours,
             overtimePay: salaryData.overtime_pay,
             variablePay: salaryData.variable_pay,
-            actAsPay: salaryData.act_as_pay,
-            pensionPlan: salaryData.pension_plan,
-            retroactiveDeduction: salaryData.retroactive_deduction,
-            premiumCardDeduction: salaryData.premium_card_deduction,
-            mobileDeduction: salaryData.mobile_deduction,
-            absences: salaryData.absences,
-            sickLeave: salaryData.sick_leave,
+            deduction: salaryData.deduction,
             totalSalary: salaryData.total_salary,
             exchangeRate: salaryData.exchange_rate,
           });
@@ -833,79 +807,13 @@ to add the missing absences column to the salaries table.
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium mb-1">Act As Pay (F)</label>
+                  <label className="block text-sm font-medium mb-1">Deduction (H)</label>
                   <input
                     type="number"
-                    value={salaryCalc.actAsPay || ''}
-                    onChange={(e) => handleInputChange('actAsPay', parseFloat(e.target.value) || 0)}
-                    className="w-full p-3 border rounded text-base"
-                    placeholder="Enter act as pay"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium mb-1">Pension Plan Employee Contribution (G)</label>
-                  <input
-                    type="number"
-                    value={salaryCalc.pensionPlan || ''}
-                    onChange={(e) => handleInputChange('pensionPlan', parseFloat(e.target.value) || 0)}
-                    className="w-full p-3 border rounded text-base"
-                    placeholder="Enter pension plan contribution"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium mb-1">Retroactive Deduction (H)</label>
-                  <input
-                    type="number"
-                    value={salaryCalc.retroactiveDeduction || ''}
-                    onChange={(e) => handleInputChange('retroactiveDeduction', parseFloat(e.target.value) || 0)}
-                    className="w-full p-3 border rounded text-base"
-                    placeholder="Enter retroactive deduction"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium mb-1">Premium Card Deduction (I)</label>
-                  <input
-                    type="number"
-                    value={salaryCalc.premiumCardDeduction || ''}
-                    onChange={(e) => handleInputChange('premiumCardDeduction', parseFloat(e.target.value) || 0)}
-                    className="w-full p-3 border rounded text-base"
-                    placeholder="Enter premium card deduction"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium mb-1">Mobile Deduction (J)</label>
-                  <input
-                    type="number"
-                    value={salaryCalc.mobileDeduction || ''}
-                    onChange={(e) => handleInputChange('mobileDeduction', parseFloat(e.target.value) || 0)}
-                    className="w-full p-3 border rounded text-base"
-                    placeholder="Enter mobile deduction"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium mb-1">Absences (K)</label>
-                  <input
-                    type="number"
-                    value={salaryCalc.absences || ''}
-                    onChange={(e) => handleInputChange('absences', parseFloat(e.target.value) || 0)}
-                    className="w-full p-3 border rounded text-base"
-                    placeholder="Enter absences"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium mb-1">Sick Leave (L)</label>
-                  <input
-                    type="number"
-                    value={salaryCalc.sickLeave || ''}
-                    onChange={(e) => handleInputChange('sickLeave', parseFloat(e.target.value) || 0)}
-                    className="w-full p-3 border rounded text-base"
-                    placeholder="Enter sick leave"
+                    value={salaryCalc.deduction || ''}
+                    onChange={(e) => handleInputChange('deduction', parseFloat(e.target.value) || 0)}
+                    className="w-full px-3 py-2 border rounded-md"
+                    placeholder="Enter deduction"
                   />
                 </div>
                 
@@ -959,28 +867,16 @@ to add the missing absences column to the salaries table.
                 </div>
                 
                 <div className="p-3 bg-gray-50 rounded-lg">
-                  <p className="text-gray-600 text-sm font-medium">Act As Pay (F)</p>
-                  <p className="text-lg font-medium mt-1">{(salaryCalc?.actAsPay || 0).toFixed(2)} EGP</p>
-                </div>
-                
-                <div className="p-3 bg-gray-50 rounded-lg">
-                  <p className="text-gray-600 text-sm font-medium">Deductions (G+H+I+J+K+L)</p>
+                  <p className="text-gray-600 text-sm font-medium">Deductions (H)</p>
                   <p className="text-lg font-medium mt-1 text-red-600">
-                    {(
-                      (salaryCalc?.pensionPlan || 0) +
-                      (salaryCalc?.retroactiveDeduction || 0) +
-                      (salaryCalc?.premiumCardDeduction || 0) +
-                      (salaryCalc?.mobileDeduction || 0) +
-                      (salaryCalc?.absences || 0) +
-                      (salaryCalc?.sickLeave || 0)
-                    ).toFixed(2)} EGP
+                    {(salaryCalc?.deduction || 0).toFixed(2)} EGP
                   </p>
                 </div>
                 
                 <div className="p-4 bg-green-50 rounded-lg mt-4">
                   <p className="text-gray-600 text-sm font-medium">Total Salary</p>
                   <p className="text-2xl font-bold text-green-600 mt-1">{(salaryCalc?.totalSalary || 0).toFixed(2)} EGP</p>
-                  <p className="text-xs text-gray-500 mt-1">A + B + C + D + E + F - (G + H + I + J + K + L)</p>
+                  <p className="text-xs text-gray-500 mt-1">A + B + C + D + E - H</p>
                 </div>
               </div>
               
@@ -1101,13 +997,7 @@ to add the missing absences column to the salaries table.
                                           overtimeHours: salary?.overtime_hours || 0,
                                           overtimePay: salary?.overtime_pay || 0,
                                           variablePay: salary?.variable_pay || 0,
-                                          actAsPay: salary?.act_as_pay || 0,
-                                          pensionPlan: salary?.pension_plan || 0,
-                                          retroactiveDeduction: salary?.retroactive_deduction || 0,
-                                          premiumCardDeduction: salary?.premium_card_deduction || 0,
-                                          mobileDeduction: salary?.mobile_deduction || 0,
-                                          absences: salary?.absences || 0,
-                                          sickLeave: salary?.sick_leave || 0,
+                                          deduction: salary?.deduction || 0,
                                           totalSalary: salary?.total_salary || 0,
                                           exchangeRate: salary?.exchange_rate || exchangeRate || 31.50,
                                         }}

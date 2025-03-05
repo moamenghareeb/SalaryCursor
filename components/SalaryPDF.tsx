@@ -152,8 +152,8 @@ const SalaryPDF: React.FC<SalaryPDFProps> = ({ salary, employee, month }) => {
           <Text style={styles.value}>{(salary.pensionPlan || 0).toFixed(2)} EGP</Text>
         </View>
         <View style={styles.row}>
-          <Text style={styles.label}>Retroactive Deduction (H)</Text>
-          <Text style={styles.value}>{(salary.retroactiveDeduction || 0).toFixed(2)} EGP</Text>
+          <Text style={styles.label}>Deduction (H)</Text>
+          <Text style={styles.value}>{(salary.deduction || 0).toFixed(2)} EGP</Text>
         </View>
         <View style={styles.row}>
           <Text style={styles.label}>Premium Card Deduction (I)</Text>
