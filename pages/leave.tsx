@@ -286,12 +286,14 @@ export default function Leave() {
       });
 
       // Fetch all leaves - in parallel with in-lieu records for efficiency
+      console.log('Fetching leaves for employee:', userId);
       const leavesPromise = supabase
         .from('leaves')
         .select('*')
         .eq('employee_id', userId)
         .order('start_date', { ascending: false });
         
+      console.log('Fetching in-lieu records for employee:', userId);
       const inLieuPromise = supabase
         .from('in_lieu_records')
         .select('*')
@@ -309,6 +311,7 @@ export default function Leave() {
       }
       
       const leaveData = leavesResult.data || [];
+      console.log('Fetched leaves query result:', leavesResult);
       console.log('Fetched leaves:', leaveData.length, leaveData);
       setLeaves(leaveData);
 
@@ -321,7 +324,8 @@ export default function Leave() {
       }
       
       const inLieuData = inLieuResult.data || [];
-      console.log('Fetched in-lieu records:', inLieuData.length);
+      console.log('Fetched in-lieu query result:', inLieuResult);
+      console.log('Fetched in-lieu records:', inLieuData.length, inLieuData);
       setInLieuRecords(inLieuData);
 
       // Calculate total days taken for current year
@@ -343,6 +347,8 @@ export default function Leave() {
       if (!preserveSuccess) {
         setSuccess(null);
       }
+      
+      setLoading(false);
     } catch (error: any) {
       console.error('Error in fetchData:', error);
       setError('An unexpected error occurred: ' + error.message);
@@ -557,6 +563,7 @@ export default function Leave() {
       }
 
       console.log('Attempting to delete leave:', leave.id);
+      console.log('Leave record details:', leave);
       
       // Immediately remove from UI to provide instant feedback
       setLeaves(prevLeaves => prevLeaves.filter(l => l.id !== leave.id));
@@ -584,17 +591,30 @@ export default function Leave() {
         });
       }
       
-      // Attempt to delete the record
-      const { error: deleteError } = await supabase
+      // Attempt to delete the record with detailed logging
+      console.log('Executing Supabase delete for leave ID:', leave.id);
+      const deleteResponse = await supabase
         .from('leaves')
         .delete()
         .eq('id', leave.id);
 
-      if (deleteError) {
-        console.error('Supabase Delete Error:', deleteError);
-        setError(`Failed to delete leave: ${deleteError.message}`);
+      console.log('Delete response:', deleteResponse);
+
+      if (deleteResponse.error) {
+        console.error('Supabase Delete Error:', deleteResponse.error);
+        setError(`Failed to delete leave: ${deleteResponse.error.message || 'Unknown error'}`);
         
         // Revert UI if deletion failed
+        fetchData();
+        setLoading(false);
+        return;
+      }
+
+      // Log the count of affected rows to verify deletion worked
+      console.log(`Deleted ${deleteResponse.count || 0} records`);
+      
+      if (!deleteResponse.count || deleteResponse.count === 0) {
+        setError('Delete operation completed but no records were affected. The record may no longer exist or you may not have permission to delete it.');
         fetchData();
         setLoading(false);
         return;
@@ -636,6 +656,7 @@ export default function Leave() {
       }
 
       console.log('Attempting to delete in-lieu record:', record.id);
+      console.log('In-lieu record details:', record);
       
       // Immediately remove from UI for instant feedback
       setInLieuRecords(prevRecords => prevRecords.filter(r => r.id !== record.id));
@@ -674,33 +695,48 @@ export default function Leave() {
       setAdditionalLeaveBalance(newBalance);
       setLeaveBalance((baseLeaveBalance || 0) + newBalance);
 
-      // Step 3: Delete the in-lieu record FIRST
-      // This way, if the update fails, the record still exists and can be tried again
-      const { error: deleteError } = await supabase
+      // Step 3: Delete the in-lieu record FIRST with detailed logging
+      console.log('Executing Supabase delete for in-lieu ID:', record.id);
+      const deleteResponse = await supabase
         .from('in_lieu_records')
         .delete()
         .eq('id', record.id);
 
-      if (deleteError) {
-        console.error('Error deleting in-lieu record:', deleteError);
-        setError(`Failed to delete in-lieu record: ${deleteError.message}`);
+      console.log('Delete response:', deleteResponse);
+
+      if (deleteResponse.error) {
+        console.error('Error deleting in-lieu record:', deleteResponse.error);
+        setError(`Failed to delete in-lieu record: ${deleteResponse.error.message || 'Unknown error'}`);
         
         // Revert UI if deletion failed
         fetchData();
         setLoading(false);
         return;
       }
+      
+      // Log the count of affected rows to verify deletion worked
+      console.log(`Deleted ${deleteResponse.count || 0} in-lieu records`);
+      
+      if (!deleteResponse.count || deleteResponse.count === 0) {
+        setError('Delete operation completed but no records were affected. The record may no longer exist or you may not have permission to delete it.');
+        fetchData();
+        setLoading(false);
+        return;
+      }
 
       // Step 4: Update the leave balance
-      const { error: updateError } = await supabase
+      console.log('Updating employee leave balance to:', newBalance);
+      const updateResponse = await supabase
         .from('employees')
         .update({ annual_leave_balance: newBalance })
         .eq('id', user.user.id);
 
-      if (updateError) {
-        console.error('Error updating balance:', updateError);
+      console.log('Update response:', updateResponse);
+
+      if (updateResponse.error) {
+        console.error('Error updating balance:', updateResponse.error);
         // Critical error: Record deleted but balance not updated
-        setError(`CRITICAL ERROR: Record was deleted but leave balance could not be updated: ${updateError.message}. Please contact an administrator.`);
+        setError(`CRITICAL ERROR: Record was deleted but leave balance could not be updated: ${updateResponse.error.message || 'Unknown error'}. Please contact an administrator.`);
         
         // Even in critical error, refresh data to show current state
         fetchData();
