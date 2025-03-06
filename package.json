@@ -15,6 +15,7 @@
     "@sentry/nextjs": "^9.4.0",
     "@supabase/auth-helpers-nextjs": "^0.10.0",
     "@supabase/supabase-js": "^2.38.4",
+    "axios": "^1.8.1",
     "bcryptjs": "^3.0.2",
     "next": "^14.2.24",
     "next-auth": "^4.24.11",
