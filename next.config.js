@@ -25,6 +25,9 @@ const nextConfig = {
     }
     return config
   },
+  // Disable static optimization for authenticated pages
+  unstable_runtimeJS: true,
+  unstable_JsPreload: false,
   // Redirects and rewrites for SEO and performance
   async redirects() {
     return [

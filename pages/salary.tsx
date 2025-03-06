@@ -8,6 +8,7 @@ import SalaryPDF from '../components/SalaryPDF';
 import { User } from '@supabase/supabase-js';
 import { useSession } from 'next-auth/react';
 import axios from 'axios';
+import { useRouter } from 'next/router';
 
 // Register fonts - use direct font import
 Font.register({
@@ -26,7 +27,8 @@ Font.register({
 });
 
 export default function Salary() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
+  const router = useRouter();
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [loading, setLoading] = useState(true);
   const [calculationLoading, setCalculationLoading] = useState(false);
@@ -711,6 +713,20 @@ to add the missing absences column to the salaries table.
 
     fetchSalaryData();
   }, [session]);
+
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.push('/login');
+    }
+  }, [status, router]);
+
+  if (status === 'loading') {
+    return <div>Loading...</div>;
+  }
+
+  if (!session) {
+    return null;
+  }
 
   if (loading) {
     return (
