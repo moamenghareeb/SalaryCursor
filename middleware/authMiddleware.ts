@@ -17,7 +17,7 @@ export async function authMiddleware(req: NextRequest) {
 
   if (isProtectedRoute) {
     if (!token) {
-      return NextResponse.redirect(new URL('/login', req.url))
+      return NextResponse.redirect(new URL('/auth/login', req.url))
     }
 
     // Role-based access control
