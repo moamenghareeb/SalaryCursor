@@ -32,7 +32,32 @@ const nextConfig = {
   async redirects() {
     return [
       {
-        source:
+        source: '/old-salary-page',
+        destination: '/salary',
+        permanent: true,
+      }
+    ]
+  },
+  // Headers for security and performance
+  async headers() {
+    return [
+      {
+        source: '/api/:path*',
+        headers: [
+          { 
+            key: 'Access-Control-Allow-Origin', 
+            value: '*' 
+          },
+          { 
+            key: 'Access-Control-Allow-Methods', 
+            value: 'GET,POST,PUT,DELETE,OPTIONS' 
+          },
+          { 
+            key: 'Cache-Control', 
+            value: 'public, max-age=3600, stale-while-revalidate' 
+          }
+        ]
+      }
     ]
   }
 }
