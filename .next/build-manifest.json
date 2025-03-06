@@ -5,8 +5,8 @@
   "devFiles": [],
   "ampDevFiles": [],
   "lowPriorityFiles": [
-    "static/FnjUUFq4_KDg4xTlPnDZM/_buildManifest.js",
-    "static/FnjUUFq4_KDg4xTlPnDZM/_ssgManifest.js"
+    "static/3pLoA_xlzaVTewc5RN4lL/_buildManifest.js",
+    "static/3pLoA_xlzaVTewc5RN4lL/_ssgManifest.js"
   ],
   "rootMainFiles": [],
   "pages": {
@@ -85,7 +85,7 @@
       "static/chunks/664-fb5491d3140dd9e7.js",
       "static/chunks/633-14f527bff054cc1e.js",
       "static/chunks/154-362fa21714fe09ce.js",
-      "static/chunks/pages/salary-5eae357e9ad98707.js"
+      "static/chunks/pages/salary-1ded1c49f4e7533a.js"
     ]
   },
   "ampFirstPages": []

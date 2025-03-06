@@ -9,6 +9,8 @@ import { User } from '@supabase/supabase-js';
 import { useSession } from 'next-auth/react';
 import axios from 'axios';
 import { useRouter } from 'next/router';
+import { GetServerSideProps } from 'next';
+import { getSession } from 'next-auth/react';
 
 // Register fonts - use direct font import
 Font.register({
@@ -25,6 +27,23 @@ Font.register({
     }
   ]
 });
+
+export const getServerSideProps: GetServerSideProps = async (context) => {
+  const session = await getSession(context);
+
+  if (!session) {
+    return {
+      redirect: {
+        destination: '/login',
+        permanent: false,
+      },
+    };
+  }
+
+  return {
+    props: {}
+  };
+};
 
 export default function Salary() {
   const { data: session, status } = useSession();
