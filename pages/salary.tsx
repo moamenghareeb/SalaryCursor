@@ -6,11 +6,10 @@ import { PDFDownloadLink, Document, Page, Text, View, StyleSheet, BlobProvider, 
 import { Font } from '@react-pdf/renderer';
 import SalaryPDF from '../components/SalaryPDF';
 import { User } from '@supabase/supabase-js';
-import { useSession } from 'next-auth/react';
 import axios from 'axios';
 import { useRouter } from 'next/router';
-import { GetServerSideProps } from 'next';
-import { getSession } from 'next-auth/react';
+import { useAuth } from '../lib/authContext';
+import { GetServerSidePropsContext } from 'next';
 
 // Register fonts - use direct font import
 Font.register({
@@ -28,8 +27,8 @@ Font.register({
   ]
 });
 
-export const getServerSideProps: GetServerSideProps = async (context) => {
-  const session = await getSession(context);
+export const getServerSideProps = async ({ req }: GetServerSidePropsContext) => {
+  const { data: { session }, error } = await supabase.auth.getSession();
 
   if (!session) {
     return {
@@ -46,7 +45,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
 };
 
 export default function Salary() {
-  const { data: session, status } = useSession();
+  const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [loading, setLoading] = useState(true);
@@ -715,7 +714,7 @@ to add the missing absences column to the salaries table.
   // Fetch saved salary data on component mount
   useEffect(() => {
     const fetchSalaryData = async () => {
-      if (session?.user) {
+      if (user) {
         try {
           const response = await axios.get('/api/salary');
           if (response.data) {
@@ -731,28 +730,24 @@ to add the missing absences column to the salaries table.
     };
 
     fetchSalaryData();
-  }, [session]);
+  }, [user]);
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
+    if (!authLoading && !user) {
       router.push('/auth/login');
     }
-  }, [status, router]);
+  }, [user, authLoading, router]);
 
-  if (status === 'loading') {
-    return <div>Loading...</div>;
-  }
-
-  if (!session) {
-    return null;
-  }
-
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <Layout>
         <div className="flex justify-center items-center h-64">Loading...</div>
       </Layout>
     );
+  }
+
+  if (!user) {
+    return null;
   }
 
   if (authError) {

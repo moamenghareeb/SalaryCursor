@@ -1,8 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getToken } from 'next-auth/jwt'
+import { createServerClient } from '@supabase/ssr'
 
 export async function authMiddleware(req: NextRequest) {
-  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET })
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return req.cookies.get(name)?.value
+        },
+      },
+    }
+  )
+  
+  const { data: { session } } = await supabase.auth.getSession()
   
   // Protect specific routes
   const protectedPaths = [
@@ -15,16 +27,14 @@ export async function authMiddleware(req: NextRequest) {
     req.nextUrl.pathname.startsWith(path)
   )
 
-  if (isProtectedRoute) {
-    if (!token) {
-      return NextResponse.redirect(new URL('/auth/login', req.url))
-    }
-
-    // Role-based access control
-    if (token.role !== 'ADMIN' && req.nextUrl.pathname.includes('/admin')) {
-      return NextResponse.redirect(new URL('/unauthorized', req.url))
-    }
+  if (isProtectedRoute && !session) {
+    return NextResponse.redirect(new URL('/auth/login', req.url))
   }
+
+  // Role-based access control can be implemented here if needed
+  // if (session?.user.role !== 'ADMIN' && req.nextUrl.pathname.includes('/admin')) {
+  //   return NextResponse.redirect(new URL('/unauthorized', req.url))
+  // }
 
   return NextResponse.next()
 } 
