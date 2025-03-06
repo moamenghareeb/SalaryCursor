@@ -5,12 +5,9 @@ const nextConfig = {
   trailingSlash: true,
   poweredByHeader: false,
   productionBrowserSourceMaps: false,
-  // Workaround for NFT issue
   experimental: {
     outputFileTracingRoot: process.env.NODE_ENV === 'production' ? undefined : __dirname,
-    optimizeCss: true,
-    legacyBrowsers: false,
-    browsersListForSwc: true,
+    optimizeCss: true
   },
   images: {
     unoptimized: true
