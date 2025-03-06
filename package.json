@@ -16,6 +16,7 @@
     "@supabase/auth-helpers-nextjs": "^0.10.0",
     "@supabase/supabase-js": "^2.38.4",
     "next": "^14.2.24",
+    "next-auth": "^4.24.11",
     "react": "18.2.0",
     "react-dom": "18.2.0",
     "react-hook-form": "^7.48.2",
