@@ -1,11 +1,10 @@
 import { useState } from 'react';
 import { useRouter } from 'next/router';
+import { supabase } from '../../lib/supabase';
 import Link from 'next/link';
-import { useAuth } from '../../lib/authContext';
 
 export default function Login() {
   const router = useRouter();
-  const { signIn } = useAuth();
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -17,11 +16,16 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const { error } = await signIn(email, password);
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
       if (error) throw error;
+
+      router.push('/dashboard');
     } catch (error: any) {
-      setError(error.message || 'Login failed. Please check your credentials.');
+      setError(error.message);
     } finally {
       setLoading(false);
     }

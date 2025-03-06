@@ -1,49 +1,19 @@
-type ErrorLevel = 'info' | 'warn' | 'error';
-
-interface ErrorLog {
-  message: string;
-  timestamp: string;
-  level: ErrorLevel;
-  metadata?: any;
-}
+import * as Sentry from "@sentry/nextjs"
 
 export function initErrorTracking() {
-  // Initialize any required error tracking setup
-  console.log('Error tracking initialized');
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    tracesSampleRate: 1.0,
+    debug: process.env.NODE_ENV !== 'production',
+    environment: process.env.NODE_ENV,
+    enabled: process.env.NODE_ENV === 'production'
+  })
 }
 
 export function captureException(error: Error) {
-  const errorLog: ErrorLog = {
-    message: error.message,
-    timestamp: new Date().toISOString(),
-    level: 'error',
-    metadata: {
-      stack: error.stack,
-      name: error.name
-    }
-  };
-
-  // Log to console in development
-  if (process.env.NODE_ENV !== 'production') {
-    console.error('Error captured:', errorLog);
-  }
-
-  // In production, you could send this to your logging service
-  // or store in database
+  Sentry.captureException(error)
 }
 
-export function captureMessage(message: string, level: ErrorLevel = 'info') {
-  const log: ErrorLog = {
-    message,
-    timestamp: new Date().toISOString(),
-    level
-  };
-
-  // Log to console in development
-  if (process.env.NODE_ENV !== 'production') {
-    console.log('Message captured:', log);
-  }
-
-  // In production, you could send this to your logging service
-  // or store in database
+export function captureMessage(message: string) {
+  Sentry.captureMessage(message)
 } 

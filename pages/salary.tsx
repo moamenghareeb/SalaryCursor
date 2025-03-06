@@ -6,12 +6,6 @@ import { PDFDownloadLink, Document, Page, Text, View, StyleSheet, BlobProvider, 
 import { Font } from '@react-pdf/renderer';
 import SalaryPDF from '../components/SalaryPDF';
 import { User } from '@supabase/supabase-js';
-import axios from 'axios';
-import { useRouter } from 'next/router';
-import { useAuth } from '../lib/authContext';
-import { GetServerSidePropsContext } from 'next';
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
 
 // Register fonts - use direct font import
 Font.register({
@@ -29,47 +23,7 @@ Font.register({
   ]
 });
 
-// Server-side authentication
-export const getServerSideProps = async ({ req, res }: GetServerSidePropsContext) => {
-  // Initialize Supabase with the cookies from the request
-  const supabaseServer = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return req.cookies[name];
-        },
-        set() { /* Not needed in getServerSideProps */ },
-        remove() { /* Not needed in getServerSideProps */ },
-      },
-    }
-  );
-
-  const { data, error } = await supabaseServer.auth.getSession();
-  
-  // If no session or error, redirect to login
-  if (!data.session || error) {
-    console.log('Redirecting to login from getServerSideProps: No session found');
-    return {
-      redirect: {
-        destination: '/auth/login',
-        permanent: false,
-      },
-    };
-  }
-  
-  // Return authenticated props
-  return {
-    props: {
-      initialSession: data.session,
-    }
-  };
-};
-
 export default function Salary() {
-  const { user, loading: authLoading } = useAuth();
-  const router = useRouter();
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [loading, setLoading] = useState(true);
   const [calculationLoading, setCalculationLoading] = useState(false);
@@ -734,43 +688,12 @@ to add the missing absences column to the salaries table.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [employee?.id]); // Only trigger when employee ID changes
 
-  // Fetch saved salary data on component mount
-  useEffect(() => {
-    const fetchSalaryData = async () => {
-      if (user) {
-        try {
-          const response = await axios.get('/api/salary');
-          if (response.data) {
-            setSalaryCalc(prevData => ({
-              ...prevData,
-              ...response.data
-            }));
-          }
-        } catch (error) {
-          console.error('Error fetching salary data:', error);
-        }
-      }
-    };
-
-    fetchSalaryData();
-  }, [user]);
-
-  useEffect(() => {
-    if (!authLoading && !user) {
-      router.push('/auth/login');
-    }
-  }, [user, authLoading, router]);
-
-  if (authLoading || loading) {
+  if (loading) {
     return (
       <Layout>
         <div className="flex justify-center items-center h-64">Loading...</div>
       </Layout>
     );
-  }
-
-  if (!user) {
-    return null;
   }
 
   if (authError) {
