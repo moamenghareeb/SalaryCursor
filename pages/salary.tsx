@@ -6,6 +6,8 @@ import { PDFDownloadLink, Document, Page, Text, View, StyleSheet, BlobProvider, 
 import { Font } from '@react-pdf/renderer';
 import SalaryPDF from '../components/SalaryPDF';
 import { User } from '@supabase/supabase-js';
+import { useSession } from 'next-auth/react';
+import axios from 'axios';
 
 // Register fonts - use direct font import
 Font.register({
@@ -24,6 +26,7 @@ Font.register({
 });
 
 export default function Salary() {
+  const { data: session } = useSession();
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [loading, setLoading] = useState(true);
   const [calculationLoading, setCalculationLoading] = useState(false);
@@ -687,6 +690,27 @@ to add the missing absences column to the salaries table.
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [employee?.id]); // Only trigger when employee ID changes
+
+  // Fetch saved salary data on component mount
+  useEffect(() => {
+    const fetchSalaryData = async () => {
+      if (session?.user) {
+        try {
+          const response = await axios.get('/api/salary');
+          if (response.data) {
+            setSalaryCalc(prevData => ({
+              ...prevData,
+              ...response.data
+            }));
+          }
+        } catch (error) {
+          console.error('Error fetching salary data:', error);
+        }
+      }
+    };
+
+    fetchSalaryData();
+  }, [session]);
 
   if (loading) {
     return (

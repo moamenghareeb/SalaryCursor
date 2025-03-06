@@ -1,0 +1,36 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Use Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18.x'
+    
+    - name: Install Dependencies
+      run: npm ci
+    
+    - name: Run Linter
+      run: npm run lint
+    
+    - name: Run Tests
+      run: npm test
+    
+    - name: Build Project
+      run: npm run build
+    
+    - name: Deploy to Production
+      if: github.ref == 'refs/heads/main'
+      run: |
+        ssh user@yourserver.com "cd /path/to/app && git pull && npm ci && npm run build && pm2 restart app" 
