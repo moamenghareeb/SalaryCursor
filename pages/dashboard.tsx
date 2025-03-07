@@ -181,9 +181,9 @@ export default function Dashboard() {
                       
                       <div className="pt-2 border-t border-gray-100">
                         <div className="flex justify-between text-sm">
-                          <span className="text-apple-gray">Basic Salary (USD)</span>
+                          <span className="text-apple-gray">Basic Salary (EGP)</span>
                           <span className="text-apple-gray-dark font-medium">
-                            ${formatSalary(latestSalary.basic_salary)}
+                            EGP {formatSalary(latestSalary.basic_salary * latestSalary.exchange_rate)}
                           </span>
                         </div>
                         <div className="flex justify-between text-sm mt-1">
