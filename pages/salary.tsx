@@ -699,366 +699,379 @@ to add the missing absences column to the salaries table.
         </Head>
 
         <div className="px-4 sm:px-6 lg:px-8">
-          {loading ? (
-            <div className="flex justify-center py-12">
-              <div className="w-10 h-10">
-                <svg className="animate-spin w-full h-full text-apple-blue" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-              </div>
-            </div>
-          ) : (
-            <div>
-              {/* Header section */}
-              <section className="mb-8">
-                <h1 className="text-3xl font-medium text-apple-gray-dark mb-2">Salary Management</h1>
-                <p className="text-apple-gray">Calculate and manage salary information for {employee?.name}</p>
-              </section>
-
-              {/* Main content grid */}
-              <div className="grid gap-6 lg:grid-cols-3">
-                {/* Salary Calculator Card */}
-                <div className="lg:col-span-2 bg-white rounded-apple shadow-apple-card p-6">
-                  <div className="flex justify-between items-start mb-6">
-                    <h2 className="text-lg font-medium text-apple-gray-dark">Salary Calculator</h2>
-                    <div className="flex items-center space-x-2">
-                      <button
-                        onClick={clearSavedInputs}
-                        className="px-4 py-2 text-sm text-apple-gray-dark bg-apple-gray-light rounded-full hover:bg-gray-200 transition-colors"
-                      >
-                        Clear
-                      </button>
-                      <button
-                        onClick={calculateSalary}
-                        disabled={calculationLoading}
-                        className="px-4 py-2 text-sm text-white bg-apple-blue rounded-full hover:bg-apple-blue-hover transition-colors disabled:opacity-50"
-                      >
-                        {calculationLoading ? 'Calculating...' : 'Calculate'}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Calculator form */}
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-sm font-medium text-apple-gray-dark mb-1">
-                          Basic Salary (USD)
-                        </label>
-                        <input
-                          type="number"
-                          value={salaryCalc.basicSalary || ''}
-                          onChange={(e) => handleInputChange('basicSalary', parseFloat(e.target.value) || 0)}
-                          className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:border-apple-blue focus:ring-1 focus:ring-apple-blue outline-none transition-colors"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-apple-gray-dark mb-1">
-                          Cost of Living (USD)
-                        </label>
-                        <input
-                          type="number"
-                          value={salaryCalc.costOfLiving || ''}
-                          onChange={(e) => handleInputChange('costOfLiving', parseFloat(e.target.value) || 0)}
-                          className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:border-apple-blue focus:ring-1 focus:ring-apple-blue outline-none transition-colors"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-apple-gray-dark mb-1">
-                          Shift Allowance (USD)
-                        </label>
-                        <input
-                          type="number"
-                          value={salaryCalc.shiftAllowance || ''}
-                          onChange={(e) => handleInputChange('shiftAllowance', parseFloat(e.target.value) || 0)}
-                          className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:border-apple-blue focus:ring-1 focus:ring-apple-blue outline-none transition-colors"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-sm font-medium text-apple-gray-dark mb-1">
-                          Overtime Hours
-                        </label>
-                        <input
-                          type="number"
-                          value={salaryCalc.overtimeHours || ''}
-                          onChange={(e) => handleInputChange('overtimeHours', parseFloat(e.target.value) || 0)}
-                          className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:border-apple-blue focus:ring-1 focus:ring-apple-blue outline-none transition-colors"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-apple-gray-dark mb-1">
-                          Variable Pay (USD)
-                        </label>
-                        <input
-                          type="number"
-                          value={salaryCalc.variablePay || ''}
-                          onChange={(e) => handleInputChange('variablePay', parseFloat(e.target.value) || 0)}
-                          className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:border-apple-blue focus:ring-1 focus:ring-apple-blue outline-none transition-colors"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-apple-gray-dark mb-1">
-                          Deductions (USD)
-                        </label>
-                        <input
-                          type="number"
-                          value={salaryCalc.deduction || ''}
-                          onChange={(e) => handleInputChange('deduction', parseFloat(e.target.value) || 0)}
-                          className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:border-apple-blue focus:ring-1 focus:ring-apple-blue outline-none transition-colors"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Exchange Rate Section */}
-                  <div className="mt-6 p-4 bg-apple-gray-light rounded-lg">
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <h3 className="text-sm font-medium text-apple-gray-dark">Exchange Rate</h3>
-                        <p className="text-sm text-apple-gray">
-                          Last updated: {rateLastUpdated || 'Not available'}
-                        </p>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <span className="text-lg font-medium text-apple-gray-dark">
-                          1 USD = {exchangeRate} EGP
-                        </span>
-                        <button
-                          onClick={manuallyUpdateRate}
-                          className="p-2 text-apple-blue hover:text-apple-blue-hover"
-                        >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                          </svg>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Results Card */}
-                <div className="bg-white rounded-apple shadow-apple-card p-6">
-                  <h2 className="text-lg font-medium text-apple-gray-dark mb-6">Calculation Results</h2>
-                  
-                  {salaryCalc.totalSalary > 0 && (
-                    <div className="space-y-4">
-                      <div>
-                        <p className="text-sm text-apple-gray">Total Salary (USD)</p>
-                        <p className="text-2xl font-medium text-apple-gray-dark">
-                          ${salaryCalc.totalSalary.toFixed(2)}
-                        </p>
-                      </div>
-                      
-                      <div>
-                        <p className="text-sm text-apple-gray">Total Salary (EGP)</p>
-                        <p className="text-2xl font-medium text-apple-gray-dark">
-                          EGP {(salaryCalc.totalSalary * exchangeRate).toFixed(2)}
-                        </p>
-                      </div>
-
-                      <div className="pt-4 border-t border-gray-100">
-                        <button
-                          onClick={saveSalary}
-                          disabled={calculationLoading || !salaryCalc.totalSalary}
-                          className="w-full px-4 py-2 bg-apple-blue text-white rounded-full hover:bg-apple-blue-hover transition-colors disabled:opacity-50"
-                        >
-                          {calculationLoading ? 'Saving...' : 'Save Salary'}
-                        </button>
-                        
-                        {salaryCalc.totalSalary > 0 && (
-                          <button
-                            onClick={() => {
-                              try {
-                                setPdfLoading(true);
-                                
-                                const MyDocument = () => (
-                                  <Document>
-                                    <SalaryPDF 
-                                      salary={salaryCalc}
-                                      employee={employee as Employee} 
-                                      month={month}
-                                      exchangeRate={exchangeRate}
-                                    />
-                                  </Document>
-                                );
-                                
-                                const pdfBlob = pdf(<MyDocument />).toBlob();
-                                pdfBlob.then(blob => {
-                                  setPdfLoading(false);
-                                  const url = URL.createObjectURL(blob);
-                                  const link = document.createElement('a');
-                                  link.href = url;
-                                  link.download = `${employee?.name}_salary_${month}.pdf`;
-                                  link.click();
-                                  // Clean up the URL object after download
-                                  setTimeout(() => URL.revokeObjectURL(url), 100);
-                                }).catch(error => {
-                                  setPdfLoading(false);
-                                  console.error('PDF generation error:', error);
-                                  alert(`Error generating PDF: ${error.message || 'Unknown error'}`);
-                                });
-                              } catch (error) {
-                                setPdfLoading(false);
-                                console.error('PDF generation error:', error);
-                                alert(`Error generating PDF: ${error instanceof Error ? error.message : 'Unknown error'}`);
-                              }
-                            }}
-                            className="w-full mt-2 px-4 py-2 bg-apple-gray-light text-apple-gray-dark rounded-full hover:bg-gray-200 transition-colors"
-                          >
-                            Generate PDF
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {!salaryCalc.totalSalary && (
-                    <div className="text-center py-8">
-                      <p className="text-apple-gray">No calculations yet</p>
-                      <p className="text-sm text-apple-gray mt-1">Enter values and click Calculate</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Salary History Section */}
-              <div className="mt-8 bg-white rounded-apple shadow-apple-card p-6">
-                <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-lg font-medium text-apple-gray-dark">Salary History</h2>
-                  <button
-                    onClick={fetchSalaryHistory}
-                    className="px-4 py-2 text-sm text-apple-gray-dark bg-apple-gray-light rounded-full hover:bg-gray-200 transition-colors"
-                  >
-                    Refresh
-                  </button>
-                </div>
-
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-gray-100">
-                        <th className="text-left py-3 px-4 text-sm font-medium text-apple-gray">Month</th>
-                        <th className="text-right py-3 px-4 text-sm font-medium text-apple-gray">Basic Salary</th>
-                        <th className="text-right py-3 px-4 text-sm font-medium text-apple-gray">Total (USD)</th>
-                        <th className="text-right py-3 px-4 text-sm font-medium text-apple-gray">Total (EGP)</th>
-                        <th className="text-right py-3 px-4 text-sm font-medium text-apple-gray">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {salaryHistory.map((salary, index) => (
-                        <tr key={index} className="border-b border-gray-50 hover:bg-gray-50">
-                          <td className="py-3 px-4 text-apple-gray-dark">
-                            {new Date(salary.month).toLocaleDateString('en-US', {
-                              year: 'numeric',
-                              month: 'long'
-                            })}
-                          </td>
-                          <td className="text-right py-3 px-4 text-apple-gray-dark">
-                            ${salary.basic_salary.toFixed(2)}
-                          </td>
-                          <td className="text-right py-3 px-4 text-apple-gray-dark">
-                            ${salary.total_salary.toFixed(2)}
-                          </td>
-                          <td className="text-right py-3 px-4 text-apple-gray-dark">
-                            EGP {(salary.total_salary * salary.exchange_rate).toFixed(2)}
-                          </td>
-                          <td className="text-right py-3 px-4">
-                            <button
-                              onClick={() => {
-                                try {
-                                  const MyDocument = () => (
-                                    <Document>
-                                      <SalaryPDF 
-                                        salary={{
-                                          basicSalary: salary?.basic_salary || 0,
-                                          costOfLiving: salary?.cost_of_living || 0,
-                                          shiftAllowance: salary?.shift_allowance || 0,
-                                          overtimeHours: salary?.overtime_hours || 0,
-                                          overtimePay: salary?.overtime_pay || 0,
-                                          variablePay: salary?.variable_pay || 0,
-                                          deduction: salary?.deduction || 0,
-                                          totalSalary: salary?.total_salary || 0,
-                                          exchangeRate: salary?.exchange_rate || exchangeRate
-                                        }}
-                                        employee={employee as Employee}
-                                        month={salary.month}
-                                        exchangeRate={salary.exchange_rate || exchangeRate}
-                                      />
-                                    </Document>
-                                  );
-                                  
-                                  const pdfBlob = pdf(<MyDocument />).toBlob();
-                                  pdfBlob.then(blob => {
-                                    const url = URL.createObjectURL(blob);
-                                    const link = document.createElement('a');
-                                    link.href = url;
-                                    link.download = `${employee?.name}_salary_${new Date(salary.month).toISOString().substring(0, 7)}.pdf`;
-                                    link.click();
-                                    // Clean up the URL object after download
-                                    setTimeout(() => URL.revokeObjectURL(url), 100);
-                                  }).catch(error => {
-                                    console.error('PDF generation error:', error);
-                                    alert(`Error generating PDF: ${error.message || 'Unknown error'}`);
-                                  });
-                                } catch (error) {
-                                  console.error('PDF generation error:', error);
-                                  alert(`Error generating PDF: ${error instanceof Error ? error.message : 'Unknown error'}`);
-                                }
-                              }}
-                              className="text-apple-blue hover:text-apple-blue-hover"
-                            >
-                              View PDF
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-
-                  {salaryHistory.length === 0 && (
-                    <div className="text-center py-8">
-                      <p className="text-apple-gray">No salary history available</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* PDF Modal */}
-        {pdfModalOpen && employee && calculationResults && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
-            <div className="bg-white rounded-apple w-full max-w-4xl max-h-[90vh] overflow-hidden">
-              <div className="flex justify-between items-center p-4 border-b border-gray-100">
-                <h3 className="text-lg font-medium text-apple-gray-dark">Salary PDF Preview</h3>
-                <button
-                  onClick={() => setPdfModalOpen(false)}
-                  className="text-apple-gray hover:text-apple-gray-dark"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-              <div className="p-4 h-[calc(90vh-80px)] overflow-auto">
-                <PDFViewer width="100%" height="100%">
-                  <SalaryPDF
-                    employee={employee}
-                    salary={calculationResults}
-                    month={month}
-                    exchangeRate={exchangeRate}
-                  />
-                </PDFViewer>
-              </div>
+          <div className="flex justify-center py-12">
+            <div className="w-10 h-10">
+              <svg className="animate-spin w-full h-full text-apple-blue" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
             </div>
           </div>
-        )}
+        </div>
       </Layout>
     );
   }
+
+  return (
+    <Layout>
+      <Head>
+        <title>Salary Management - SalaryCursor</title>
+        <meta name="description" content="Manage and calculate salary information" />
+      </Head>
+
+      <div className="px-4 sm:px-6 lg:px-8">
+        {authError && (
+          <div className="mb-6 p-3 bg-red-50 border border-red-200 text-red-700 rounded-md">
+            {authError}
+          </div>
+        )}
+
+        {/* Header section */}
+        <section className="mb-8">
+          <h1 className="text-3xl font-medium text-apple-gray-dark mb-2">Salary Management</h1>
+          <p className="text-apple-gray">Calculate and manage salary information for {employee?.name}</p>
+        </section>
+
+        {/* Main content grid */}
+        <div className="grid gap-6 lg:grid-cols-3">
+          {/* Salary Calculator Card */}
+          <div className="lg:col-span-2 bg-white rounded-apple shadow-apple-card p-6">
+            <div className="flex justify-between items-start mb-6">
+              <h2 className="text-lg font-medium text-apple-gray-dark">Salary Calculator</h2>
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={clearSavedInputs}
+                  className="px-4 py-2 text-sm text-apple-gray-dark bg-apple-gray-light rounded-full hover:bg-gray-200 transition-colors"
+                >
+                  Clear
+                </button>
+                <button
+                  onClick={calculateSalary}
+                  disabled={calculationLoading}
+                  className="px-4 py-2 text-sm text-white bg-apple-blue rounded-full hover:bg-apple-blue-hover transition-colors disabled:opacity-50"
+                >
+                  {calculationLoading ? 'Calculating...' : 'Calculate'}
+                </button>
+              </div>
+            </div>
+
+            {/* Calculator form */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-apple-gray-dark mb-1">
+                    Basic Salary (USD)
+                  </label>
+                  <input
+                    type="number"
+                    value={salaryCalc.basicSalary || ''}
+                    onChange={(e) => handleInputChange('basicSalary', parseFloat(e.target.value) || 0)}
+                    className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:border-apple-blue focus:ring-1 focus:ring-apple-blue outline-none transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-apple-gray-dark mb-1">
+                    Cost of Living (USD)
+                  </label>
+                  <input
+                    type="number"
+                    value={salaryCalc.costOfLiving || ''}
+                    onChange={(e) => handleInputChange('costOfLiving', parseFloat(e.target.value) || 0)}
+                    className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:border-apple-blue focus:ring-1 focus:ring-apple-blue outline-none transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-apple-gray-dark mb-1">
+                    Shift Allowance (USD)
+                  </label>
+                  <input
+                    type="number"
+                    value={salaryCalc.shiftAllowance || ''}
+                    onChange={(e) => handleInputChange('shiftAllowance', parseFloat(e.target.value) || 0)}
+                    className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:border-apple-blue focus:ring-1 focus:ring-apple-blue outline-none transition-colors"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-apple-gray-dark mb-1">
+                    Overtime Hours
+                  </label>
+                  <input
+                    type="number"
+                    value={salaryCalc.overtimeHours || ''}
+                    onChange={(e) => handleInputChange('overtimeHours', parseFloat(e.target.value) || 0)}
+                    className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:border-apple-blue focus:ring-1 focus:ring-apple-blue outline-none transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-apple-gray-dark mb-1">
+                    Variable Pay (USD)
+                  </label>
+                  <input
+                    type="number"
+                    value={salaryCalc.variablePay || ''}
+                    onChange={(e) => handleInputChange('variablePay', parseFloat(e.target.value) || 0)}
+                    className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:border-apple-blue focus:ring-1 focus:ring-apple-blue outline-none transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-apple-gray-dark mb-1">
+                    Deductions (USD)
+                  </label>
+                  <input
+                    type="number"
+                    value={salaryCalc.deduction || ''}
+                    onChange={(e) => handleInputChange('deduction', parseFloat(e.target.value) || 0)}
+                    className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:border-apple-blue focus:ring-1 focus:ring-apple-blue outline-none transition-colors"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Exchange Rate Section */}
+            <div className="mt-6 p-4 bg-apple-gray-light rounded-lg">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h3 className="text-sm font-medium text-apple-gray-dark">Exchange Rate</h3>
+                  <p className="text-sm text-apple-gray">
+                    Last updated: {rateLastUpdated || 'Not available'}
+                  </p>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span className="text-lg font-medium text-apple-gray-dark">
+                    1 USD = {exchangeRate} EGP
+                  </span>
+                  <button
+                    onClick={manuallyUpdateRate}
+                    className="p-2 text-apple-blue hover:text-apple-blue-hover"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Results Card */}
+          <div className="bg-white rounded-apple shadow-apple-card p-6">
+            <h2 className="text-lg font-medium text-apple-gray-dark mb-6">Calculation Results</h2>
+            
+            {salaryCalc.totalSalary > 0 && (
+              <div className="space-y-4">
+                <div>
+                  <p className="text-sm text-apple-gray">Total Salary (USD)</p>
+                  <p className="text-2xl font-medium text-apple-gray-dark">
+                    ${salaryCalc.totalSalary.toFixed(2)}
+                  </p>
+                </div>
+                
+                <div>
+                  <p className="text-sm text-apple-gray">Total Salary (EGP)</p>
+                  <p className="text-2xl font-medium text-apple-gray-dark">
+                    EGP {(salaryCalc.totalSalary * exchangeRate).toFixed(2)}
+                  </p>
+                </div>
+
+                <div className="pt-4 border-t border-gray-100">
+                  <button
+                    onClick={saveSalary}
+                    disabled={calculationLoading || !salaryCalc.totalSalary}
+                    className="w-full px-4 py-2 bg-apple-blue text-white rounded-full hover:bg-apple-blue-hover transition-colors disabled:opacity-50"
+                  >
+                    {calculationLoading ? 'Saving...' : 'Save Salary'}
+                  </button>
+                  
+                  {salaryCalc.totalSalary > 0 && (
+                    <button
+                      onClick={() => {
+                        try {
+                          setPdfLoading(true);
+                          
+                          const MyDocument = () => (
+                            <Document>
+                              <SalaryPDF 
+                                salary={salaryCalc}
+                                employee={employee as Employee} 
+                                month={month}
+                                exchangeRate={exchangeRate}
+                              />
+                            </Document>
+                          );
+                          
+                          const pdfBlob = pdf(<MyDocument />).toBlob();
+                          pdfBlob.then(blob => {
+                            setPdfLoading(false);
+                            const url = URL.createObjectURL(blob);
+                            const link = document.createElement('a');
+                            link.href = url;
+                            link.download = `${employee?.name}_salary_${month}.pdf`;
+                            link.click();
+                            // Clean up the URL object after download
+                            setTimeout(() => URL.revokeObjectURL(url), 100);
+                          }).catch(error => {
+                            setPdfLoading(false);
+                            console.error('PDF generation error:', error);
+                            alert(`Error generating PDF: ${error.message || 'Unknown error'}`);
+                          });
+                        } catch (error) {
+                          setPdfLoading(false);
+                          console.error('PDF generation error:', error);
+                          alert(`Error generating PDF: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                        }
+                      }}
+                      className="w-full mt-2 px-4 py-2 bg-apple-gray-light text-apple-gray-dark rounded-full hover:bg-gray-200 transition-colors"
+                    >
+                      Generate PDF
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {!salaryCalc.totalSalary && (
+              <div className="text-center py-8">
+                <p className="text-apple-gray">No calculations yet</p>
+                <p className="text-sm text-apple-gray mt-1">Enter values and click Calculate</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Salary History Section */}
+        <div className="mt-8 bg-white rounded-apple shadow-apple-card p-6">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-lg font-medium text-apple-gray-dark">Salary History</h2>
+            <button
+              onClick={fetchSalaryHistory}
+              className="px-4 py-2 text-sm text-apple-gray-dark bg-apple-gray-light rounded-full hover:bg-gray-200 transition-colors"
+            >
+              Refresh
+            </button>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-gray-100">
+                  <th className="text-left py-3 px-4 text-sm font-medium text-apple-gray">Month</th>
+                  <th className="text-right py-3 px-4 text-sm font-medium text-apple-gray">Basic Salary</th>
+                  <th className="text-right py-3 px-4 text-sm font-medium text-apple-gray">Total (USD)</th>
+                  <th className="text-right py-3 px-4 text-sm font-medium text-apple-gray">Total (EGP)</th>
+                  <th className="text-right py-3 px-4 text-sm font-medium text-apple-gray">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {salaryHistory.map((salary, index) => (
+                  <tr key={index} className="border-b border-gray-50 hover:bg-gray-50">
+                    <td className="py-3 px-4 text-apple-gray-dark">
+                      {new Date(salary.month).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'long'
+                      })}
+                    </td>
+                    <td className="text-right py-3 px-4 text-apple-gray-dark">
+                      ${salary.basic_salary.toFixed(2)}
+                    </td>
+                    <td className="text-right py-3 px-4 text-apple-gray-dark">
+                      ${salary.total_salary.toFixed(2)}
+                    </td>
+                    <td className="text-right py-3 px-4 text-apple-gray-dark">
+                      EGP {(salary.total_salary * salary.exchange_rate).toFixed(2)}
+                    </td>
+                    <td className="text-right py-3 px-4">
+                      <button
+                        onClick={() => {
+                          try {
+                            const MyDocument = () => (
+                              <Document>
+                                <SalaryPDF 
+                                  salary={{
+                                    basicSalary: salary?.basic_salary || 0,
+                                    costOfLiving: salary?.cost_of_living || 0,
+                                    shiftAllowance: salary?.shift_allowance || 0,
+                                    overtimeHours: salary?.overtime_hours || 0,
+                                    overtimePay: salary?.overtime_pay || 0,
+                                    variablePay: salary?.variable_pay || 0,
+                                    deduction: salary?.deduction || 0,
+                                    totalSalary: salary?.total_salary || 0,
+                                    exchangeRate: salary?.exchange_rate || exchangeRate
+                                  }}
+                                  employee={employee as Employee}
+                                  month={salary.month}
+                                  exchangeRate={salary.exchange_rate || exchangeRate}
+                                />
+                              </Document>
+                            );
+                            
+                            const pdfBlob = pdf(<MyDocument />).toBlob();
+                            pdfBlob.then(blob => {
+                              const url = URL.createObjectURL(blob);
+                              const link = document.createElement('a');
+                              link.href = url;
+                              link.download = `${employee?.name}_salary_${new Date(salary.month).toISOString().substring(0, 7)}.pdf`;
+                              link.click();
+                              // Clean up the URL object after download
+                              setTimeout(() => URL.revokeObjectURL(url), 100);
+                            }).catch(error => {
+                              console.error('PDF generation error:', error);
+                              alert(`Error generating PDF: ${error.message || 'Unknown error'}`);
+                            });
+                          } catch (error) {
+                            console.error('PDF generation error:', error);
+                            alert(`Error generating PDF: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                          }
+                        }}
+                        className="text-apple-blue hover:text-apple-blue-hover"
+                      >
+                        View PDF
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            {salaryHistory.length === 0 && (
+              <div className="text-center py-8">
+                <p className="text-apple-gray">No salary history available</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* PDF Modal */}
+      {pdfModalOpen && employee && calculationResults && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+          <div className="bg-white rounded-apple w-full max-w-4xl max-h-[90vh] overflow-hidden">
+            <div className="flex justify-between items-center p-4 border-b border-gray-100">
+              <h3 className="text-lg font-medium text-apple-gray-dark">Salary PDF Preview</h3>
+              <button
+                onClick={() => setPdfModalOpen(false)}
+                className="text-apple-gray hover:text-apple-gray-dark"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="p-4 h-[calc(90vh-80px)] overflow-auto">
+              <PDFViewer width="100%" height="100%">
+                <SalaryPDF
+                  employee={employee}
+                  salary={calculationResults}
+                  month={month}
+                  exchangeRate={exchangeRate}
+                />
+              </PDFViewer>
+            </div>
+          </div>
+        </div>
+      )}
+    </Layout>
+  );
 } 
