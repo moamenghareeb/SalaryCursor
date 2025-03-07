@@ -74,26 +74,33 @@ export default function Salary() {
   // This separate useEffect ensures localStorage values are applied AFTER 
   // the employee data has been set and database data has loaded
   useEffect(() => {
-    if (employee?.id && !loading) {
-      // After a small delay to ensure database data is loaded
+    if (employee?.id) {
+      // After a small delay, apply localStorage data with priority
       const timer = setTimeout(() => {
-        const savedInputs = loadInputsFromLocalStorage();
-        if (savedInputs) {
-          setSalaryCalc(prev => ({
-            ...prev,
-            basicSalary: savedInputs.basicSalary || prev.basicSalary,
-            costOfLiving: savedInputs.costOfLiving || prev.costOfLiving,
-            shiftAllowance: savedInputs.shiftAllowance || prev.shiftAllowance,
-            overtimeHours: savedInputs.overtimeHours || prev.overtimeHours,
-            deduction: savedInputs.deduction || prev.deduction,
-          }));
-          console.log('Applied localStorage data with delay for employee:', employee.id);
-        }
+        applyLocalStorageData();
+        console.log('Applied localStorage data with delay for employee:', employee.id);
       }, 500);
+      
+      fetchSalaryHistory();
       
       return () => clearTimeout(timer);
     }
-  }, [employee?.id, loading]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [employee?.id]); // Only trigger when employee ID changes
+
+  // Add another timer to recheck after a longer delay to ensure localStorage values are applied
+  useEffect(() => {
+    if (employee?.id) {
+      const timer = setTimeout(() => {
+        // Double-check localStorage values were applied properly
+        applyLocalStorageData();
+        console.log('Final verification of localStorage data for employee:', employee.id);
+      }, 2000);
+      
+      return () => clearTimeout(timer);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [employee?.id]); // Only trigger when employee ID changes
 
   // Enhanced localStorage functions with debugging
   const saveInputsToLocalStorage = (data: SalaryCalculation) => {
@@ -559,7 +566,32 @@ to add the missing absences column to the salaries table.
     try {
       setAuthError(null);
       
-      // First get user and employee data
+      // Fetch exchange rate from cached endpoint
+      try {
+        console.log("Fetching exchange rate...");
+        const rateResponse = await fetch('/api/exchange-rate');
+        
+        if (rateResponse.ok) {
+          const rateData = await rateResponse.json();
+          if (rateData.rate) {
+            setExchangeRate(rateData.rate);
+            const lastUpdated = new Date(rateData.lastUpdated);
+            setRateLastUpdated(lastUpdated.toLocaleDateString('en-US', {
+              year: 'numeric',
+              month: 'short',
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            }));
+          }
+        } else {
+          console.warn("API failed, using fallback rate");
+        }
+      } catch (err) {
+        console.warn("Exchange rate API error, using fallback", err);
+      }
+
+      // Fetch employee data
       const { data: userData, error: authError } = await supabase.auth.getUser();
       
       if (authError) {
@@ -587,33 +619,8 @@ to add the missing absences column to the salaries table.
         return;
       }
 
-      // Set employee data
+      // Set employee data first
       setEmployee(employeeData);
-
-      // Fetch exchange rate
-      try {
-        console.log("Fetching exchange rate...");
-        const rateResponse = await fetch('/api/exchange-rate');
-        
-        if (rateResponse.ok) {
-          const rateData = await rateResponse.json();
-          if (rateData.rate) {
-            setExchangeRate(rateData.rate);
-            const lastUpdated = new Date(rateData.lastUpdated);
-            setRateLastUpdated(lastUpdated.toLocaleDateString('en-US', {
-              year: 'numeric',
-              month: 'short',
-              day: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit'
-            }));
-          }
-        } else {
-          console.warn("Exchange rate API failed, using fallback rate");
-        }
-      } catch (err) {
-        console.warn("Exchange rate API error, using fallback rate:", err);
-      }
 
       // First try to get the latest calculation
       const { data: calcData, error: calcError } = await supabase
@@ -625,20 +632,17 @@ to add the missing absences column to the salaries table.
         .single();
 
       if (!calcError && calcData) {
-        const newCalc = {
-          basicSalary: calcData.basic_salary || 0,
-          costOfLiving: calcData.cost_of_living || 0,
-          shiftAllowance: calcData.shift_allowance || 0,
-          overtimeHours: calcData.overtime_hours || 0,
-          overtimePay: calcData.overtime_pay || 0,
-          variablePay: calcData.variable_pay || 0,
-          deduction: calcData.deduction || 0,
-          totalSalary: calcData.total_salary || 0,
-          exchangeRate: calcData.exchange_rate || exchangeRate,
-        };
-        setSalaryCalc(newCalc);
-        // Save to localStorage after setting from DB
-        saveInputsToLocalStorage(newCalc);
+        setSalaryCalc({
+          basicSalary: calcData.basic_salary,
+          costOfLiving: calcData.cost_of_living,
+          shiftAllowance: calcData.shift_allowance,
+          overtimeHours: calcData.overtime_hours,
+          overtimePay: calcData.overtime_pay,
+          variablePay: calcData.variable_pay,
+          deduction: calcData.deduction,
+          totalSalary: calcData.total_salary,
+          exchangeRate: calcData.exchange_rate,
+        });
       } else {
         // If no calculation found, try to get from salaries table
         const { data: salaryData, error: salaryError } = await supabase
@@ -650,24 +654,21 @@ to add the missing absences column to the salaries table.
           .single();
 
         if (!salaryError && salaryData) {
-          const newCalc = {
-            basicSalary: salaryData.basic_salary || 0,
-            costOfLiving: salaryData.cost_of_living || 0,
-            shiftAllowance: salaryData.shift_allowance || 0,
-            overtimeHours: salaryData.overtime_hours || 0,
-            overtimePay: salaryData.overtime_pay || 0,
-            variablePay: salaryData.variable_pay || 0,
-            deduction: salaryData.deduction || 0,
-            totalSalary: salaryData.total_salary || 0,
-            exchangeRate: salaryData.exchange_rate || exchangeRate,
-          };
-          setSalaryCalc(newCalc);
-          // Save to localStorage after setting from DB
-          saveInputsToLocalStorage(newCalc);
+          setSalaryCalc({
+            basicSalary: salaryData.basic_salary,
+            costOfLiving: salaryData.cost_of_living,
+            shiftAllowance: salaryData.shift_allowance,
+            overtimeHours: salaryData.overtime_hours,
+            overtimePay: salaryData.overtime_pay,
+            variablePay: salaryData.variable_pay,
+            deduction: salaryData.deduction,
+            totalSalary: salaryData.total_salary,
+            exchangeRate: salaryData.exchange_rate,
+          });
         }
       }
 
-      // Fetch salary history
+      // Fetch other data like history
       await fetchSalaryHistory();
 
       // Check if user is admin
