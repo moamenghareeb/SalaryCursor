@@ -1,15 +1,21 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import Layout from '../components/Layout';
 import { supabase } from '../lib/supabase';
-import type { Employee as BaseEmployee, Leave, InLieuRecord } from '../types';
+import type { Employee as BaseEmployee, Leave } from '../types';
+import type { InLieuRecord as BaseInLieuRecord } from '../types';
 import type { Leave as LeaveType } from '../types/models';
-import { PDFDownloadLink, Document, Page, Text, View, StyleSheet, BlobProvider } from '@react-pdf/renderer';
+import { PDFDownloadLink, Document, Page, Text, View, StyleSheet, BlobProvider, pdf } from '@react-pdf/renderer';
 import Head from 'next/head';
 
 // Extend the Employee type to include annual_leave_balance
 interface Employee extends BaseEmployee {
   annual_leave_balance: number;
   leave_balance?: number; // For backward compatibility
+}
+
+// Extend the InLieuRecord type to include status
+interface InLieuRecord extends BaseInLieuRecord {
+  status?: string; // Add optional status property
 }
 
 // Create styles for PDF
@@ -793,9 +799,9 @@ export default function Leave() {
       <Layout>
         <Head>
           <title>Leave Management - SalaryCursor</title>
-          <meta name="description" content="Manage your leave and in-lieu time" />
+          <meta name="description" content="Manage your leave requests and balance" />
         </Head>
-        
+
         <div className="px-4 sm:px-6 lg:px-8">
           <div className="flex justify-center py-12">
             <div className="w-10 h-10">
@@ -814,28 +820,28 @@ export default function Leave() {
     <Layout>
       <Head>
         <title>Leave Management - SalaryCursor</title>
-        <meta name="description" content="Manage your leave and in-lieu time" />
+        <meta name="description" content="Manage your leave requests and balance" />
       </Head>
-      
+
       <div className="px-4 sm:px-6 lg:px-8">
         <div>
           {/* Header section */}
           <section className="mb-8">
             <h1 className="text-3xl font-medium text-apple-gray-dark mb-2">Leave Management</h1>
-            <p className="text-apple-gray">Manage your annual leave and in-lieu time</p>
+            <p className="text-apple-gray">Manage your leave requests and balance</p>
           </section>
           
+          {/* Error and Success Messages */}
           {error && (
-            <div className="mb-6 p-4 border border-red-300 bg-red-50 rounded-apple text-red-800">
-              <div className="flex items-start">
-                <svg className="h-5 w-5 text-red-400 mt-0.5 mr-2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+            <div className="mb-6 p-3 bg-red-50 border border-red-200 text-red-700 rounded-md text-sm">
+              <div className="flex">
+                <svg className="h-5 w-5 text-red-400 mr-2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                 </svg>
                 <div>
-                  <h3 className="text-sm font-medium">Error</h3>
-                  <p className="mt-1 text-sm">{error}</p>
+                  <p>{error}</p>
                   <button 
-                    className="mt-2 text-xs text-red-600 hover:text-red-800 font-medium"
+                    className="mt-1 text-xs text-red-600 hover:text-red-800 font-medium"
                     onClick={() => setError(null)}
                   >
                     Dismiss
@@ -846,16 +852,15 @@ export default function Leave() {
           )}
           
           {success && (
-            <div className="mb-6 p-4 border border-green-300 bg-green-50 rounded-apple text-green-800">
-              <div className="flex items-start">
-                <svg className="h-5 w-5 text-green-400 mt-0.5 mr-2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+            <div className="mb-6 p-3 bg-green-50 border border-green-200 text-green-700 rounded-md text-sm">
+              <div className="flex">
+                <svg className="h-5 w-5 text-green-400 mr-2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                 </svg>
                 <div>
-                  <h3 className="text-sm font-medium">Success</h3>
-                  <p className="mt-1 text-sm">{success}</p>
+                  <p>{success}</p>
                   <button 
-                    className="mt-2 text-xs text-green-600 hover:text-green-800 font-medium"
+                    className="mt-1 text-xs text-green-600 hover:text-green-800 font-medium"
                     onClick={() => setSuccess(null)}
                   >
                     Dismiss
@@ -865,13 +870,14 @@ export default function Leave() {
             </div>
           )}
 
-          <div className="grid grid-cols-1 gap-6">
-            <div className="bg-white rounded-apple shadow-apple-card p-6 hover:shadow-lg transition-shadow">
+          <div className="grid gap-6 md:grid-cols-3">
+            {/* Leave Balance Card */}
+            <div className="md:col-span-3 bg-white rounded-apple shadow-apple-card p-6">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-lg font-medium text-apple-gray-dark">Leave Balance</h2>
                 <button
                   onClick={() => setIsEditingYears(!isEditingYears)}
-                  className="text-sm text-apple-blue hover:text-apple-blue-hover font-medium"
+                  className="text-apple-blue text-sm font-medium hover:text-apple-blue-hover"
                 >
                   Edit Years of Service
                 </button>
@@ -884,13 +890,13 @@ export default function Leave() {
                       type="number"
                       value={yearsOfService}
                       onChange={(e) => setYearsOfService(parseFloat(e.target.value) || 0)}
-                      className="w-32 px-4 py-2 border border-gray-200 rounded-lg focus:border-apple-blue focus:ring-1 focus:ring-apple-blue outline-none transition-colors duration-200"
+                      className="w-24 px-4 py-2 border border-gray-200 rounded-lg focus:border-apple-blue focus:ring-1 focus:ring-apple-blue outline-none transition-colors"
                       min="0"
                       step="0.1"
                     />
                     <button
                       onClick={handleUpdateYears}
-                      className="px-4 py-2 bg-apple-blue text-white rounded-lg hover:bg-apple-blue-hover transition-colors"
+                      className="bg-apple-blue hover:bg-apple-blue-hover text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
                     >
                       Save
                     </button>
@@ -899,25 +905,25 @@ export default function Leave() {
                         setIsEditingYears(false);
                         setYearsOfService(employee?.years_of_service || 0);
                       }}
-                      className="px-4 py-2 text-apple-gray hover:text-apple-gray-dark transition-colors"
+                      className="text-apple-gray hover:text-apple-gray-dark transition-colors"
                     >
                       Cancel
                     </button>
                   </div>
                 ) : (
-                  <div className="p-3 bg-apple-gray-light rounded-lg">
+                  <div className="bg-apple-gray-light p-3 rounded-lg">
                     <p className="text-sm text-apple-gray">Years of Service</p>
                     <p className="text-lg font-medium text-apple-gray-dark mt-1">{yearsOfService} years</p>
                   </div>
                 )}
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                  <div className="bg-apple-50 p-4 rounded-lg">
-                    <h3 className="text-lg font-medium text-apple-900 mb-2">Annual Leave Balance</h3>
-                    <div className="text-3xl font-bold text-apple-700">
+                  <div className="bg-white rounded-apple shadow-apple-card p-4">
+                    <h3 className="text-sm text-apple-gray mb-1">Annual Leave Balance</h3>
+                    <div className="text-xl font-medium text-apple-gray-dark">
                       {leaveBalance !== null ? leaveBalance.toFixed(2) : '-'} days
                     </div>
-                    <div className="text-sm text-apple-600 mt-1">
+                    <div className="text-xs text-apple-gray mt-1">
                       <div>Base: {baseLeaveBalance !== null ? baseLeaveBalance.toFixed(2) : '-'} days</div>
                       {additionalLeaveBalance > 0 && (
                         <div className="font-medium">+{additionalLeaveBalance.toFixed(2)} in-lieu days</div>
@@ -925,20 +931,20 @@ export default function Leave() {
                     </div>
                   </div>
                   
-                  <div className="bg-apple-green-50 p-4 rounded-lg">
-                    <h3 className="text-lg font-medium text-apple-900 mb-2">Leave Taken (This Year)</h3>
-                    <div className="text-3xl font-bold text-apple-700">{leaveTaken} days</div>
-                    <div className="text-sm text-apple-600 mt-1">
+                  <div className="bg-white rounded-apple shadow-apple-card p-4">
+                    <h3 className="text-sm text-apple-gray mb-1">Leave Taken (This Year)</h3>
+                    <div className="text-xl font-medium text-apple-gray-dark">{leaveTaken} days</div>
+                    <div className="text-xs text-apple-gray mt-1">
                       From {leaves.length} leave requests
                     </div>
                   </div>
                   
-                  <div className="bg-apple-purple-50 p-4 rounded-lg">
-                    <h3 className="text-lg font-medium text-apple-900 mb-2">Remaining Leave</h3>
-                    <div className="text-3xl font-bold text-apple-700">
+                  <div className="bg-white rounded-apple shadow-apple-card p-4">
+                    <h3 className="text-sm text-apple-gray mb-1">Remaining Leave</h3>
+                    <div className="text-xl font-medium text-apple-gray-dark">
                       {remainingLeave !== null ? remainingLeave.toFixed(2) : '-'} days
                     </div>
-                    <div className="text-sm text-apple-600 mt-1">
+                    <div className="text-xs text-apple-gray mt-1">
                       As of {new Date().toLocaleDateString()}
                     </div>
                   </div>
@@ -946,7 +952,8 @@ export default function Leave() {
               </div>
             </div>
 
-            <div className="bg-white rounded-apple shadow-apple-card p-6 hover:shadow-lg transition-shadow">
+            {/* Leave Request Card */}
+            <div className="md:col-span-2 bg-white rounded-apple shadow-apple-card p-6">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-lg font-medium text-apple-gray-dark">Leave Request</h2>
                 
@@ -954,7 +961,7 @@ export default function Leave() {
                   <button
                     type="button"
                     onClick={() => setShowInLieuForm(!showInLieuForm)}
-                    className="bg-apple-green text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-apple-green-hover"
+                    className="px-4 py-2 text-sm font-medium rounded-full bg-apple-gray-light text-apple-gray-dark hover:bg-gray-200 transition-colors"
                   >
                     {showInLieuForm ? 'Cancel In-Lieu Entry' : 'Add In-Lieu Time'}
                   </button>
@@ -963,100 +970,44 @@ export default function Leave() {
               
               {/* Only show regular leave form if not showing in-lieu form */}
               {!showInLieuForm && (
-                <form onSubmit={handleSubmit} className="mt-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                    <div>
-                      <label htmlFor="year" className="block text-sm font-medium text-apple-gray-dark mb-2">
-                        Year
-                      </label>
-                      <input
-                        type="number"
-                        id="year"
-                        value={new Date(startDate).getFullYear()}
-                        onChange={(e) => {
-                          const year = parseInt(e.target.value) || new Date().getFullYear();
-                          const start = new Date(year, new Date(startDate).getMonth(), new Date(startDate).getDate()).toISOString().split('T')[0];
-                          const end = new Date(year, new Date(endDate).getMonth(), new Date(endDate).getDate()).toISOString().split('T')[0];
-                          setStartDate(start);
-                          setEndDate(end);
-                        }}
-                        className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-apple-blue focus:ring-1 focus:ring-apple-blue outline-none transition-colors duration-200"
-                        min={new Date().getFullYear() - 5}
-                        max={new Date().getFullYear() + 1}
-                        required
-                      />
-                    </div>
-                    
-                    <div>
-                      <label htmlFor="month" className="block text-sm font-medium text-apple-gray-dark mb-2">
-                        Month
-                      </label>
-                      <select
-                        id="month"
-                        value={new Date(startDate).getMonth() + 1}
-                        onChange={(e) => {
-                          const month = parseInt(e.target.value);
-                          const start = new Date(new Date(startDate).getFullYear(), month, new Date(startDate).getDate()).toISOString().split('T')[0];
-                          const end = new Date(new Date(endDate).getFullYear(), month, new Date(endDate).getDate()).toISOString().split('T')[0];
-                          setStartDate(start);
-                          setEndDate(end);
-                        }}
-                        className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-apple-blue focus:ring-1 focus:ring-apple-blue outline-none transition-colors duration-200"
-                        required
-                      >
-                        <option value="1">January</option>
-                        <option value="2">February</option>
-                        <option value="3">March</option>
-                        <option value="4">April</option>
-                        <option value="5">May</option>
-                        <option value="6">June</option>
-                        <option value="7">July</option>
-                        <option value="8">August</option>
-                        <option value="9">September</option>
-                        <option value="10">October</option>
-                        <option value="11">November</option>
-                        <option value="12">December</option>
-                      </select>
-                    </div>
-                    
-                    <div>
-                      <label htmlFor="days_taken" className="block text-sm font-medium text-apple-gray-dark mb-2">
-                        Days Taken
-                      </label>
-                      <input
-                        type="number"
-                        id="days_taken"
-                        value={new Date(endDate).getDate() - new Date(startDate).getDate() + 1}
-                        onChange={(e) => {
-                          const days = parseInt(e.target.value) || 1;
-                          const end = new Date(new Date(startDate).getTime() + days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-                          setEndDate(end);
-                        }}
-                        className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-apple-blue focus:ring-1 focus:ring-apple-blue outline-none transition-colors duration-200"
-                        min="1"
-                        max="31"
-                        required
-                      />
-                    </div>
-                    
-                    <div>
-                      <label htmlFor="reason" className="block text-sm font-medium text-apple-gray-dark mb-2">
-                        Reason (Optional)
-                      </label>
-                      <input
-                        type="text"
-                        id="reason"
-                        value={reason}
-                        onChange={(e) => setReason(e.target.value)}
-                        className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-apple-blue focus:ring-1 focus:ring-apple-blue outline-none transition-colors duration-200"
-                      />
-                    </div>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-apple-gray-dark mb-1">Start Date</label>
+                    <input
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-apple-blue focus:ring-1 focus:ring-apple-blue outline-none transition-colors"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-apple-gray-dark mb-1">End Date</label>
+                    <input
+                      type="date"
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-apple-blue focus:ring-1 focus:ring-apple-blue outline-none transition-colors"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-apple-gray-dark mb-1">Reason</label>
+                    <textarea
+                      value={reason}
+                      onChange={(e) => setReason(e.target.value)}
+                      className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-apple-blue focus:ring-1 focus:ring-apple-blue outline-none transition-colors"
+                      rows={3}
+                      required
+                    />
                   </div>
 
                   <div className="flex gap-2">
                     <button
                       type="submit"
-                      className="px-6 py-3 bg-apple-blue text-white rounded-lg font-medium hover:bg-apple-blue-hover transition-colors"
+                      className="w-full sm:w-auto bg-apple-blue hover:bg-apple-blue-hover text-white px-6 py-3 rounded-full text-sm font-medium transition-colors disabled:opacity-50"
                       disabled={loading}
                     >
                       {editingLeave ? 'Update Leave' : 'Submit Leave'}
@@ -1066,7 +1017,7 @@ export default function Leave() {
                       <button
                         type="button"
                         onClick={handleCancelEdit}
-                        className="px-6 py-3 bg-apple-gray-light text-apple-gray-dark rounded-lg font-medium hover:bg-gray-200 transition-colors"
+                        className="w-full sm:w-auto bg-apple-gray-light text-apple-gray-dark px-6 py-3 rounded-full text-sm font-medium hover:bg-gray-200 transition-colors disabled:opacity-50"
                         disabled={loading}
                       >
                         Cancel Edit
@@ -1087,20 +1038,20 @@ export default function Leave() {
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                     <div>
-                      <label className="block text-sm font-medium text-apple-gray-dark mb-2">Start Date</label>
+                      <label className="block text-sm font-medium text-apple-gray-dark mb-1">Start Date</label>
                       <input
                         type="date"
-                        className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-apple-blue focus:ring-1 focus:ring-apple-blue outline-none transition-colors duration-200"
+                        className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-apple-blue focus:ring-1 focus:ring-apple-blue outline-none transition-colors"
                         value={startDate}
                         onChange={(e) => setStartDate(e.target.value)}
                         required
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-apple-gray-dark mb-2">End Date</label>
+                      <label className="block text-sm font-medium text-apple-gray-dark mb-1">End Date</label>
                       <input
                         type="date"
-                        className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-apple-blue focus:ring-1 focus:ring-apple-blue outline-none transition-colors duration-200"
+                        className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-apple-blue focus:ring-1 focus:ring-apple-blue outline-none transition-colors"
                         value={endDate}
                         onChange={(e) => setEndDate(e.target.value)}
                         required
@@ -1109,8 +1060,8 @@ export default function Leave() {
                   </div>
                   
                   <div className="mb-4">
-                    <label className="block text-sm font-medium text-apple-gray-dark mb-2">Days to be Added</label>
-                    <div className="p-4 bg-white border border-gray-200 rounded-lg text-apple-gray-dark">
+                    <label className="block text-sm font-medium text-apple-gray-dark mb-1">Days to be Added</label>
+                    <div className="p-3 bg-white rounded-lg border border-gray-200">
                       {startDate && endDate ? 
                         `${(calculateDays(startDate, endDate) * 0.667).toFixed(2)} days will be added to your balance` : 
                         'Select dates to calculate'
@@ -1121,154 +1072,155 @@ export default function Leave() {
                   <button
                     type="button"
                     onClick={handleInLieuOf}
-                    className="w-full px-6 py-3 bg-apple-blue text-white rounded-lg font-medium hover:bg-apple-blue-hover transition-colors"
+                    className="w-full bg-apple-blue hover:bg-apple-blue-hover text-white px-6 py-3 rounded-full text-sm font-medium transition-colors disabled:opacity-50"
                     disabled={loading}
                   >
-                    {loading ? 'Processing...' : 'Add In-Lieu Time'}
+                    Submit In-Lieu Time
                   </button>
                 </div>
               )}
             </div>
 
-            <div className="bg-white rounded-apple shadow-apple-card p-6 hover:shadow-lg transition-shadow">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-medium text-apple-gray-dark">Leave History</h2>
-                <div className="text-sm text-apple-500">
-                  Showing all leave requests
-                </div>
-              </div>
-
-              {leaves.length > 0 ? (
-                <div className="overflow-x-auto -mx-4 sm:mx-0">
-                  <div className="inline-block min-w-full align-middle">
-                    <table className="min-w-full divide-y divide-apple-200">
-                      <thead>
-                        <tr className="bg-apple-50">
-                          <th className="px-3 py-3 text-left text-xs font-medium text-apple-500 uppercase tracking-wider">Year</th>
-                          <th className="px-3 py-3 text-left text-xs font-medium text-apple-500 uppercase tracking-wider">Dates</th>
-                          <th className="px-3 py-3 text-left text-xs font-medium text-apple-500 uppercase tracking-wider">Days</th>
-                          <th className="px-3 py-3 text-left text-xs font-medium text-apple-500 uppercase tracking-wider">Reason</th>
-                          <th className="px-3 py-3 text-left text-xs font-medium text-apple-500 uppercase tracking-wider">Status</th>
-                          <th className="px-3 py-3 text-left text-xs font-medium text-apple-500 uppercase tracking-wider">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-apple-200">
-                        {leaves.map((leave) => {
-                          const startDate = new Date(leave.start_date);
-                          const endDate = new Date(leave.end_date);
-                          const isPast = endDate < new Date();
-                          const isOngoing = startDate <= new Date() && endDate >= new Date();
-                          
-                          return (
-                            <tr key={leave.id} className="hover:bg-apple-50">
-                              <td className="px-3 py-3 text-sm">{leave.year}</td>
-                              <td className="px-3 py-3 text-sm">
-                                {startDate.toLocaleDateString()} - {endDate.toLocaleDateString()}
-                              </td>
-                              <td className="px-3 py-3 text-sm">{leave.days_taken}</td>
-                              <td className="px-3 py-3 text-sm">{leave.reason}</td>
-                              <td className="px-3 py-3 text-sm">
-                                {isPast ? (
-                                  <span className="px-2 py-1 text-xs font-medium bg-apple-100 text-apple-800 rounded-full">
-                                    Past
-                                  </span>
-                                ) : isOngoing ? (
-                                  <span className="px-2 py-1 text-xs font-medium bg-apple-green-100 text-apple-800 rounded-full">
-                                    Ongoing
-                                  </span>
-                                ) : (
-                                  <span className="px-2 py-1 text-xs font-medium bg-apple-blue-100 text-apple-800 rounded-full">
-                                    Upcoming
-                                  </span>
-                                )}
-                              </td>
-                              <td className="px-3 py-3 text-sm">
-                                {true && (
-                                  <>
-                                    <button
-                                    onClick={() => handleEdit(leave)}
-                                    className="text-apple-600 hover:text-apple-800 font-medium mr-2"
-                                  >
-                                    Edit
-                                  </button>
-                                  <button
-                                    onClick={() => handleDelete(leave)}
-                                    className="text-red-600 hover:text-red-800 font-medium"
-                                    disabled={loading}
-                                  >
-                                    {loading ? 'Deleting...' : 'Delete'}
-                                  </button>
-                                  </>
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
+            {/* In-Lieu Records */}
+            <div className="bg-white rounded-apple shadow-apple-card p-6">
+              <h2 className="text-lg font-medium text-apple-gray-dark mb-4">In-Lieu Records</h2>
+              
+              {inLieuRecords.length > 0 ? (
+                <div className="overflow-hidden">
+                  <div className="max-h-[300px] overflow-y-auto pr-2">
+                    {inLieuRecords.map((record) => (
+                      <div key={record.id} className="mb-3 p-3 bg-apple-gray-light rounded-lg">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <p className="text-sm font-medium text-apple-gray-dark">
+                              {new Date(record.start_date).toLocaleDateString()} to {new Date(record.end_date).toLocaleDateString()}
+                            </p>
+                            <p className="text-xs text-apple-gray mt-1">
+                              {record.days_count} days worked
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm font-medium text-apple-gray-dark">
+                              +{record.leave_days_added.toFixed(2)} days
+                            </p>
+                            <p className="text-xs text-apple-gray mt-1">
+                              {record.status || 'pending'}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               ) : (
-                <p className="text-apple-500 text-sm">No leave history available.</p>
+                <div className="text-center py-4">
+                  <p className="text-apple-gray">No in-lieu records</p>
+                </div>
               )}
             </div>
+          </div>
 
-            <div className="bg-white rounded-apple shadow-apple-card p-6 hover:shadow-lg transition-shadow">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-medium text-apple-gray-dark">In-Lieu Records</h2>
-                <div className="text-sm text-apple-500">
-                  Showing all in-lieu time recorded
-                </div>
-              </div>
-              
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-apple-200">
-                  <thead className="bg-apple-50">
-                    <tr>
-                      <th className="px-3 py-3 text-left text-xs font-medium text-apple-500 uppercase tracking-wider">Dates Worked</th>
-                      <th className="px-3 py-3 text-left text-xs font-medium text-apple-500 uppercase tracking-wider">Days Worked</th>
-                      <th className="px-3 py-3 text-left text-xs font-medium text-apple-500 uppercase tracking-wider">Leave Days Added</th>
-                      <th className="px-3 py-3 text-left text-xs font-medium text-apple-500 uppercase tracking-wider">Date Added</th>
-                      <th className="px-3 py-3 text-left text-xs font-medium text-apple-500 uppercase tracking-wider">Actions</th>
+          {/* Leave Records */}
+          <div className="mt-6 bg-white rounded-apple shadow-apple-card p-6">
+            <h2 className="text-lg font-medium text-apple-gray-dark mb-4">Leave History</h2>
+            
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-gray-100">
+                    <th className="text-left py-3 px-4 text-sm font-medium text-apple-gray">Date Range</th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-apple-gray">Days</th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-apple-gray">Reason</th>
+                    <th className="text-right py-3 px-4 text-sm font-medium text-apple-gray">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {leaves.map((leave) => (
+                    <tr key={leave.id} className="border-b border-gray-50 hover:bg-gray-50">
+                      <td className="py-3 px-4 text-apple-gray-dark">
+                        {new Date(leave.start_date).toLocaleDateString()} to {new Date(leave.end_date).toLocaleDateString()}
+                      </td>
+                      <td className="py-3 px-4 text-apple-gray-dark">
+                        {leave.days_taken} days
+                      </td>
+                      <td className="py-3 px-4 text-apple-gray-dark">
+                        {leave.reason}
+                      </td>
+                      <td className="py-3 px-4 text-right">
+                        <button
+                          onClick={() => handleEdit(leave)}
+                          className="text-apple-blue hover:text-apple-blue-hover mx-1"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDelete(leave)}
+                          className="text-red-500 hover:text-red-700 mx-1"
+                        >
+                          Delete
+                        </button>
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-apple-200">
-                    {inLieuRecords.length > 0 ? (
-                      inLieuRecords.map((record) => {
-                        const startDate = new Date(record.start_date);
-                        const endDate = new Date(record.end_date);
-                        const createdDate = new Date(record.created_at);
-                        
-                        return (
-                          <tr key={record.id} className="hover:bg-apple-50">
-                            <td className="px-3 py-3 text-sm">
-                              {startDate.toLocaleDateString()} - {endDate.toLocaleDateString()}
-                            </td>
-                            <td className="px-3 py-3 text-sm">{record.days_count}</td>
-                            <td className="px-3 py-3 text-sm">{record.leave_days_added}</td>
-                            <td className="px-3 py-3 text-sm">{createdDate.toLocaleDateString()}</td>
-                            <td className="px-3 py-3 text-sm">
-                              <button
-                                onClick={() => handleDeleteInLieu(record)}
-                                className="text-red-600 hover:text-red-800 font-medium"
-                                disabled={loading}
-                              >
-                                {loading ? 'Deleting...' : 'Delete'}
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })
-                    ) : (
-                      <tr>
-                        <td colSpan={5} className="px-3 py-4 text-sm text-center text-apple-500">
-                          No in-lieu records found
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
+                  ))}
+                </tbody>
+              </table>
+
+              {leaves.length === 0 && (
+                <div className="text-center py-8">
+                  <p className="text-apple-gray">No leave records available</p>
+                </div>
+              )}
+            </div>
+          </div>
+          
+          {/* PDF Generation */}
+          <div className="mt-6 bg-white rounded-apple shadow-apple-card p-6">
+            <h2 className="text-lg font-medium text-apple-gray-dark mb-4">Reports</h2>
+            
+            <div className="p-4 bg-apple-gray-light rounded-lg">
+              <p className="text-sm text-apple-gray-dark mb-3">
+                Generate a PDF report of your leave records for the current year.
+              </p>
+              
+              {loading ? (
+                <button
+                  className="w-full bg-apple-gray text-white px-6 py-3 rounded-full text-sm font-medium"
+                  disabled
+                >
+                  Loading...
+                </button>
+              ) : (
+                <a
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    // Use the simple approach instead of PDFDownloadLink with complex children
+                    const blob = pdf(
+                      <LeavePDF
+                        employee={employee as Employee}
+                        leaveData={leaves}
+                        totalLeaveBalance={leaveBalance}
+                        leaveTaken={leaveTaken}
+                        remainingLeave={remainingLeave}
+                        year={new Date().getFullYear()}
+                      />
+                    ).toBlob();
+                    
+                    blob.then((blobData: Blob) => {
+                      const url = URL.createObjectURL(blobData);
+                      const link = document.createElement('a');
+                      link.href = url;
+                      link.download = `Leave_Report_${employee?.name}_${new Date().getFullYear()}.pdf`;
+                      link.click();
+                      // Clean up the URL object after download
+                      setTimeout(() => URL.revokeObjectURL(url), 100);
+                    });
+                  }}
+                  className="w-full block text-center bg-apple-blue hover:bg-apple-blue-hover text-white px-6 py-3 rounded-full text-sm font-medium transition-colors"
+                >
+                  Download Leave Report
+                </a>
+              )}
             </div>
           </div>
         </div>
