@@ -44,10 +44,10 @@ export default function Dashboard() {
         }
 
         // Calculate base leave balance based on years of service
-        const baseLeave = employeeData.years_of_service >= 10 ? 24.67 : 18.67;
+        const baseLeave = employeeData.yearsOfService >= 10 ? 24.67 : 18.67;
         
-        // Add additional leave balance from in-lieu time
-        const additionalLeave = Number(employeeData.annual_leave_balance || 0);
+        // Add additional days for long service
+        const additionalLeave = employeeData.yearsOfService >= 10 ? 6 : 0;
         const totalLeaveBalance = baseLeave + additionalLeave;
         
         // Set the total leave balance
@@ -56,8 +56,7 @@ export default function Dashboard() {
         console.log('Dashboard leave balance calculation:', {
           baseLeave,
           additionalLeave,
-          totalLeaveBalance,
-          employeeBalance: employeeData.annual_leave_balance
+          totalLeaveBalance
         });
 
         // Calculate leave taken this year
@@ -70,10 +69,10 @@ export default function Dashboard() {
 
         if (!leaveError && leaveData) {
           const currentYearLeaves = leaveData.filter(leave => {
-            const leaveStartYear = new Date(leave.start_date).getFullYear();
+            const leaveStartYear = new Date(leave.startDate).getFullYear();
             return leaveStartYear === currentYear;
           });
-          const total = currentYearLeaves.reduce((sum, item) => sum + item.days_taken, 0);
+          const total = currentYearLeaves.reduce((sum, item) => sum + item.daysTaken, 0);
           setLeaveTaken(total);
         }
 
@@ -92,7 +91,7 @@ export default function Dashboard() {
         
         // Calculate in-lieu summary
         const totalRecords = inLieuData?.length || 0;
-        const totalDaysAdded = inLieuData?.reduce((sum, record) => sum + record.leave_days_added, 0) || 0;
+        const totalDaysAdded = inLieuData?.reduce((sum, record) => sum + record.leaveDaysAdded, 0) || 0;
         
         setInLieuSummary({
           count: totalRecords,
@@ -134,7 +133,7 @@ export default function Dashboard() {
                 </div>
                 <div className="p-3 bg-gray-50 rounded-lg">
                   <p className="text-sm text-gray-600">Employee ID</p>
-                  <p className="text-lg font-medium mt-1">{employee.employee_id}</p>
+                  <p className="text-lg font-medium mt-1">{employee.employeeId}</p>
                 </div>
                 <div className="p-3 bg-gray-50 rounded-lg">
                   <p className="text-sm text-gray-600">Position</p>
@@ -142,7 +141,7 @@ export default function Dashboard() {
                 </div>
                 <div className="p-3 bg-gray-50 rounded-lg">
                   <p className="text-sm text-gray-600">Years of Service</p>
-                  <p className="text-lg font-medium mt-1">{employee.years_of_service}</p>
+                  <p className="text-lg font-medium mt-1">{employee.yearsOfService}</p>
                 </div>
               </div>
             </div>
@@ -191,15 +190,15 @@ export default function Dashboard() {
                 <div className="space-y-4">
                   <div className="p-3 bg-gray-50 rounded-lg">
                     <p className="text-sm text-gray-600">Years of Service</p>
-                    <p className="text-lg font-medium mt-1">{employee.years_of_service} years</p>
+                    <p className="text-lg font-medium mt-1">{employee.yearsOfService} years</p>
                   </div>
                   <div className="p-3 bg-gray-50 rounded-lg">
                     <p className="text-sm text-gray-600">Annual Leave Entitlement</p>
                     <p className="text-lg font-medium mt-1">{leaveBalance.toFixed(2)} days</p>
                     <div className="mt-1 text-sm text-gray-600">
-                      <div>Base: {employee.years_of_service >= 10 ? 24.67 : 18.67} days</div>
-                      {(employee.annual_leave_balance || 0) > 0 && (
-                        <div className="font-medium">+{Number(employee.annual_leave_balance || 0).toFixed(2)} in-lieu days</div>
+                      <div>Base: {employee.yearsOfService >= 10 ? 24.67 : 18.67} days</div>
+                      {(employee.yearsOfService >= 10) && (
+                        <div className="font-medium">+6 additional days for long service</div>
                       )}
                     </div>
                   </div>
