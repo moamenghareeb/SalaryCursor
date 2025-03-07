@@ -22,6 +22,8 @@ export interface Salary {
   overtime_pay: number;
   variable_pay: number;
   total_salary: number;
+  gross_salary: number;
+  net_salary: number;
   exchange_rate: number;
   created_at: string;
   updated_at: string;

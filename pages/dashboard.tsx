@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { Employee, Salary, Leave, InLieuRecord } from '../types';
 import Link from 'next/link';
+import Head from 'next/head';
 
 export default function Dashboard() {
   const [employee, setEmployee] = useState<Employee | null>(null);
@@ -48,200 +49,214 @@ export default function Dashboard() {
         
         // Add additional leave balance from in-lieu time
         const additionalLeave = Number(employeeData.annual_leave_balance || 0);
-        const totalLeaveBalance = baseLeave + additionalLeave;
         
-        // Set the total leave balance
-        setLeaveBalance(totalLeaveBalance);
-        
-        console.log('Dashboard leave balance calculation:', {
-          baseLeave,
-          additionalLeave,
-          totalLeaveBalance,
-          employeeBalance: employeeData.annual_leave_balance
-        });
-
-        // Calculate leave taken this year
+        // Fetch leave taken this year
         const currentYear = new Date().getFullYear();
         const { data: leaveData, error: leaveError } = await supabase
-          .from('leaves')
+          .from('leave_requests')
           .select('*')
           .eq('employee_id', user.user.id)
+          .eq('status', 'approved')
           .eq('year', currentYear);
 
         if (!leaveError && leaveData) {
-          const currentYearLeaves = leaveData.filter(leave => {
-            const leaveStartYear = new Date(leave.start_date).getFullYear();
-            return leaveStartYear === currentYear;
-          });
-          const total = currentYearLeaves.reduce((sum, item) => sum + item.days_taken, 0);
-          setLeaveTaken(total);
+          const totalDaysTaken = leaveData.reduce((total, leave) => total + leave.days, 0);
+          setLeaveTaken(totalDaysTaken);
         }
 
-        // Fetch in-lieu records for the current year
-        const yearStart = new Date(currentYear, 0, 1).toISOString();
-        const yearEnd = new Date(currentYear, 11, 31).toISOString();
-        
+        // Calculate final leave balance
+        setLeaveBalance(baseLeave + additionalLeave - leaveTaken);
+
+        // Fetch in-lieu records summary
         const { data: inLieuData, error: inLieuError } = await supabase
           .from('in_lieu_records')
           .select('*')
           .eq('employee_id', user.user.id)
-          .gte('created_at', yearStart)
-          .lte('created_at', yearEnd);
+          .order('created_at', { ascending: false });
+
+        if (!inLieuError && inLieuData) {
+          const totalDaysAdded = inLieuData.reduce((total, record) => 
+            total + (record.status === 'approved' ? record.days_added : 0), 0);
           
-        if (inLieuError) throw inLieuError;
-        
-        // Calculate in-lieu summary
-        const totalRecords = inLieuData?.length || 0;
-        const totalDaysAdded = inLieuData?.reduce((sum, record) => sum + record.leave_days_added, 0) || 0;
-        
-        setInLieuSummary({
-          count: totalRecords,
-          daysAdded: Number(totalDaysAdded.toFixed(2))
-        });
+          setInLieuSummary({
+            count: inLieuData.length,
+            daysAdded: totalDaysAdded
+          });
+        }
+
       } catch (error) {
-        console.error('Error fetching data:', error);
+        console.error('Error fetching dashboard data:', error);
       } finally {
         setLoading(false);
       }
     };
 
     fetchData();
-  }, []);
+  }, [leaveTaken]);
 
-  if (loading) {
-    return (
-      <Layout>
-        <div className="flex justify-center items-center h-64">
-          <div className="text-gray-600">Loading...</div>
-        </div>
-      </Layout>
-    );
-  }
+  // Format a number to 2 decimal places
+  const formatNumber = (num: number | null | undefined) => {
+    if (num === null || num === undefined) return 'N/A';
+    return num.toFixed(2);
+  };
+
+  // Format salary with commas and fixed decimal places
+  const formatSalary = (amount: number) => {
+    return amount.toLocaleString('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+  };
 
   return (
     <ProtectedRoute>
+      <Head>
+        <title>Dashboard - SalaryCursor</title>
+        <meta name="description" content="View your salary and leave information" />
+      </Head>
       <Layout>
-        <div className="px-4 sm:px-0">
-          <h1 className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-6">Dashboard</h1>
-          
-          {employee && (
-            <div className="bg-white shadow rounded-lg p-4 sm:p-6 mb-4 sm:mb-6">
-              <h2 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4">Employee Information</h2>
-              <div className="space-y-4">
-                <div className="p-3 bg-gray-50 rounded-lg">
-                  <p className="text-sm text-gray-600">Name</p>
-                  <p className="text-lg font-medium mt-1">{employee.name}</p>
+        <div className="px-4 sm:px-6 lg:px-8">
+          {loading ? (
+            <div className="flex justify-center py-12">
+              <div className="w-10 h-10">
+                <svg className="animate-spin w-full h-full text-apple-blue" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+              </div>
+            </div>
+          ) : (
+            <div>
+              {/* Welcome section */}
+              <section className="mb-10 text-center sm:text-left">
+                <h1 className="text-3xl font-medium text-apple-gray-dark mb-2">
+                  Welcome, {employee?.name || 'User'}
+                </h1>
+                <p className="text-apple-gray">
+                  {new Date().toLocaleDateString('en-US', { 
+                    weekday: 'long', 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                  })}
+                </p>
+              </section>
+
+              {/* Dashboard cards */}
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {/* Salary summary card */}
+                <div className="bg-white rounded-apple shadow-apple-card p-6 hover:shadow-lg transition-shadow">
+                  <div className="flex justify-between items-start mb-4">
+                    <h2 className="text-lg font-medium text-apple-gray-dark">Salary Summary</h2>
+                    <Link href="/salary" className="text-apple-blue text-sm font-medium hover:underline">
+                      View Details &rarr;
+                    </Link>
+                  </div>
+                  
+                  {latestSalary ? (
+                    <div className="space-y-3">
+                      <div>
+                        <p className="text-apple-gray text-sm">Latest Salary Period</p>
+                        <p className="text-xl font-medium text-apple-gray-dark">
+                          {new Date(latestSalary.month).toLocaleDateString('en-US', { 
+                            year: 'numeric', 
+                            month: 'long' 
+                          })}
+                        </p>
+                      </div>
+                      
+                      <div>
+                        <p className="text-apple-gray text-sm">Net Salary</p>
+                        <p className="text-xl font-medium text-apple-gray-dark">
+                          EGP {formatSalary(latestSalary.net_salary)}
+                        </p>
+                      </div>
+                      
+                      <div className="pt-2 border-t border-gray-100">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-apple-gray">Gross Salary</span>
+                          <span className="text-apple-gray-dark font-medium">
+                            EGP {formatSalary(latestSalary.gross_salary)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="py-4">
+                      <p className="text-apple-gray text-center">No salary information available</p>
+                    </div>
+                  )}
                 </div>
-                <div className="p-3 bg-gray-50 rounded-lg">
-                  <p className="text-sm text-gray-600">Employee ID</p>
-                  <p className="text-lg font-medium mt-1">{employee.employee_id}</p>
+
+                {/* Leave balance card */}
+                <div className="bg-white rounded-apple shadow-apple-card p-6 hover:shadow-lg transition-shadow">
+                  <div className="flex justify-between items-start mb-4">
+                    <h2 className="text-lg font-medium text-apple-gray-dark">Annual Leave</h2>
+                    <Link href="/leave" className="text-apple-blue text-sm font-medium hover:underline">
+                      Manage Leave &rarr;
+                    </Link>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-apple-gray text-sm">Current Balance</p>
+                      <p className="text-xl font-medium text-apple-gray-dark">
+                        {formatNumber(leaveBalance)} days
+                      </p>
+                    </div>
+                    
+                    <div>
+                      <p className="text-apple-gray text-sm">Leave Taken (This Year)</p>
+                      <p className="text-xl font-medium text-apple-gray-dark">
+                        {leaveTaken} days
+                      </p>
+                    </div>
+                    
+                    <div className="pt-2 border-t border-gray-100">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-apple-gray">Entitled Annual Leave</span>
+                        <span className="text-apple-gray-dark font-medium">
+                          {employee && (employee.years_of_service >= 10 ? '24.67' : '18.67')} days
+                        </span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div className="p-3 bg-gray-50 rounded-lg">
-                  <p className="text-sm text-gray-600">Position</p>
-                  <p className="text-lg font-medium mt-1">{employee.position}</p>
-                </div>
-                <div className="p-3 bg-gray-50 rounded-lg">
-                  <p className="text-sm text-gray-600">Years of Service</p>
-                  <p className="text-lg font-medium mt-1">{employee.years_of_service}</p>
+
+                {/* In-lieu time summary card */}
+                <div className="bg-white rounded-apple shadow-apple-card p-6 hover:shadow-lg transition-shadow md:col-span-2 lg:col-span-1">
+                  <div className="flex justify-between items-start mb-4">
+                    <h2 className="text-lg font-medium text-apple-gray-dark">In-Lieu Time</h2>
+                    <Link href="/leave" className="text-apple-blue text-sm font-medium hover:underline">
+                      View Records &rarr;
+                    </Link>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-apple-gray text-sm">Total Records</p>
+                      <p className="text-xl font-medium text-apple-gray-dark">
+                        {inLieuSummary.count} records
+                      </p>
+                    </div>
+                    
+                    <div>
+                      <p className="text-apple-gray text-sm">Days Added to Balance</p>
+                      <p className="text-xl font-medium text-apple-gray-dark">
+                        {inLieuSummary.daysAdded} days
+                      </p>
+                    </div>
+                    
+                    <div className="pt-2 border-t border-gray-100">
+                      <button className="mt-2 w-full px-4 py-2 bg-apple-gray-light text-apple-gray-dark rounded-full text-sm font-medium hover:bg-gray-200 transition-colors">
+                        Request New In-Lieu
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
           )}
-          
-          <div className="grid grid-cols-1 gap-4 sm:gap-6">
-            <div className="bg-white shadow rounded-lg p-4 sm:p-6">
-              <h2 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4">Salary Information</h2>
-              {latestSalary ? (
-                <div className="space-y-4">
-                  <div className="p-3 bg-gray-50 rounded-lg">
-                    <p className="text-sm text-gray-600">Month</p>
-                    <p className="text-lg font-medium mt-1">
-                      {new Date(latestSalary.month).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-                    </p>
-                  </div>
-                  <div className="p-4 bg-green-50 rounded-lg">
-                    <p className="text-sm text-gray-600">Total Salary</p>
-                    <p className="text-2xl font-bold text-green-600 mt-1">
-                      {latestSalary.total_salary.toLocaleString()} EGP
-                    </p>
-                  </div>
-                  <Link 
-                    href="/salary" 
-                    className="block w-full text-center bg-blue-600 text-white px-6 py-3 rounded-lg text-base font-medium hover:bg-blue-700"
-                  >
-                    Manage Salary
-                  </Link>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <p className="text-gray-600">No salary information available.</p>
-                  <Link 
-                    href="/salary" 
-                    className="block w-full text-center bg-blue-600 text-white px-6 py-3 rounded-lg text-base font-medium hover:bg-blue-700"
-                  >
-                    Calculate Salary
-                  </Link>
-                </div>
-              )}
-            </div>
-            
-            <div className="bg-white shadow rounded-lg p-4 sm:p-6">
-              <h2 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4">Annual Leave</h2>
-              {leaveBalance !== null && employee && (
-                <div className="space-y-4">
-                  <div className="p-3 bg-gray-50 rounded-lg">
-                    <p className="text-sm text-gray-600">Years of Service</p>
-                    <p className="text-lg font-medium mt-1">{employee.years_of_service} years</p>
-                  </div>
-                  <div className="p-3 bg-gray-50 rounded-lg">
-                    <p className="text-sm text-gray-600">Annual Leave Entitlement</p>
-                    <p className="text-lg font-medium mt-1">{leaveBalance.toFixed(2)} days</p>
-                    <div className="mt-1 text-sm text-gray-600">
-                      <div>Base: {employee.years_of_service >= 10 ? 24.67 : 18.67} days</div>
-                      {(employee.annual_leave_balance || 0) > 0 && (
-                        <div className="font-medium">+{Number(employee.annual_leave_balance || 0).toFixed(2)} in-lieu days</div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="p-3 bg-gray-50 rounded-lg">
-                    <p className="text-sm text-gray-600">Leave Taken This Year</p>
-                    <p className="text-lg font-medium mt-1">{leaveTaken} days</p>
-                  </div>
-                  <div className="p-4 bg-blue-50 rounded-lg">
-                    <p className="text-sm text-gray-600">Remaining Leave</p>
-                    <p className="text-2xl font-bold text-blue-600 mt-1">
-                      {(leaveBalance - leaveTaken).toFixed(2)} days
-                    </p>
-                  </div>
-                  <Link 
-                    href="/leave" 
-                    className="block w-full text-center bg-blue-600 text-white px-6 py-3 rounded-lg text-base font-medium hover:bg-blue-700"
-                  >
-                    Manage Leave
-                  </Link>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-5">
-            <h3 className="text-lg font-semibold text-gray-800 mb-3">In-Lieu Summary</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm text-gray-500">Records This Year</p>
-                <p className="text-xl font-bold text-gray-800">{inLieuSummary.count}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Days Added</p>
-                <p className="text-xl font-bold text-green-600">{inLieuSummary.daysAdded}</p>
-              </div>
-            </div>
-            <div className="mt-4">
-              <Link href="/leave" className="text-blue-600 hover:underline text-sm">
-                View All In-Lieu Records →
-              </Link>
-            </div>
-          </div>
         </div>
       </Layout>
     </ProtectedRoute>

@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabase';
+import Head from 'next/head';
+import Link from 'next/link';
 
 export default function Login() {
   const router = useRouter();
@@ -53,121 +55,113 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            {isResetMode ? 'Reset Password' : 'Sign in to your account'}
-          </h2>
-        </div>
-
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded">
-            {error}
+    <>
+      <Head>
+        <title>Sign in - SalaryCursor</title>
+        <meta name="description" content="Sign in to your SalaryCursor account" />
+      </Head>
+      
+      <div className="min-h-screen flex flex-col items-center justify-center bg-apple-gray-light">
+        <div className="w-full max-w-md">
+          <div className="text-center mb-10">
+            <h1 className="text-3xl font-semibold text-apple-gray-dark mb-2">SalaryCursor</h1>
+            <p className="text-apple-gray text-sm">Manage salary and leave in one place</p>
           </div>
-        )}
-
-        {message && (
-          <div className="bg-green-50 border border-green-200 text-green-600 px-4 py-3 rounded">
-            {message}
-          </div>
-        )}
-
-        <form className="mt-8 space-y-6" onSubmit={isResetMode ? handleResetPassword : handleLogin}>
-          <div className="rounded-md shadow-sm -space-y-px">
-            <div>
-              <label htmlFor="email-address" className="sr-only">
-                Email address
-              </label>
-              <input
-                id="email-address"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                placeholder="Email address"
-              />
-            </div>
-            {!isResetMode && (
-              <div>
-                <label htmlFor="password" className="sr-only">
-                  Password
+          
+          <div className="bg-white rounded-apple shadow-apple-card p-8 mb-6">
+            <h2 className="text-2xl font-medium text-apple-gray-dark mb-6">
+              {isResetMode ? 'Reset Password' : 'Sign In'}
+            </h2>
+            
+            {message && (
+              <div className="mb-6 p-3 bg-green-50 border border-green-200 text-green-700 rounded-md text-sm">
+                {message}
+              </div>
+            )}
+            
+            {error && (
+              <div className="mb-6 p-3 bg-red-50 border border-red-200 text-red-700 rounded-md text-sm">
+                {error}
+              </div>
+            )}
+            
+            <form onSubmit={isResetMode ? handleResetPassword : handleLogin}>
+              <div className="mb-5">
+                <label htmlFor="email" className="block text-sm font-medium text-apple-gray-dark mb-2">
+                  Email Address
                 </label>
                 <input
-                  id="password"
-                  name="password"
-                  type="password"
-                  autoComplete="current-password"
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
                   required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                  placeholder="Password"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-apple-blue focus:ring-1 focus:ring-apple-blue outline-none transition-colors duration-200"
                 />
               </div>
-            )}
-          </div>
-
-          {!isResetMode && (
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <input
-                  id="remember-me"
-                  name="remember-me"
-                  type="checkbox"
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                />
-                <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-900">
-                  Remember me
-                </label>
-              </div>
-            </div>
-          )}
-
-          <div className="space-y-4">
-            <button
-              type="submit"
-              disabled={loading}
-              className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-            >
-              {loading ? (
-                <span className="flex items-center">
-                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Loading...
-                </span>
-              ) : isResetMode ? (
-                'Send Reset Link'
-              ) : (
-                'Sign in'
+              
+              {!isResetMode && (
+                <div className="mb-5">
+                  <div className="flex justify-between mb-2">
+                    <label htmlFor="password" className="block text-sm font-medium text-apple-gray-dark">
+                      Password
+                    </label>
+                  </div>
+                  <input
+                    id="password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-apple-blue focus:ring-1 focus:ring-apple-blue outline-none transition-colors duration-200"
+                  />
+                </div>
               )}
-            </button>
-
-            {isResetMode ? (
+              
               <button
-                type="button"
-                onClick={() => setIsResetMode(false)}
-                className="w-full text-center text-sm text-gray-600 hover:text-gray-500 font-medium"
+                type="submit"
+                disabled={loading}
+                className="w-full bg-apple-blue hover:bg-apple-blue-hover text-white py-3 rounded-lg font-medium transition-colors duration-200 disabled:opacity-70"
               >
-                Back to login
+                {loading ? (
+                  <span className="flex items-center justify-center">
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    {isResetMode ? 'Sending Reset Link...' : 'Signing In...'}
+                  </span>
+                ) : (
+                  isResetMode ? 'Send Reset Link' : 'Sign In'
+                )}
               </button>
-            ) : (
+            </form>
+            
+            <div className="mt-5 text-center">
               <button
-                type="button"
-                onClick={() => setIsResetMode(true)}
-                className="w-full text-center text-sm text-blue-600 hover:text-blue-500 font-medium"
+                onClick={() => {
+                  setIsResetMode(!isResetMode);
+                  setError(null);
+                  setMessage(null);
+                }}
+                className="text-apple-blue hover:text-apple-blue-hover text-sm font-medium"
               >
-                Forgot your password?
+                {isResetMode ? 'Back to Sign In' : 'Forgot Password?'}
               </button>
-            )}
+            </div>
           </div>
-        </form>
+          
+          <div className="text-center text-apple-gray text-sm">
+            <p>
+              Don't have an account?{' '}
+              <Link href="/auth/signup" className="text-apple-blue hover:text-apple-blue-hover font-medium">
+                Create Account
+              </Link>
+            </p>
+          </div>
+        </div>
       </div>
-    </div>
+    </>
   );
 } 
