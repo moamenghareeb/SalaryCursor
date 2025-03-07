@@ -66,6 +66,35 @@ export default function Salary() {
 
   const [salaryCalc, setSalaryCalc] = useState<SalaryCalculation>(defaultSalaryCalc);
 
+  // Modified useEffects to guarantee localStorage priority
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  // This separate useEffect ensures localStorage values are applied AFTER 
+  // the employee data has been set and database data has loaded
+  useEffect(() => {
+    if (employee?.id && !loading) {
+      // After a small delay to ensure database data is loaded
+      const timer = setTimeout(() => {
+        const savedInputs = loadInputsFromLocalStorage();
+        if (savedInputs) {
+          setSalaryCalc(prev => ({
+            ...prev,
+            basicSalary: savedInputs.basicSalary || prev.basicSalary,
+            costOfLiving: savedInputs.costOfLiving || prev.costOfLiving,
+            shiftAllowance: savedInputs.shiftAllowance || prev.shiftAllowance,
+            overtimeHours: savedInputs.overtimeHours || prev.overtimeHours,
+            deduction: savedInputs.deduction || prev.deduction,
+          }));
+          console.log('Applied localStorage data with delay for employee:', employee.id);
+        }
+      }, 500);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [employee?.id, loading]);
+
   // Enhanced localStorage functions with debugging
   const saveInputsToLocalStorage = (data: SalaryCalculation) => {
     if (typeof window !== 'undefined' && employee?.id) {
@@ -73,19 +102,17 @@ export default function Salary() {
       try {
         // Store only user input fields, not calculated values
         const inputsToSave = {
-          basicSalary: data.basicSalary,
-          costOfLiving: data.costOfLiving,
-          shiftAllowance: data.shiftAllowance,
-          overtimeHours: data.overtimeHours,
-          deduction: data.deduction,
+          basicSalary: data.basicSalary || 0,
+          costOfLiving: data.costOfLiving || 0,
+          shiftAllowance: data.shiftAllowance || 0,
+          overtimeHours: data.overtimeHours || 0,
+          deduction: data.deduction || 0,
         };
         localStorage.setItem(storageKey, JSON.stringify(inputsToSave));
         console.log('✅ Saved salary inputs to localStorage:', inputsToSave);
       } catch (error) {
         console.error('Error saving to localStorage:', error);
       }
-    } else {
-      console.warn('Cannot save to localStorage: employee ID not available');
     }
   };
 
@@ -101,7 +128,10 @@ export default function Salary() {
           const parsedData = JSON.parse(savedData);
           console.log('✅ Found and loaded salary inputs from localStorage:', parsedData);
           return {
-            ...parsedData,
+            basicSalary: parsedData.basicSalary || 0,
+            costOfLiving: parsedData.costOfLiving || 0,
+            shiftAllowance: parsedData.shiftAllowance || 0,
+            overtimeHours: parsedData.overtimeHours || 0,
             deduction: parsedData.deduction || 0,
           };
         } else {
@@ -110,8 +140,6 @@ export default function Salary() {
       } catch (error) {
         console.error('Error loading saved inputs:', error);
       }
-    } else {
-      console.warn('Cannot load from localStorage: employee ID not available');
     }
     return null;
   };
@@ -654,42 +682,6 @@ to add the missing absences column to the salaries table.
       setLoading(false);
     }
   };
-
-  // Modified useEffects to guarantee localStorage priority
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  // This separate useEffect ensures localStorage values are applied AFTER 
-  // the employee data has been set and database data has loaded
-  useEffect(() => {
-    if (employee?.id) {
-      // After a small delay, apply localStorage data with priority
-      const timer = setTimeout(() => {
-        applyLocalStorageData();
-        console.log('Applied localStorage data with delay for employee:', employee.id);
-      }, 500);
-      
-      fetchSalaryHistory();
-      
-      return () => clearTimeout(timer);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [employee?.id]); // Only trigger when employee ID changes
-
-  // Add another timer to recheck after a longer delay to ensure localStorage values are applied
-  useEffect(() => {
-    if (employee?.id) {
-      const timer = setTimeout(() => {
-        // Double-check localStorage values were applied properly
-        applyLocalStorageData();
-        console.log('Final verification of localStorage data for employee:', employee.id);
-      }, 2000);
-      
-      return () => clearTimeout(timer);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [employee?.id]); // Only trigger when employee ID changes
 
   if (loading) {
     return (
