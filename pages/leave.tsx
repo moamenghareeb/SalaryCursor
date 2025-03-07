@@ -265,10 +265,10 @@ export default function Leave() {
       }
       
       setEmployee(employeeData);
-      setYearsOfService(employeeData.yearsOfService);
+      setYearsOfService(employeeData.years_of_service);
 
       // Calculate base leave balance based on years of service
-      const baseLeave = employeeData.yearsOfService >= 10 ? 24.67 : 18.67;
+      const baseLeave = employeeData.years_of_service >= 10 ? 24.67 : 18.67;
       
       // Fetch all leaves and in-lieu records before calculating balances
       console.log('Fetching leaves for employee:', userId);
@@ -552,7 +552,7 @@ export default function Leave() {
     try {
       const { error } = await supabase
         .from('employees')
-        .update({ yearsOfService: yearsOfService })
+        .update({ years_of_service: yearsOfService })
         .eq('id', employee.id);
 
       if (error) throw error;
@@ -875,7 +875,7 @@ export default function Leave() {
                   <button
                     onClick={() => {
                       setIsEditingYears(false);
-                      setYearsOfService(employee?.yearsOfService || 0);
+                      setYearsOfService(employee?.years_of_service || 0);
                     }}
                     className="text-gray-600 hover:text-gray-800"
                   >

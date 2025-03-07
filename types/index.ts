@@ -1,95 +1,14 @@
 export interface Employee {
   id: string;
-  name: string;
-  employeeId: string;
-  position: string;
-  yearsOfService: number;
   email: string;
-  department: string;
-  joinDate: string;
-}
-
-export interface SalaryDetails {
-  basic: number;
-  currency: string;
-  month: string;
-  year: number;
-  netSalary: number;
-  allowances: {
-    housing: number;
-    transportation: number;
-    meals: number;
-    other: number;
-  };
-  deductions: {
-    tax: number;
-    insurance: number;
-    pension: number;
-    other: number;
-  };
-}
-
-export interface LeaveBalance {
-  annual: number;
-  sick: number;
-  unpaid: number;
-  total: number;
-}
-
-export interface LeaveRequest {
-  id: string;
-  type: 'Annual' | 'Sick' | 'Unpaid';
-  startDate: string;
-  endDate: string;
-  status: 'Pending' | 'Approved' | 'Rejected';
-  reason?: string;
-}
-
-export interface SalaryHistory {
-  id: string;
-  month: string;
-  year: number;
-  amount: number;
-  currency: string;
-  paymentDate: string;
-}
-
-export interface DashboardStats {
-  totalEmployees: number;
-  averageSalary: number;
-  totalLeaveRequests: number;
-  pendingLeaveRequests: number;
-}
-
-// API Response Types
-export interface ApiResponse<T> {
-  success: boolean;
-  data?: T;
-  error?: string;
-}
-
-// Form State Types
-export interface SalaryFormState {
-  basic: number;
-  allowances: {
-    housing: number;
-    transportation: number;
-    meals: number;
-    other: number;
-  };
-  deductions: {
-    tax: number;
-    insurance: number;
-    pension: number;
-    other: number;
-  };
-}
-
-export interface LeaveFormState {
-  type: 'Annual' | 'Sick' | 'Unpaid';
-  startDate: string;
-  endDate: string;
-  reason: string;
+  name: string;
+  employee_id: string;
+  position: string;
+  years_of_service: number;
+  annual_leave_balance?: number;
+  is_admin: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Salary {

@@ -103,7 +103,7 @@ const SalaryPDF: React.FC<SalaryPDFProps> = ({ salary, employee, month }) => {
         </View>
         <View style={styles.row}>
           <Text style={styles.label}>Employee ID</Text>
-          <Text style={styles.value}>{employee.employeeId}</Text>
+          <Text style={styles.value}>{employee.employee_id}</Text>
         </View>
         <View style={styles.row}>
           <Text style={styles.label}>Position</Text>
