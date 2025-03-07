@@ -186,6 +186,7 @@ export default function Salary() {
   // Function to calculate variable pay based on basic salary
   const calculateVariablePay = (basicSalary: number): number => {
     // Calculate variable pay: E = ((A+B+C+D)*((exchangeRate/31)-1)
+    // All values are already in EGP
     return (basicSalary + salaryCalc.costOfLiving + salaryCalc.shiftAllowance + salaryCalc.overtimePay) * 
       ((exchangeRate / 31) - 1);
   };
@@ -193,7 +194,7 @@ export default function Salary() {
   const calculateSalary = async () => {
     setCalculationLoading(true);
     
-    // Extract values from state
+    // Extract values from state - all in EGP
     const basicSalary = salaryCalc.basicSalary || 0;
     const costOfLiving = salaryCalc.costOfLiving || 0;
     const shiftAllowance = salaryCalc.shiftAllowance || 0;
@@ -760,7 +761,7 @@ to add the missing absences column to the salaries table.
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-apple-gray-dark mb-1">
-                    Basic Salary (USD)
+                    Basic Salary (EGP)
                   </label>
                   <input
                     type="number"
@@ -771,7 +772,7 @@ to add the missing absences column to the salaries table.
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-apple-gray-dark mb-1">
-                    Cost of Living (USD)
+                    Cost of Living (EGP)
                   </label>
                   <input
                     type="number"
@@ -782,7 +783,7 @@ to add the missing absences column to the salaries table.
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-apple-gray-dark mb-1">
-                    Shift Allowance (USD)
+                    Shift Allowance (EGP)
                   </label>
                   <input
                     type="number"
@@ -807,7 +808,7 @@ to add the missing absences column to the salaries table.
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-apple-gray-dark mb-1">
-                    Variable Pay (USD)
+                    Variable Pay (EGP)
                   </label>
                   <input
                     type="number"
@@ -818,7 +819,7 @@ to add the missing absences column to the salaries table.
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-apple-gray-dark mb-1">
-                    Deductions (USD)
+                    Deductions (EGP)
                   </label>
                   <input
                     type="number"
@@ -863,19 +864,12 @@ to add the missing absences column to the salaries table.
             {salaryCalc.totalSalary > 0 && (
               <div className="space-y-4">
                 <div>
-                  <p className="text-sm text-apple-gray">Total Salary (USD)</p>
+                  <p className="text-sm text-apple-gray">Total Salary (EGP)</p>
                   <p className="text-2xl font-medium text-apple-gray-dark">
-                    ${salaryCalc.totalSalary.toFixed(2)}
+                    EGP {salaryCalc.totalSalary.toFixed(2)}
                   </p>
                 </div>
                 
-                <div>
-                  <p className="text-sm text-apple-gray">Total Salary (EGP)</p>
-                  <p className="text-2xl font-medium text-apple-gray-dark">
-                    EGP {(salaryCalc.totalSalary * exchangeRate).toFixed(2)}
-                  </p>
-                </div>
-
                 <div className="pt-4 border-t border-gray-100">
                   <button
                     onClick={saveSalary}
@@ -958,8 +952,7 @@ to add the missing absences column to the salaries table.
               <thead>
                 <tr className="border-b border-gray-100">
                   <th className="text-left py-3 px-4 text-sm font-medium text-apple-gray">Month</th>
-                  <th className="text-right py-3 px-4 text-sm font-medium text-apple-gray">Basic Salary</th>
-                  <th className="text-right py-3 px-4 text-sm font-medium text-apple-gray">Total (USD)</th>
+                  <th className="text-right py-3 px-4 text-sm font-medium text-apple-gray">Basic Salary (EGP)</th>
                   <th className="text-right py-3 px-4 text-sm font-medium text-apple-gray">Total (EGP)</th>
                   <th className="text-right py-3 px-4 text-sm font-medium text-apple-gray">Actions</th>
                 </tr>
@@ -974,13 +967,10 @@ to add the missing absences column to the salaries table.
                       })}
                     </td>
                     <td className="text-right py-3 px-4 text-apple-gray-dark">
-                      ${salary.basic_salary.toFixed(2)}
+                      EGP {salary.basic_salary.toFixed(2)}
                     </td>
                     <td className="text-right py-3 px-4 text-apple-gray-dark">
-                      ${salary.total_salary.toFixed(2)}
-                    </td>
-                    <td className="text-right py-3 px-4 text-apple-gray-dark">
-                      EGP {(salary.total_salary * salary.exchange_rate).toFixed(2)}
+                      EGP {salary.total_salary.toFixed(2)}
                     </td>
                     <td className="text-right py-3 px-4">
                       <button
