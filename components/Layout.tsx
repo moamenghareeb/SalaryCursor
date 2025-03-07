@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabase';
+import { User } from '@supabase/supabase-js';
 
 // Icons (you can replace these with actual icon components)
 const DashboardIcon = () => <svg>...</svg>;
@@ -17,7 +18,7 @@ interface LayoutProps {
 
 const Navigation = () => {
   const router = useRouter();
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
     // Fetch current user
