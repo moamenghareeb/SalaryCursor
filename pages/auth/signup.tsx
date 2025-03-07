@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../../lib/supabase';
 import Link from 'next/link';
+import Head from 'next/head';
 
 export default function SignUp() {
   const router = useRouter();
@@ -71,87 +72,146 @@ export default function SignUp() {
   };
 
   return (
-    <div className="max-w-md mx-auto mt-10 p-6 bg-white rounded-lg shadow-md">
-      <h1 className="text-2xl font-bold mb-6">Sign Up</h1>
-      {error && <div className="bg-red-100 text-red-700 p-3 rounded mb-4">{error}</div>}
-      <form onSubmit={handleSignUp}>
-        <div className="mb-4">
-          <label className="block mb-2">Full Name</label>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-            className="w-full p-2 border rounded"
-          />
+    <>
+      <Head>
+        <title>Create Account - SalaryCursor</title>
+        <meta name="description" content="Create your SalaryCursor account" />
+      </Head>
+      
+      <div className="min-h-screen flex flex-col items-center justify-center bg-apple-gray-light">
+        <div className="w-full max-w-md">
+          <div className="text-center mb-10">
+            <h1 className="text-3xl font-semibold text-apple-gray-dark mb-2">SalaryCursor</h1>
+            <p className="text-apple-gray text-sm">Create your account</p>
+          </div>
+          
+          <div className="bg-white rounded-apple shadow-apple-card p-8 mb-6">
+            <h2 className="text-2xl font-medium text-apple-gray-dark mb-6">Sign Up</h2>
+            
+            {error && (
+              <div className="mb-6 p-3 bg-red-50 border border-red-200 text-red-700 rounded-md text-sm">
+                {error}
+              </div>
+            )}
+            
+            <form onSubmit={handleSignUp} className="space-y-5">
+              <div>
+                <label className="block text-sm font-medium text-apple-gray-dark mb-2">
+                  Full Name
+                </label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                  className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-apple-blue focus:ring-1 focus:ring-apple-blue outline-none transition-colors duration-200"
+                  placeholder="Enter your full name"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-apple-gray-dark mb-2">
+                  Employee ID (1-700)
+                </label>
+                <input
+                  type="number"
+                  value={employeeId}
+                  onChange={(e) => setEmployeeId(e.target.value)}
+                  required
+                  min="1"
+                  max="700"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-apple-blue focus:ring-1 focus:ring-apple-blue outline-none transition-colors duration-200"
+                  placeholder="Enter your employee ID"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-apple-gray-dark mb-2">
+                  Position
+                </label>
+                <input
+                  type="text"
+                  value={position}
+                  onChange={(e) => setPosition(e.target.value)}
+                  required
+                  className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-apple-blue focus:ring-1 focus:ring-apple-blue outline-none transition-colors duration-200"
+                  placeholder="Enter your position"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-apple-gray-dark mb-2">
+                  Years in Social Insurance
+                </label>
+                <input
+                  type="number"
+                  value={yearsOfService}
+                  onChange={(e) => setYearsOfService(parseInt(e.target.value))}
+                  min="0"
+                  required
+                  className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-apple-blue focus:ring-1 focus:ring-apple-blue outline-none transition-colors duration-200"
+                  placeholder="Enter years of service"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-apple-gray-dark mb-2">
+                  Email Address
+                </label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-apple-blue focus:ring-1 focus:ring-apple-blue outline-none transition-colors duration-200"
+                  placeholder="you@example.com"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-apple-gray-dark mb-2">
+                  Password
+                </label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-apple-blue focus:ring-1 focus:ring-apple-blue outline-none transition-colors duration-200"
+                  placeholder="Create a secure password"
+                />
+              </div>
+              
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-apple-blue hover:bg-apple-blue-hover text-white py-3 rounded-lg font-medium transition-colors duration-200 disabled:opacity-70"
+              >
+                {loading ? (
+                  <span className="flex items-center justify-center">
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Creating Account...
+                  </span>
+                ) : (
+                  'Create Account'
+                )}
+              </button>
+            </form>
+          </div>
+          
+          <div className="text-center text-apple-gray text-sm">
+            <p>
+              Already have an account?{' '}
+              <Link href="/login" className="text-apple-blue hover:text-apple-blue-hover font-medium">
+                Sign In
+              </Link>
+            </p>
+          </div>
         </div>
-        <div className="mb-4">
-          <label className="block mb-2">Employee ID (1-700)</label>
-          <input
-            type="number"
-            value={employeeId}
-            onChange={(e) => setEmployeeId(e.target.value)}
-            required
-            min="1"
-            max="700"
-            className="w-full p-2 border rounded"
-          />
-        </div>
-        <div className="mb-4">
-          <label className="block mb-2">Position</label>
-          <input
-            type="text"
-            value={position}
-            onChange={(e) => setPosition(e.target.value)}
-            required
-            className="w-full p-2 border rounded"
-          />
-        </div>
-        <div className="mb-4">
-          <label className="block mb-2">Years in Social Insurance</label>
-          <input
-            type="number"
-            value={yearsOfService}
-            onChange={(e) => setYearsOfService(parseInt(e.target.value))}
-            min="0"
-            required
-            className="w-full p-2 border rounded"
-          />
-        </div>
-        <div className="mb-4">
-          <label className="block mb-2">Email</label>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            className="w-full p-2 border rounded"
-          />
-        </div>
-        <div className="mb-6">
-          <label className="block mb-2">Password</label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            className="w-full p-2 border rounded"
-          />
-        </div>
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full bg-blue-600 text-white p-2 rounded hover:bg-blue-700 disabled:bg-blue-300"
-        >
-          {loading ? 'Signing up...' : 'Sign Up'}
-        </button>
-      </form>
-      <p className="mt-4 text-center">
-        Already have an account?{' '}
-        <Link href="/auth/login" className="text-blue-600 hover:underline">
-          Log In
-        </Link>
-      </p>
-    </div>
+      </div>
+    </>
   );
 } 

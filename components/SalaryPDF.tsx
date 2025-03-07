@@ -34,30 +34,22 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+    paddingBottom: 5,
     borderBottomWidth: 1,
-    borderBottomColor: '#eaeaea',
-    paddingVertical: 8,
+    borderBottomColor: '#eee',
+    borderBottomStyle: 'solid',
   },
   label: {
     fontSize: 12,
+    color: '#666',
   },
   value: {
     fontSize: 12,
     fontWeight: 'bold',
   },
-  totalRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 10,
-    marginTop: 10,
-    borderTopWidth: 2,
-    borderTopColor: '#112246',
-  },
-  totalLabel: {
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  totalValue: {
+  total: {
     fontSize: 14,
     fontWeight: 'bold',
     color: '#112246',
@@ -68,8 +60,10 @@ const styles = StyleSheet.create({
     left: 30,
     right: 30,
     textAlign: 'center',
-    fontSize: 10,
-    color: 'grey',
+    color: '#666',
+    borderTop: 1,
+    borderTopColor: '#eee',
+    paddingTop: 10,
   },
 });
 
@@ -77,28 +71,25 @@ type SalaryPDFProps = {
   salary: SalaryCalculation;
   employee: Employee;
   month: string;
+  exchangeRate: number;
 };
 
-const SalaryPDF: React.FC<SalaryPDFProps> = ({ salary, employee, month }) => {
-  const monthDate = new Date(month + '-01');
-  const formattedMonth = monthDate.toLocaleDateString('en-US', { 
-    month: 'long', 
-    year: 'numeric'
-  });
+const SalaryPDF: React.FC<SalaryPDFProps> = ({ salary, employee, month, exchangeRate }) => {
+  // Format currency with 2 decimal places
+  const formatCurrency = (amount: number) => amount.toFixed(2);
 
   return (
     <Page size="A4" style={styles.page}>
       <View style={styles.header}>
-        <Text style={styles.title}>Salary Slip</Text>
-        <Text style={styles.subtitle}>{formattedMonth}</Text>
+        <Text style={styles.title}>Salary Statement</Text>
+        <Text style={styles.subtitle}>
+          {new Date(month).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+        </Text>
       </View>
 
       <View style={styles.section}>
-        <Text style={{ fontSize: 16, marginBottom: 10, fontWeight: 'bold' }}>
-          Employee Information
-        </Text>
         <View style={styles.row}>
-          <Text style={styles.label}>Name</Text>
+          <Text style={styles.label}>Employee Name</Text>
           <Text style={styles.value}>{employee.name}</Text>
         </View>
         <View style={styles.row}>
@@ -112,74 +103,70 @@ const SalaryPDF: React.FC<SalaryPDFProps> = ({ salary, employee, month }) => {
       </View>
 
       <View style={styles.section}>
-        <Text style={{ fontSize: 16, marginBottom: 10, fontWeight: 'bold' }}>
-          Salary Components
-        </Text>
+        <Text style={[styles.label, { marginBottom: 10 }]}>Salary Components (USD)</Text>
+        
         <View style={styles.row}>
-          <Text style={styles.label}>Basic Salary (A)</Text>
-          <Text style={styles.value}>{(salary.basicSalary || 0).toFixed(2)} EGP</Text>
-        </View>
-        <View style={styles.row}>
-          <Text style={styles.label}>Cost of Living (B)</Text>
-          <Text style={styles.value}>{(salary.costOfLiving || 0).toFixed(2)} EGP</Text>
-        </View>
-        <View style={styles.row}>
-          <Text style={styles.label}>Shift Allowance (C)</Text>
-          <Text style={styles.value}>{(salary.shiftAllowance || 0).toFixed(2)} EGP</Text>
-        </View>
-        <View style={styles.row}>
-          <Text style={styles.label}>Overtime Hours</Text>
-          <Text style={styles.value}>{(salary.overtimeHours || 0)} hours</Text>
-        </View>
-        <View style={styles.row}>
-          <Text style={styles.label}>Overtime Pay (D)</Text>
-          <Text style={styles.value}>{(salary.overtimePay || 0).toFixed(2)} EGP</Text>
-        </View>
-        <View style={styles.row}>
-          <Text style={styles.label}>Variable Pay (E)</Text>
-          <Text style={styles.value}>{(salary.variablePay || 0).toFixed(2)} EGP</Text>
-        </View>
-        <View style={styles.row}>
-          <Text style={styles.label}>Act As Pay (F)</Text>
-          <Text style={styles.value}>{(salary.actAsPay || 0).toFixed(2)} EGP</Text>
-        </View>
-
-        <Text style={{ fontSize: 16, marginTop: 20, marginBottom: 10, fontWeight: 'bold' }}>
-          Deductions
-        </Text>
-        <View style={styles.row}>
-          <Text style={styles.label}>Pension Plan (G)</Text>
-          <Text style={styles.value}>{(salary.pensionPlan || 0).toFixed(2)} EGP</Text>
-        </View>
-        <View style={styles.row}>
-          <Text style={styles.label}>Deduction (H)</Text>
-          <Text style={styles.value}>{(salary.deduction || 0).toFixed(2)} EGP</Text>
-        </View>
-        <View style={styles.row}>
-          <Text style={styles.label}>Premium Card Deduction (I)</Text>
-          <Text style={styles.value}>{(salary.premiumCardDeduction || 0).toFixed(2)} EGP</Text>
-        </View>
-        <View style={styles.row}>
-          <Text style={styles.label}>Mobile Deduction (J)</Text>
-          <Text style={styles.value}>{(salary.mobileDeduction || 0).toFixed(2)} EGP</Text>
-        </View>
-        <View style={styles.row}>
-          <Text style={styles.label}>Absences (K)</Text>
-          <Text style={styles.value}>{(salary.absences || 0).toFixed(2)} EGP</Text>
-        </View>
-        <View style={styles.row}>
-          <Text style={styles.label}>Sick Leave (L)</Text>
-          <Text style={styles.value}>{(salary.sickLeave || 0).toFixed(2)} EGP</Text>
+          <Text style={styles.label}>Basic Salary</Text>
+          <Text style={styles.value}>${formatCurrency(salary.basicSalary)}</Text>
         </View>
         
-        <View style={styles.totalRow}>
-          <Text style={styles.totalLabel}>Total Salary</Text>
-          <Text style={styles.totalValue}>{(salary.totalSalary || 0).toFixed(2)} EGP</Text>
+        <View style={styles.row}>
+          <Text style={styles.label}>Cost of Living</Text>
+          <Text style={styles.value}>${formatCurrency(salary.costOfLiving)}</Text>
+        </View>
+        
+        <View style={styles.row}>
+          <Text style={styles.label}>Shift Allowance</Text>
+          <Text style={styles.value}>${formatCurrency(salary.shiftAllowance)}</Text>
+        </View>
+        
+        <View style={styles.row}>
+          <Text style={styles.label}>Overtime Hours</Text>
+          <Text style={styles.value}>{salary.overtimeHours}</Text>
+        </View>
+        
+        <View style={styles.row}>
+          <Text style={styles.label}>Overtime Pay</Text>
+          <Text style={styles.value}>${formatCurrency(salary.overtimePay)}</Text>
+        </View>
+        
+        <View style={styles.row}>
+          <Text style={styles.label}>Variable Pay</Text>
+          <Text style={styles.value}>${formatCurrency(salary.variablePay)}</Text>
+        </View>
+        
+        <View style={styles.row}>
+          <Text style={styles.label}>Deductions</Text>
+          <Text style={styles.value}>-${formatCurrency(salary.deduction)}</Text>
+        </View>
+      </View>
+
+      <View style={[styles.section, { marginTop: 20 }]}>
+        <View style={styles.row}>
+          <Text style={styles.total}>Total Salary (USD)</Text>
+          <Text style={styles.total}>${formatCurrency(salary.totalSalary)}</Text>
+        </View>
+        
+        <View style={styles.row}>
+          <Text style={styles.total}>Exchange Rate</Text>
+          <Text style={styles.total}>1 USD = {exchangeRate} EGP</Text>
+        </View>
+        
+        <View style={styles.row}>
+          <Text style={styles.total}>Total Salary (EGP)</Text>
+          <Text style={styles.total}>EGP {formatCurrency(salary.totalSalary * exchangeRate)}</Text>
         </View>
       </View>
 
       <View style={styles.footer}>
-        <Text>Generated on {new Date().toLocaleDateString()}</Text>
+        <Text style={{ fontSize: 10 }}>
+          Generated on {new Date().toLocaleDateString('en-US', { 
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+          })}
+        </Text>
       </View>
     </Page>
   );

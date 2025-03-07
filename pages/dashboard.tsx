@@ -166,17 +166,30 @@ export default function Dashboard() {
                       </div>
                       
                       <div>
-                        <p className="text-apple-gray text-sm">Net Salary</p>
+                        <p className="text-apple-gray text-sm">Total Salary (USD)</p>
                         <p className="text-xl font-medium text-apple-gray-dark">
-                          EGP {formatSalary(latestSalary.net_salary)}
+                          ${formatSalary(latestSalary.total_salary)}
+                        </p>
+                      </div>
+                      
+                      <div>
+                        <p className="text-apple-gray text-sm">Total Salary (EGP)</p>
+                        <p className="text-xl font-medium text-apple-gray-dark">
+                          EGP {formatSalary(latestSalary.total_salary * latestSalary.exchange_rate)}
                         </p>
                       </div>
                       
                       <div className="pt-2 border-t border-gray-100">
                         <div className="flex justify-between text-sm">
-                          <span className="text-apple-gray">Gross Salary</span>
+                          <span className="text-apple-gray">Basic Salary</span>
                           <span className="text-apple-gray-dark font-medium">
-                            EGP {formatSalary(latestSalary.gross_salary)}
+                            ${formatSalary(latestSalary.basic_salary)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-sm mt-1">
+                          <span className="text-apple-gray">Exchange Rate</span>
+                          <span className="text-apple-gray-dark font-medium">
+                            {latestSalary.exchange_rate} EGP
                           </span>
                         </div>
                       </div>

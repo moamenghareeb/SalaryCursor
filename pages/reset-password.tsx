@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabase';
+import Head from 'next/head';
+import Link from 'next/link';
 
 export default function ResetPassword() {
   const router = useRouter();
@@ -54,71 +56,93 @@ export default function ResetPassword() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Reset Your Password
-          </h2>
+    <>
+      <Head>
+        <title>Reset Password - SalaryCursor</title>
+        <meta name="description" content="Reset your SalaryCursor account password" />
+      </Head>
+      
+      <div className="min-h-screen flex flex-col items-center justify-center bg-apple-gray-light">
+        <div className="w-full max-w-md">
+          <div className="text-center mb-10">
+            <h1 className="text-3xl font-semibold text-apple-gray-dark mb-2">SalaryCursor</h1>
+            <p className="text-apple-gray text-sm">Reset your password</p>
+          </div>
+          
+          <div className="bg-white rounded-apple shadow-apple-card p-8 mb-6">
+            <h2 className="text-2xl font-medium text-apple-gray-dark mb-6">Create New Password</h2>
+            
+            {error && (
+              <div className="mb-6 p-3 bg-red-50 border border-red-200 text-red-700 rounded-md text-sm">
+                {error}
+              </div>
+            )}
+            
+            {message && (
+              <div className="mb-6 p-3 bg-green-50 border border-green-200 text-green-700 rounded-md text-sm">
+                {message}
+              </div>
+            )}
+            
+            <form onSubmit={handleResetPassword} className="space-y-5">
+              <div>
+                <label className="block text-sm font-medium text-apple-gray-dark mb-2">
+                  New Password
+                </label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-apple-blue focus:ring-1 focus:ring-apple-blue outline-none transition-colors duration-200"
+                  placeholder="Enter your new password"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-apple-gray-dark mb-2">
+                  Confirm New Password
+                </label>
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-apple-blue focus:ring-1 focus:ring-apple-blue outline-none transition-colors duration-200"
+                  placeholder="Confirm your new password"
+                />
+              </div>
+              
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-apple-blue hover:bg-apple-blue-hover text-white py-3 rounded-lg font-medium transition-colors duration-200 disabled:opacity-70"
+              >
+                {loading ? (
+                  <span className="flex items-center justify-center">
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Resetting Password...
+                  </span>
+                ) : (
+                  'Reset Password'
+                )}
+              </button>
+            </form>
+          </div>
+          
+          <div className="text-center text-apple-gray text-sm">
+            <p>
+              Remember your password?{' '}
+              <Link href="/login" className="text-apple-blue hover:text-apple-blue-hover font-medium">
+                Sign In
+              </Link>
+            </p>
+          </div>
         </div>
-
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded">
-            {error}
-          </div>
-        )}
-
-        {message && (
-          <div className="bg-green-50 border border-green-200 text-green-600 px-4 py-3 rounded">
-            {message}
-          </div>
-        )}
-
-        <form className="mt-8 space-y-6" onSubmit={handleResetPassword}>
-          <div className="rounded-md shadow-sm -space-y-px">
-            <div>
-              <label htmlFor="password" className="sr-only">
-                New Password
-              </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                placeholder="New Password"
-              />
-            </div>
-            <div>
-              <label htmlFor="confirm-password" className="sr-only">
-                Confirm New Password
-              </label>
-              <input
-                id="confirm-password"
-                name="confirm-password"
-                type="password"
-                required
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                placeholder="Confirm New Password"
-              />
-            </div>
-          </div>
-
-          <div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-            >
-              {loading ? 'Resetting...' : 'Reset Password'}
-            </button>
-          </div>
-        </form>
       </div>
-    </div>
+    </>
   );
 } 
