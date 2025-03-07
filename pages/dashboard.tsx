@@ -53,14 +53,13 @@ export default function Dashboard() {
         // Fetch leave taken this year
         const currentYear = new Date().getFullYear();
         const { data: leaveData, error: leaveError } = await supabase
-          .from('leave_requests')
+          .from('leaves')
           .select('*')
           .eq('employee_id', user.user.id)
-          .eq('status', 'approved')
           .eq('year', currentYear);
 
         if (!leaveError && leaveData) {
-          const totalDaysTaken = leaveData.reduce((total, leave) => total + leave.days, 0);
+          const totalDaysTaken = leaveData.reduce((total, leave) => total + (leave.days_taken || 0), 0);
           setLeaveTaken(totalDaysTaken);
         }
 
@@ -76,7 +75,7 @@ export default function Dashboard() {
 
         if (!inLieuError && inLieuData) {
           const totalDaysAdded = inLieuData.reduce((total, record) => 
-            total + (record.status === 'approved' ? record.days_added : 0), 0);
+            total + (record.status === 'approved' ? (record.leave_days_added || 0) : 0), 0);
           
           setInLieuSummary({
             count: inLieuData.length,
@@ -101,7 +100,8 @@ export default function Dashboard() {
   };
 
   // Format salary with commas and fixed decimal places
-  const formatSalary = (amount: number) => {
+  const formatSalary = (amount: number | null | undefined) => {
+    if (amount === null || amount === undefined) return '0.00';
     return amount.toLocaleString('en-US', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
