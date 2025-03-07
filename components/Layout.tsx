@@ -1,132 +1,130 @@
-import { ReactNode, useState } from 'react';
-import { useRouter } from 'next/router';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useAuth } from '../lib/authContext';
+import { useRouter } from 'next/router';
+import { supabase } from '../lib/supabase';
 
-type LayoutProps = {
-  children: ReactNode;
-};
+// Icons (you can replace these with actual icon components)
+const DashboardIcon = () => <svg>...</svg>;
+const SalaryIcon = () => <svg>...</svg>;
+const LeaveIcon = () => <svg>...</svg>;
+const ProfileIcon = () => <svg>...</svg>;
+const LogoutIcon = () => <svg>...</svg>;
 
-export default function Layout({ children }: LayoutProps) {
+interface LayoutProps {
+  children: React.ReactNode;
+  title?: string;
+}
+
+const Navigation = () => {
   const router = useRouter();
-  const { user, loading, signOut } = useAuth();
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [user, setUser] = useState(null);
 
-  if (loading) {
-    return <div className="flex justify-center items-center h-screen">Loading...</div>;
-  }
+  useEffect(() => {
+    // Fetch current user
+    const fetchUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setUser(user);
+    };
+    fetchUser();
+  }, []);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push('/login');
+  };
+
+  const navItems = [
+    { 
+      href: '/dashboard', 
+      label: 'Dashboard', 
+      icon: <DashboardIcon />,
+      requiredRole: null 
+    },
+    { 
+      href: '/salary', 
+      label: 'Salary', 
+      icon: <SalaryIcon />,
+      requiredRole: null 
+    },
+    { 
+      href: '/leave', 
+      label: 'Leave', 
+      icon: <LeaveIcon />,
+      requiredRole: null 
+    },
+    { 
+      href: '/profile', 
+      label: 'Profile', 
+      icon: <ProfileIcon />,
+      requiredRole: null 
+    }
+  ];
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <nav className="bg-blue-600 text-white shadow-md">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center">
-              <Link href="/dashboard" className="text-lg sm:text-xl font-bold">
-                Salary & Leave Manager
-              </Link>
-            </div>
-            
-            {/* Mobile menu button */}
-            <div className="flex items-center sm:hidden">
-              <button
-                onClick={() => setIsMenuOpen(!isMenuOpen)}
-                className="inline-flex items-center justify-center p-2 rounded-md text-white hover:bg-blue-700 focus:outline-none"
-              >
-                <span className="sr-only">Open main menu</span>
-                {!isMenuOpen ? (
-                  <svg className="block h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                  </svg>
-                ) : (
-                  <svg className="block h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                )}
-              </button>
-            </div>
+    <nav 
+      className="fixed left-0 top-0 h-full w-64 bg-white shadow-md transition-all duration-300"
+      aria-label="Main Navigation"
+    >
+      <div className="p-4 border-b">
+        <h2 className="text-xl font-bold">Salary Management</h2>
+      </div>
+      
+      <ul className="py-4">
+        {navItems.map((item) => (
+          <li key={item.href}>
+            <Link 
+              href={item.href}
+              className={`
+                flex items-center p-3 hover:bg-gray-100 
+                ${router.pathname === item.href ? 'bg-blue-50 text-blue-600' : ''}
+              `}
+              aria-current={router.pathname === item.href ? 'page' : undefined}
+            >
+              {item.icon}
+              <span className="ml-3">{item.label}</span>
+            </Link>
+          </li>
+        ))}
+        
+        <li>
+          <button 
+            onClick={handleLogout}
+            className="flex items-center w-full p-3 hover:bg-red-50 hover:text-red-600"
+            aria-label="Logout"
+          >
+            <LogoutIcon />
+            <span className="ml-3">Logout</span>
+          </button>
+        </li>
+      </ul>
+    </nav>
+  );
+};
 
-            {/* Desktop menu */}
-            <div className="hidden sm:flex sm:items-center sm:space-x-4">
-              <Link 
-                href="/dashboard" 
-                className={`px-3 py-2 rounded ${
-                  router.pathname === '/dashboard' ? 'bg-blue-700' : 'hover:bg-blue-700'
-                }`}
-              >
-                Dashboard
-              </Link>
-              <Link 
-                href="/salary" 
-                className={`px-3 py-2 rounded ${
-                  router.pathname === '/salary' ? 'bg-blue-700' : 'hover:bg-blue-700'
-                }`}
-              >
-                Salary
-              </Link>
-              <Link 
-                href="/leave" 
-                className={`px-3 py-2 rounded ${
-                  router.pathname === '/leave' ? 'bg-blue-700' : 'hover:bg-blue-700'
-                }`}
-              >
-                Annual Leave
-              </Link>
-              <span className="px-3 py-2 hidden lg:block">{user?.email}</span>
-              <button
-                onClick={signOut}
-                className="px-3 py-2 bg-red-600 hover:bg-red-700 rounded"
-              >
-                Sign Out
-              </button>
-            </div>
-          </div>
+const Layout: React.FC<LayoutProps> = ({ children, title = 'Salary Management' }) => {
+  return (
+    <div className="flex min-h-screen bg-gray-100">
+      <Navigation />
+      
+      <main 
+        className="flex-grow p-8 ml-64 transition-all duration-300"
+        aria-live="polite"
+      >
+        <div className="max-w-4xl mx-auto">
+          <header className="mb-8">
+            <h1 
+              className="text-3xl font-bold text-gray-800"
+              aria-label={`Current Page: ${title}`}
+            >
+              {title}
+            </h1>
+          </header>
+          
+          {children}
         </div>
-
-        {/* Mobile menu */}
-        <div className={`${isMenuOpen ? 'block' : 'hidden'} sm:hidden border-t border-blue-700`}>
-          <div className="px-2 pt-2 pb-3 space-y-1">
-            <Link
-              href="/dashboard"
-              className={`block px-3 py-2 rounded text-base font-medium ${
-                router.pathname === '/dashboard' ? 'bg-blue-700' : 'hover:bg-blue-700'
-              }`}
-              onClick={() => setIsMenuOpen(false)}
-            >
-              Dashboard
-            </Link>
-            <Link
-              href="/salary"
-              className={`block px-3 py-2 rounded text-base font-medium ${
-                router.pathname === '/salary' ? 'bg-blue-700' : 'hover:bg-blue-700'
-              }`}
-              onClick={() => setIsMenuOpen(false)}
-            >
-              Salary
-            </Link>
-            <Link
-              href="/leave"
-              className={`block px-3 py-2 rounded text-base font-medium ${
-                router.pathname === '/leave' ? 'bg-blue-700' : 'hover:bg-blue-700'
-              }`}
-              onClick={() => setIsMenuOpen(false)}
-            >
-              Annual Leave
-            </Link>
-            <div className="px-3 py-2 text-sm">{user?.email}</div>
-            <button
-              onClick={() => {
-                setIsMenuOpen(false);
-                signOut();
-              }}
-              className="block w-full text-left px-3 py-2 rounded text-base font-medium bg-red-600 hover:bg-red-700"
-            >
-              Sign Out
-            </button>
-          </div>
-        </div>
-      </nav>
-      <main className="max-w-7xl mx-auto py-6">{children}</main>
+      </main>
     </div>
   );
-} 
+};
+
+export default Layout; 
