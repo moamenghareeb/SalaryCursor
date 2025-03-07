@@ -100,7 +100,7 @@ const styles = StyleSheet.create({
 });
 
 // Leave PDF Component
-const LeavePDF = ({ employee, leaveData, totalLeaveBalance, leaveTaken, remainingLeave, year }: any) => (
+const LeavePDF = ({ employee, leaveData, inLieuData, totalLeaveBalance, leaveTaken, remainingLeave, year }: any) => (
   <Document>
     <Page size="A4" style={styles.page}>
       <Text style={styles.title}>Annual Leave Report</Text>
@@ -171,7 +171,58 @@ const LeavePDF = ({ employee, leaveData, totalLeaveBalance, leaveTaken, remainin
         </View>
       </View>
       
+      {/* Add in-lieu records section */}
+      <View style={styles.section}>
+        <Text style={{ fontSize: 16, marginBottom: 10, fontWeight: 'bold' }}>
+          In-Lieu Time Records
+        </Text>
+        {inLieuData && inLieuData.length > 0 ? (
+          <View style={styles.table}>
+            <View style={styles.tableRow}>
+              <View style={styles.tableColHeader}>
+                <Text style={styles.tableHeader}>Date Range</Text>
+              </View>
+              <View style={styles.tableColHeader}>
+                <Text style={styles.tableHeader}>Days Worked</Text>
+              </View>
+              <View style={styles.tableColHeader}>
+                <Text style={styles.tableHeader}>Days Added</Text>
+              </View>
+            </View>
+            {inLieuData.map((record: any) => (
+              <View key={record.id} style={styles.tableRow}>
+                <View style={styles.tableCol}>
+                  <Text style={styles.tableCell}>
+                    {new Date(record.start_date).toLocaleDateString()} - {new Date(record.end_date).toLocaleDateString()}
+                  </Text>
+                </View>
+                <View style={styles.tableCol}>
+                  <Text style={styles.tableCell}>{record.days_count}</Text>
+                </View>
+                <View style={styles.tableCol}>
+                  <Text style={styles.tableCell}>{record.leave_days_added.toFixed(2)}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        ) : (
+          <Text style={styles.tableCell}>No in-lieu records found</Text>
+        )}
+      </View>
+      
       <View style={styles.summaryContainer}>
+        <View style={styles.summaryRow}>
+          <Text style={styles.summaryLabel}>Base Annual Leave Entitlement</Text>
+          <Text style={styles.summaryValue}>{employee.years_of_service >= 10 ? '24.67' : '18.67'} days</Text>
+        </View>
+        {inLieuData && inLieuData.length > 0 && (
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Additional Leave (In-Lieu)</Text>
+            <Text style={styles.summaryValue}>
+              {inLieuData.reduce((total: number, record: any) => total + record.leave_days_added, 0).toFixed(2)} days
+            </Text>
+          </View>
+        )}
         <View style={styles.summaryRow}>
           <Text style={styles.summaryLabel}>Total Annual Leave Entitlement</Text>
           <Text style={styles.summaryValue}>{totalLeaveBalance} days</Text>
@@ -1099,13 +1150,24 @@ export default function Leave() {
                               {record.days_count} days worked
                             </p>
                           </div>
-                          <div className="text-right">
-                            <p className="text-sm font-medium text-apple-gray-dark">
-                              +{record.leave_days_added.toFixed(2)} days
-                            </p>
-                            <p className="text-xs text-apple-gray mt-1">
-                              {record.status || 'pending'}
-                            </p>
+                          <div className="flex items-start">
+                            <div className="text-right mr-3">
+                              <p className="text-sm font-medium text-apple-gray-dark">
+                                +{record.leave_days_added.toFixed(2)} days
+                              </p>
+                              <p className="text-xs text-apple-gray mt-1">
+                                {record.status || 'pending'}
+                              </p>
+                            </div>
+                            <button
+                              onClick={() => handleDeleteInLieu(record)}
+                              className="text-red-500 hover:text-red-700 text-sm"
+                              title="Delete this in-lieu record"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                              </svg>
+                            </button>
                           </div>
                         </div>
                       </div>
@@ -1199,6 +1261,7 @@ export default function Leave() {
                       <LeavePDF
                         employee={employee as Employee}
                         leaveData={leaves}
+                        inLieuData={inLieuRecords}
                         totalLeaveBalance={leaveBalance}
                         leaveTaken={leaveTaken}
                         remainingLeave={remainingLeave}
