@@ -59,7 +59,7 @@ export default function Login() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="form-container max-w-md w-full">
+      <div className="bg-white max-w-md w-full p-8 rounded-lg shadow-md">
         <div className="text-center mb-8">
           <h2 className="text-3xl font-bold text-gray-900">
             Sign in to your account
@@ -75,7 +75,7 @@ export default function Login() {
           </p>
         </div>
         
-        <form className="login-form space-y-6" onSubmit={handleSubmit}>
+        <form className="space-y-6" onSubmit={handleSubmit}>
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
               Email address
@@ -86,6 +86,7 @@ export default function Login() {
               type="email"
               autoComplete="email"
               required
+              className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 placeholder-gray-500"
               placeholder="Enter your email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -103,6 +104,7 @@ export default function Login() {
                 type={passwordVisibility ? "text" : "password"}
                 autoComplete="current-password"
                 required
+                className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 placeholder-gray-500"
                 placeholder="Enter your password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -110,7 +112,7 @@ export default function Login() {
               <button
                 type="button"
                 onClick={() => setPasswordVisibility(!passwordVisibility)}
-                className="absolute inset-y-0 right-0 pr-3 flex items-center text-sm"
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-sm text-gray-600"
               >
                 {passwordVisibility ? 'Hide' : 'Show'}
               </button>
@@ -118,7 +120,7 @@ export default function Login() {
           </div>
 
           {error && (
-            <div className="error-message">
+            <div className="text-red-600 text-sm text-center">
               {error}
             </div>
           )}
@@ -131,7 +133,7 @@ export default function Login() {
                 type="checkbox"
                 className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
               />
-              <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-900">
+              <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700">
                 Remember me
               </label>
             </div>
@@ -149,7 +151,7 @@ export default function Login() {
           <button
             type="submit"
             disabled={loading}
-            className={`w-full ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+            className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             {loading ? 'Signing In...' : 'Sign In'}
           </button>
