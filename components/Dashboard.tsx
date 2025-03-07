@@ -22,13 +22,46 @@ export default function Dashboard() {
       setLoading(true);
       setError(null);
 
-      const response = await fetch('/api/dashboard/stats');
-      if (!response.ok) {
-        throw new Error(`Failed to fetch stats: ${response.statusText}`);
+      // Direct approach - query the database tables directly
+      // Get employee count
+      const { count: employeeCount, error: empError } = await supabase
+        .from('employees')
+        .select('*', { count: 'exact', head: true });
+      
+      if (empError) throw new Error('Failed to fetch employee data');
+      
+      // Get leave data
+      const { data: leaveData, error: leaveError } = await supabase
+        .from('leaves')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (leaveError) throw new Error('Failed to fetch leave data');
+
+      // Calculate total leave taken
+      const totalLeaveTaken = leaveData?.reduce((sum, leave) => sum + (leave.days_taken || 0), 0) || 0;
+      
+      // Get leave balance if available
+      const { data: user } = await supabase.auth.getUser();
+      let remainingLeave = 0;
+      
+      if (user?.user?.id) {
+        const { data: employee } = await supabase
+          .from('employees')
+          .select('annual_leave_balance')
+          .eq('id', user.user.id)
+          .single();
+          
+        remainingLeave = employee?.annual_leave_balance || 0;
       }
 
-      const data = await response.json();
-      setStats(data);
+      setStats({
+        totalEmployees: employeeCount || 0,
+        totalLeaveTaken,
+        remainingLeave,
+        recentLeaveRequests: leaveData?.slice(0, 5) || []
+      });
+      
     } catch (err: any) {
       console.error('Error fetching dashboard stats:', err);
       setError('Unable to load dashboard statistics. Please try again later.');

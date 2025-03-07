@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
-import { supabase } from '../lib/supabaseClient';
+import { supabase } from '../lib/supabase';
 import { DashboardStats } from '../types';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import ErrorMessage from '../components/common/ErrorMessage';
@@ -17,13 +17,45 @@ export default function Dashboard() {
         setLoading(true);
         setError(null);
 
-        const { data: statsData, error: statsError } = await supabase
-          .rpc('get_dashboard_stats');
+        // Fetch employees count
+        const { count: totalEmployees, error: employeesError } = await supabase
+          .from('employees')
+          .select('*', { count: 'exact', head: true });
 
-        if (statsError) throw new Error('Failed to fetch dashboard statistics');
-        setStats(statsData);
+        if (employeesError) throw new Error('Failed to fetch employees data');
+
+        // Fetch salary data for average calculation
+        const { data: salaryData, error: salaryError } = await supabase
+          .from('salaries')
+          .select('total_salary');
+
+        if (salaryError) throw new Error('Failed to fetch salary data');
+
+        // Calculate average salary
+        const averageSalary = salaryData.length > 0
+          ? salaryData.reduce((sum, salary) => sum + salary.total_salary, 0) / salaryData.length
+          : 0;
+
+        // Fetch leave requests
+        const { data: leaveData, error: leaveError } = await supabase
+          .from('leaves')
+          .select('*');
+
+        if (leaveError) throw new Error('Failed to fetch leave data');
+
+        // Count pending leave requests
+        const pendingLeaveRequests = leaveData.filter(leave => leave.status === 'Pending').length;
+
+        // Set combined stats
+        setStats({
+          totalEmployees: totalEmployees || 0,
+          averageSalary,
+          totalLeaveRequests: leaveData.length,
+          pendingLeaveRequests
+        });
 
       } catch (err) {
+        console.error('Dashboard error:', err);
         setError(err instanceof Error ? err.message : 'An unexpected error occurred');
       } finally {
         setLoading(false);

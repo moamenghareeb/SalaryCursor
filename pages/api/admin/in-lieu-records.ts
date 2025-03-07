@@ -1,13 +1,10 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { createClient } from '@supabase/supabase-js';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-// Create a Supabase client with the service role key for admin operations
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+import { supabaseAdmin } from '../../../lib/supabase-admin';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  // Using the admin client for privileged operations
+  const supabase = supabaseAdmin;
+  
   // Extract the authorization token
   const token = req.headers.authorization?.split('Bearer ')[1];
   
