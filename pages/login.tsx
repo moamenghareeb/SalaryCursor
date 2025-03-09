@@ -13,11 +13,13 @@ export default function Login() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [isResetMode, setIsResetMode] = useState(false);
+  const [loginSuccess, setLoginSuccess] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
+    setLoginSuccess(false);
 
     try {
       console.log('Attempting login with:', { email }); // Don't log password for security
@@ -35,15 +37,15 @@ export default function Login() {
       
       console.log('Login successful, user data:', data);
       
-      // Enhanced redirect with clear messaging
-      try {
-        setMessage('Login successful! Redirecting to dashboard...');
-        await router.push('/dashboard');
-      } catch (redirectError) {
-        console.error('Redirect error:', redirectError);
-        // If redirect fails, provide a direct link
-        setMessage('Login successful! Please click <a href="/dashboard" class="text-blue-500 underline">here</a> to go to dashboard if not redirected automatically.');
-      }
+      // Show success message first
+      setMessage('Login successful! Redirecting to dashboard...');
+      setLoginSuccess(true);
+      
+      // Use direct browser navigation instead of router.push
+      // This gives time for the message to be displayed and ensures a complete page refresh
+      setTimeout(() => {
+        window.location.href = '/dashboard';
+      }, 1500);
     } catch (error: any) {
       console.error('Login error details:', error);
       setError(error.message || 'An error occurred during login');
@@ -93,9 +95,10 @@ export default function Login() {
             </h2>
             
             {message && (
-              <div className="mb-6 p-3 bg-green-50 border border-green-200 text-green-700 rounded-md text-sm">
-                {message}
-              </div>
+              <div 
+                className="mb-6 p-3 bg-green-50 border border-green-200 text-green-700 rounded-md text-sm"
+                dangerouslySetInnerHTML={{ __html: message }}
+              />
             )}
             
             {error && (
@@ -155,6 +158,21 @@ export default function Login() {
                   isResetMode ? 'Send Reset Link' : 'Sign In'
                 )}
               </button>
+              
+              {/* Manual dashboard link that appears after successful login */}
+              {loginSuccess && (
+                <div className="mt-4">
+                  <a 
+                    href="/dashboard" 
+                    className="w-full block text-center bg-green-500 hover:bg-green-600 text-white py-3 rounded-lg font-medium transition-colors duration-200"
+                  >
+                    Go to Dashboard
+                  </a>
+                  <p className="text-xs text-center mt-2 text-gray-500">
+                    Click this button if you're not automatically redirected
+                  </p>
+                </div>
+              )}
             </form>
             
             <div className="mt-5 text-center">
