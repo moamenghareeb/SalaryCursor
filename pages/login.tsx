@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import Head from 'next/head';
 import Link from 'next/link';
 import { captureAuthError } from '../lib/errorTracking';
+import { useAuth } from '../lib/authContext';
 
 export default function Login() {
   const router = useRouter();
@@ -14,6 +15,7 @@ export default function Login() {
   const [message, setMessage] = useState<string | null>(null);
   const [isResetMode, setIsResetMode] = useState(false);
   const [loginSuccess, setLoginSuccess] = useState(false);
+  const { refreshSession } = useAuth();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,15 +39,24 @@ export default function Login() {
       
       console.log('Login successful, user data:', data);
       
+      // Ensure our auth context is updated with the new session
+      await refreshSession();
+      
       // Show success message first
       setMessage('Login successful! Redirecting to dashboard...');
       setLoginSuccess(true);
       
-      // Use direct browser navigation instead of router.push
-      // This gives time for the message to be displayed and ensures a complete page refresh
+      // Use direct browser navigation instead of router.push, but with a delay
+      // This gives time for cookies to be set and the message to be displayed
       setTimeout(() => {
+        // Clear any existing redirects in history
+        if (window.history.length > 1) {
+          window.history.pushState(null, '', '/login');
+        }
+        
+        // Navigate to dashboard
         window.location.href = '/dashboard';
-      }, 1500);
+      }, 2000);
     } catch (error: any) {
       console.error('Login error details:', error);
       setError(error.message || 'An error occurred during login');

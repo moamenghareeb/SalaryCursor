@@ -155,8 +155,29 @@ export default function Dashboard({ initialData }: DashboardProps) {
 }
 
 export const getServerSideProps: GetServerSideProps = async (context) => {
-  // Get the auth cookie from the request
-  const authCookie = context.req.cookies['sb-access-token'] || context.req.cookies['supabase-auth-token'];
+  console.log('Dashboard getServerSideProps called');
+  console.log('All cookies:', context.req.cookies);
+  
+  // Detect ALL possible Supabase cookie formats
+  const possibleCookies = [
+    'sb-access-token',
+    'supabase-auth-token',
+    'sb:token',
+    'sb-refresh-token',
+    'sb-provider-token',
+    '__session',
+    'sb-auth-token'
+  ];
+  
+  // Find any auth cookie that might exist
+  let authCookie = null;
+  for (const cookieName of possibleCookies) {
+    if (context.req.cookies[cookieName]) {
+      console.log(`Found auth cookie: ${cookieName}`);
+      authCookie = context.req.cookies[cookieName];
+      break;
+    }
+  }
   
   // Default initial data
   const initialData = {
@@ -178,34 +199,10 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     };
   }
   
-  try {
-    // Extract token from cookie
-    let token = authCookie;
-    if (authCookie.startsWith('[')) {
-      try {
-        const parsedCookie = JSON.parse(authCookie);
-        token = parsedCookie[0].token;
-      } catch (error) {
-        console.error('Error parsing auth cookie:', error);
-      }
-    }
-    
-    // Get user from token
-    const { data: userData, error: userError } = await supabase.auth.getUser(token);
-    
-    if (userError || !userData.user) {
-      console.error('Error getting user from token:', userError);
-      return {
-        redirect: {
-          destination: '/login',
-          permanent: false,
-        },
-      };
-    }
-    
-    console.log('Authenticated user:', userData.user);
-    
-    const userId = userData.user.id;
+  // Helper function to process user data and fetch related information
+  async function processUserData(user: any) {
+    const userId = user.id;
+    console.log('Processing data for user:', userId);
     
     // Fetch employee details
     const { data: employeeData, error: employeeError } = await supabase
@@ -295,6 +292,57 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
         initialData,
       },
     };
+  }
+  
+  try {
+    // Extract token from cookie
+    let token = authCookie;
+    if (typeof authCookie === 'string' && authCookie.startsWith('[')) {
+      try {
+        const parsedCookie = JSON.parse(authCookie);
+        token = parsedCookie[0]?.token || parsedCookie?.token || authCookie;
+        console.log('Parsed token from JSON cookie');
+      } catch (error) {
+        console.error('Error parsing auth cookie:', error);
+      }
+    }
+    
+    console.log('Using token (first 10 chars):', token.substring(0, 10) + '...');
+    
+    // Get user from token
+    const { data: userData, error: userError } = await supabase.auth.getUser(token);
+    
+    if (userError) {
+      console.error('Error getting user from token:', userError);
+      
+      // Try getting session another way if token approach fails
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (sessionData?.session?.user) {
+        console.log('Retrieved user from getSession() instead');
+        return processUserData(sessionData.session.user);
+      } else {
+        return {
+          redirect: {
+            destination: '/login',
+            permanent: false,
+          },
+        };
+      }
+    }
+    
+    if (!userData?.user) {
+      console.log('No user data found, redirecting to login');
+      return {
+        redirect: {
+          destination: '/login',
+          permanent: false,
+        },
+      };
+    }
+    
+    console.log('Authenticated user:', userData.user.id);
+    return processUserData(userData.user);
+    
   } catch (error) {
     console.error('Error in getServerSideProps:', error);
     return {
