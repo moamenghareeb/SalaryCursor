@@ -225,6 +225,43 @@ export default function Login() {
               </Link>
             </p>
           </div>
+
+          {/* Debug button */}
+          <button
+            onClick={async () => {
+              try {
+                const { data: sessionData } = await supabase.auth.getSession();
+                console.log('Current session:', sessionData);
+                
+                // Check local storage
+                const accessToken = localStorage.getItem('sb-access-token');
+                const refreshToken = localStorage.getItem('sb-refresh-token');
+                console.log('Local storage tokens:', { accessToken: !!accessToken, refreshToken: !!refreshToken });
+                
+                // Check cookies
+                const cookies = document.cookie.split(';').reduce((acc, cookie) => {
+                  const [key, value] = cookie.trim().split('=');
+                  acc[key] = value;
+                  return acc;
+                }, {} as Record<string, string>);
+                console.log('Cookies:', cookies);
+                
+                alert(
+                  `Session check:\n` +
+                  `Has session: ${!!sessionData.session}\n` +
+                  `Has access token: ${!!accessToken}\n` +
+                  `Has refresh token: ${!!refreshToken}\n` +
+                  `Cookie count: ${Object.keys(cookies).length}`
+                );
+              } catch (error) {
+                console.error('Debug check failed:', error);
+                alert('Error checking auth state: ' + error);
+              }
+            }}
+            className="mt-4 text-xs text-gray-500 hover:text-gray-700"
+          >
+            Debug Auth State
+          </button>
         </div>
       </div>
       
