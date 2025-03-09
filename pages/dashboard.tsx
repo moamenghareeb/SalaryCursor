@@ -55,7 +55,7 @@ export default function Dashboard({ initialData }: DashboardProps) {
             {/* Welcome message */}
             <div className="bg-white dark:bg-dark-surface rounded-apple shadow-apple-card dark:shadow-dark-card p-6 animate-fadeIn">
               <h1 className="text-2xl font-semibold text-apple-gray-dark dark:text-dark-text-primary">
-                Welcome, {employee?.first_name} {employee?.last_name}
+                Welcome, {employee?.name}
               </h1>
               <p className="mt-2 text-apple-gray dark:text-dark-text-secondary">
                 Here's an overview of your salary and leave information.
@@ -135,7 +135,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
   const initialData = {
     employee: null,
     latestSalary: null,
-    leaveBalance: null,
+    leaveBalance: null as number | null,
     leaveTaken: 0,
     inLieuSummary: { count: 0, daysAdded: 0 },
   };
