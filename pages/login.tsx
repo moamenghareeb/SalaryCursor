@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabase';
 import Head from 'next/head';
 import Link from 'next/link';
+import { captureAuthError } from '../lib/errorTracking';
 
 export default function Login() {
   const router = useRouter();
@@ -19,14 +20,32 @@ export default function Login() {
     setLoading(true);
 
     try {
+      console.log('Attempting login with:', { email }); // Don't log password for security
+      
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
-      if (error) throw error;
-      router.push('/dashboard');
+      if (error) {
+        console.error('Supabase auth error:', error);
+        captureAuthError(error, { email, attemptTime: new Date().toISOString() });
+        throw error;
+      }
+      
+      console.log('Login successful, user data:', data);
+      
+      // Enhanced redirect with clear messaging
+      try {
+        setMessage('Login successful! Redirecting to dashboard...');
+        await router.push('/dashboard');
+      } catch (redirectError) {
+        console.error('Redirect error:', redirectError);
+        // If redirect fails, provide a direct link
+        setMessage('Login successful! Please click <a href="/dashboard" class="text-blue-500 underline">here</a> to go to dashboard if not redirected automatically.');
+      }
     } catch (error: any) {
+      console.error('Login error details:', error);
       setError(error.message || 'An error occurred during login');
     } finally {
       setLoading(false);
@@ -161,6 +180,37 @@ export default function Login() {
             </p>
           </div>
         </div>
+      </div>
+      
+      {/* Connection test component - remove after debugging */}
+      <div className="fixed bottom-2 right-2 bg-white p-2 rounded shadow text-xs opacity-70 hover:opacity-100">
+        <button 
+          onClick={async () => {
+            try {
+              const { data, error } = await supabase.auth.getSession();
+              alert(`Supabase connection test: ${error ? 'Error: ' + error.message : 'Connected! Session: ' + (data.session ? 'Active' : 'None')}`);
+              
+              // Debug auth state in more detail
+              if (data.session) {
+                alert(`User ID: ${data.session.user.id}\nExpires: ${new Date(data.session.expires_at! * 1000).toLocaleString()}`);
+                
+                // Test dashboard access
+                try {
+                  const dashboardResponse = await fetch('/api/dashboard/summary');
+                  const dashboardJson = await dashboardResponse.json();
+                  alert(`Dashboard API: ${dashboardResponse.ok ? 'Success' : 'Failed'}\n${JSON.stringify(dashboardJson).slice(0, 100)}...`);
+                } catch (err) {
+                  alert(`Dashboard API Error: ${err}`);
+                }
+              }
+            } catch (err) {
+              alert(`Supabase connection error: ${err}`);
+            }
+          }}
+          className="text-blue-500 hover:underline"
+        >
+          Test Auth State
+        </button>
       </div>
     </>
   );

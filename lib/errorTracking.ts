@@ -11,9 +11,19 @@ export function initErrorTracking() {
 }
 
 export function captureException(error: Error) {
+  console.error('Error captured:', error);
   Sentry.captureException(error)
 }
 
 export function captureMessage(message: string) {
+  console.log('Message captured:', message);
   Sentry.captureMessage(message)
+}
+
+export function captureAuthError(error: Error, context?: Record<string, any>) {
+  console.error('Auth error:', error, context);
+  Sentry.captureException(error, {
+    tags: { type: 'auth_error' },
+    extra: context
+  });
 } 
