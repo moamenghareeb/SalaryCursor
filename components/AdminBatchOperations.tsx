@@ -138,7 +138,7 @@ const AdminBatchOperations: React.FC = () => {
             format: 'csv',
           };
           // Handle direct download for exports
-          const response = await axios.post(endpoint, payload, { responseType: 'blob' });
+          const response = await axios.get(endpoint, { responseType: 'blob' });
           const url = window.URL.createObjectURL(new Blob([response.data]));
           const link = document.createElement('a');
           link.href = url;
@@ -154,10 +154,8 @@ const AdminBatchOperations: React.FC = () => {
       }
       
       // For all other operations
-      if (operationType !== 'exportData') {
-        await axios.post(endpoint, payload);
-        toast.success(`Batch operation completed successfully`);
-      }
+      await axios.post(endpoint, payload);
+      toast.success(`Batch operation completed successfully`);
       
       setIsModalOpen(false);
     } catch (err) {

@@ -2,6 +2,34 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { supabase } from '../../../lib/supabase';
 import { withRateLimit } from '../../../lib/rateLimit';
 
+// Define types for the leave data structure
+interface EmployeeInfo {
+  name: string;
+  department: string;
+}
+
+interface TeamLeaveRequest {
+  id: string;
+  employee_id: string;
+  employees: EmployeeInfo | null;  // Changed from EmployeeInfo to handle possible null
+  start_date: string;
+  end_date: string;
+  leave_type: string;
+  status: string;
+}
+
+interface FormattedLeaveData {
+  id: string;
+  start_date: string;
+  end_date: string;
+  leave_type: string;
+  status: string;
+  is_team_member?: boolean;
+  employee_name?: string;
+  reason?: string;
+  duration?: number;
+}
+
 async function handler(
   req: NextApiRequest,
   res: NextApiResponse
@@ -55,6 +83,18 @@ async function handler(
   const userId = userData.user.id;
 
   try {
+    // Get employee data first to get department
+    const { data: employeeData, error: employeeError } = await supabase
+      .from('employees')
+      .select('department')
+      .eq('id', userId)
+      .single();
+
+    if (employeeError) {
+      console.error('Error fetching employee data:', employeeError);
+      return res.status(500).json({ error: 'Failed to fetch employee data' });
+    }
+
     // Get start of 6 months ago and end of 6 months from now
     const today = new Date();
     const sixMonthsAgo = new Date(today);
@@ -89,13 +129,15 @@ async function handler(
     }
 
     // Also get team leave data (for visibility of colleagues' leaves)
-    // This could use a separate department/team field to filter
     const { data: teamLeaveData, error: teamLeaveError } = await supabase
       .from('leave_requests')
       .select(`
         id,
         employee_id,
-        employees!inner(first_name, last_name, department),
+        employees (
+          name,
+          department
+        ),
         start_date,
         end_date,
         leave_type,
@@ -103,7 +145,7 @@ async function handler(
       `)
       .neq('employee_id', userId)
       .eq('status', 'approved')
-      .eq('employees.department', userData.user.department)
+      .eq('employees.department', employeeData.department)
       .gte('start_date', startDate)
       .lte('end_date', endDate)
       .order('start_date', { ascending: true });
@@ -114,18 +156,18 @@ async function handler(
     }
 
     // Format team leave data to include names
-    const formattedTeamLeaveData = teamLeaveData ? teamLeaveData.map(leave => ({
+    const formattedTeamLeaveData = teamLeaveData ? (teamLeaveData as unknown as TeamLeaveRequest[]).map(leave => ({
       id: leave.id,
       start_date: leave.start_date,
       end_date: leave.end_date,
       leave_type: leave.leave_type,
       status: leave.status,
       is_team_member: true,
-      employee_name: `${leave.employees.first_name} ${leave.employees.last_name}`
+      employee_name: leave.employees?.name || 'Unknown Employee'
     })) : [];
 
     // Return all leave data
-    return res.status(200).json([...leaveData, ...formattedTeamLeaveData]);
+    return res.status(200).json([...leaveData, ...formattedTeamLeaveData] as FormattedLeaveData[]);
   } catch (error) {
     console.error('Error processing leave calendar data:', error);
     return res.status(500).json({ error: 'Internal server error' });

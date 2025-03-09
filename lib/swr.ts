@@ -62,21 +62,21 @@ async function deleteFetcher(url: string) {
 // Use this hook to mutate data with optimistic updates
 export function usePostMutation<T>(
   key: string,
-  config?: SWRMutationConfiguration
+  config?: SWRMutationConfiguration<T, any, string, any>
 ) {
   return useSWRMutation<T, any, string, any>(key, postFetcher, config);
 }
 
 export function usePutMutation<T>(
   key: string,
-  config?: SWRMutationConfiguration
+  config?: SWRMutationConfiguration<T, any, string, any>
 ) {
   return useSWRMutation<T, any, string, any>(key, putFetcher, config);
 }
 
 export function useDeleteMutation<T>(
   key: string,
-  config?: SWRMutationConfiguration
+  config?: SWRMutationConfiguration<T, any, string, any>
 ) {
   return useSWRMutation<T, any, string, any>(key, deleteFetcher, config);
 }

@@ -11,14 +11,16 @@ import LeaveTrendChart from '../components/LeaveTrendChart';
 import { useTheme } from '../lib/themeContext';
 import { useData } from '../lib/swr';
 
+type DashboardData = {
+  employee: Employee | null;
+  latestSalary: Salary | null;
+  leaveBalance: number;  // Changed from number | null since we always calculate it
+  leaveTaken: number;
+  inLieuSummary: { count: number; daysAdded: number };
+};
+
 type DashboardProps = {
-  initialData: {
-    employee: Employee | null;
-    latestSalary: Salary | null;
-    leaveBalance: number | null;
-    leaveTaken: number;
-    inLieuSummary: { count: number; daysAdded: number };
-  };
+  initialData: DashboardData;
 };
 
 export default function Dashboard({ initialData }: DashboardProps) {
@@ -36,7 +38,7 @@ export default function Dashboard({ initialData }: DashboardProps) {
   // Extract data from SWR response
   const employee = data?.employee || null;
   const latestSalary = data?.latestSalary || null;
-  const leaveBalance = data?.leaveBalance || null;
+  const leaveBalance = data?.leaveBalance || 0;
   const leaveTaken = data?.leaveTaken || 0;
   const inLieuSummary = data?.inLieuSummary || { count: 0, daysAdded: 0 };
 
@@ -55,7 +57,7 @@ export default function Dashboard({ initialData }: DashboardProps) {
             {/* Welcome message */}
             <div className="bg-white dark:bg-dark-surface rounded-apple shadow-apple-card dark:shadow-dark-card p-6 animate-fadeIn">
               <h1 className="text-2xl font-semibold text-apple-gray-dark dark:text-dark-text-primary">
-                Welcome, {employee?.first_name} {employee?.last_name}
+                Welcome, {employee?.name}
               </h1>
               <p className="mt-2 text-apple-gray dark:text-dark-text-secondary">
                 Here's an overview of your salary and leave information.
@@ -85,19 +87,15 @@ export default function Dashboard({ initialData }: DashboardProps) {
               {/* Leave Balance Card */}
               <div className="bg-white dark:bg-dark-surface rounded-apple shadow-apple-card dark:shadow-dark-card p-6 transition-colors">
                 <h2 className="text-lg font-medium text-apple-gray-dark dark:text-dark-text-primary mb-2">Annual Leave Balance</h2>
-                {leaveBalance !== null ? (
-                  <div>
-                    <p className="text-2xl font-bold text-green-600 dark:text-green-500">{leaveBalance.toFixed(2)} days</p>
-                    <p className="text-sm text-apple-gray dark:text-dark-text-secondary mt-1">
-                      {leaveTaken} days taken this year
-                    </p>
-                    <Link href="/leave" className="mt-4 inline-block text-sm text-apple-blue hover:underline">
-                      Request Leave →
-                    </Link>
-                  </div>
-                ) : (
-                  <p className="text-apple-gray dark:text-dark-text-secondary">Leave balance not available</p>
-                )}
+                <div>
+                  <p className="text-2xl font-bold text-green-600 dark:text-green-500">{leaveBalance.toFixed(2)} days</p>
+                  <p className="text-sm text-apple-gray dark:text-dark-text-secondary mt-1">
+                    {leaveTaken} days taken this year
+                  </p>
+                  <Link href="/leave" className="mt-4 inline-block text-sm text-apple-blue hover:underline">
+                    Request Leave →
+                  </Link>
+                </div>
               </div>
 
               {/* In-Lieu Time Card */}
@@ -127,15 +125,15 @@ export default function Dashboard({ initialData }: DashboardProps) {
   );
 }
 
-export const getServerSideProps: GetServerSideProps = async (context) => {
+export const getServerSideProps: GetServerSideProps<DashboardProps> = async (context) => {
   // Get the auth cookie from the request
   const authCookie = context.req.cookies['sb-access-token'] || context.req.cookies['supabase-auth-token'];
   
   // Default initial data
-  const initialData = {
+  const initialData: DashboardData = {
     employee: null,
     latestSalary: null,
-    leaveBalance: null,
+    leaveBalance: 0,  // Initialize with 0 instead of null
     leaveTaken: 0,
     inLieuSummary: { count: 0, daysAdded: 0 },
   };
@@ -235,8 +233,8 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     }
     
     // Calculate final leave balance
-    if (baseLeave !== null) {
-      initialData.leaveBalance = baseLeave + inLieuDaysAdded - leaveTaken;
+    if (baseLeave !== null && baseLeave !== undefined) {
+      initialData.leaveBalance = baseLeave + (inLieuDaysAdded || 0) - (leaveTaken || 0);
     }
     
     return {
