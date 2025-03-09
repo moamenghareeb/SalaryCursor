@@ -1,5 +1,5 @@
 import useSWR, { SWRConfiguration, SWRResponse } from 'swr';
-import useSWRMutation, { SWRMutationConfiguration } from 'swr/mutation';
+import useSWRMutation from 'swr/mutation';
 import axios from 'axios';
 
 // Global SWR fetcher using axios
@@ -31,54 +31,33 @@ export function useData<T>(
   });
 }
 
-// Async mutation fetcher for useSWRMutation
+// Async mutation fetchers
 async function postFetcher(url: string, { arg }: { arg: any }) {
-  try {
-    const response = await axios.post(url, arg);
-    return response.data;
-  } catch (error) {
-    throw error;
-  }
+  const response = await axios.post(url, arg);
+  return response.data;
 }
 
 async function putFetcher(url: string, { arg }: { arg: any }) {
-  try {
-    const response = await axios.put(url, arg);
-    return response.data;
-  } catch (error) {
-    throw error;
-  }
+  const response = await axios.put(url, arg);
+  return response.data;
 }
 
 async function deleteFetcher(url: string) {
-  try {
-    const response = await axios.delete(url);
-    return response.data;
-  } catch (error) {
-    throw error;
-  }
+  const response = await axios.delete(url);
+  return response.data;
 }
 
-// Use this hook to mutate data with optimistic updates
-export function usePostMutation<T>(
-  key: string,
-  config?: SWRMutationConfiguration
-) {
-  return useSWRMutation<T, any, string, any>(key, postFetcher, config);
+// Simplified mutation hooks that avoid complex generic types
+export function usePostMutation(key: string) {
+  return useSWRMutation(key, postFetcher);
 }
 
-export function usePutMutation<T>(
-  key: string,
-  config?: SWRMutationConfiguration
-) {
-  return useSWRMutation<T, any, string, any>(key, putFetcher, config);
+export function usePutMutation(key: string) {
+  return useSWRMutation(key, putFetcher);
 }
 
-export function useDeleteMutation<T>(
-  key: string,
-  config?: SWRMutationConfiguration
-) {
-  return useSWRMutation<T, any, string, any>(key, deleteFetcher, config);
+export function useDeleteMutation(key: string) {
+  return useSWRMutation(key, deleteFetcher);
 }
 
 // Cache management utilities
