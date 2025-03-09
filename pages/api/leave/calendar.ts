@@ -2,6 +2,23 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { supabase } from '../../../lib/supabase';
 import { withRateLimit } from '../../../lib/rateLimit';
 
+// Define types for nested JSON responses
+interface EmployeeInfo {
+  first_name: string;
+  last_name: string;
+  department: string;
+}
+
+interface TeamLeaveData {
+  id: string;
+  employee_id: string;
+  employees: EmployeeInfo;
+  start_date: string;
+  end_date: string;
+  leave_type: string;
+  status: string;
+}
+
 async function handler(
   req: NextApiRequest,
   res: NextApiResponse
@@ -55,6 +72,20 @@ async function handler(
   const userId = userData.user.id;
 
   try {
+    // First, get the employee information to get the department
+    const { data: employeeData, error: employeeError } = await supabase
+      .from('employees')
+      .select('department')
+      .eq('id', userId)
+      .single();
+
+    if (employeeError) {
+      console.error('Error fetching employee data:', employeeError);
+      return res.status(500).json({ error: 'Failed to fetch employee data' });
+    }
+
+    const userDepartment = employeeData?.department;
+
     // Get start of 6 months ago and end of 6 months from now
     const today = new Date();
     const sixMonthsAgo = new Date(today);
@@ -95,7 +126,7 @@ async function handler(
       .select(`
         id,
         employee_id,
-        employees!inner(first_name, last_name, department),
+        employees(first_name, last_name, department),
         start_date,
         end_date,
         leave_type,
@@ -103,7 +134,7 @@ async function handler(
       `)
       .neq('employee_id', userId)
       .eq('status', 'approved')
-      .eq('employees.department', userData.user.department)
+      .eq('employees.department', userDepartment) // Use the department from the employee record
       .gte('start_date', startDate)
       .lte('end_date', endDate)
       .order('start_date', { ascending: true });
@@ -114,14 +145,16 @@ async function handler(
     }
 
     // Format team leave data to include names
-    const formattedTeamLeaveData = teamLeaveData ? teamLeaveData.map(leave => ({
+    const formattedTeamLeaveData = teamLeaveData ? teamLeaveData.map((leave: any) => ({
       id: leave.id,
       start_date: leave.start_date,
       end_date: leave.end_date,
       leave_type: leave.leave_type,
       status: leave.status,
       is_team_member: true,
-      employee_name: `${leave.employees.first_name} ${leave.employees.last_name}`
+      employee_name: leave.employees ? 
+        `${leave.employees.first_name || ''} ${leave.employees.last_name || ''}` : 
+        'Team Member'
     })) : [];
 
     // Return all leave data
