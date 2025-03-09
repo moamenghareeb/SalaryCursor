@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabase';
 import Head from 'next/head';
@@ -17,6 +17,17 @@ export default function Login() {
   const [loginSuccess, setLoginSuccess] = useState(false);
   const { refreshSession } = useAuth();
 
+  // Check if user is already logged in
+  useEffect(() => {
+    const checkExistingSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        router.push('/dashboard');
+      }
+    };
+    checkExistingSession();
+  }, [router]);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -24,7 +35,7 @@ export default function Login() {
     setLoginSuccess(false);
 
     try {
-      console.log('Attempting login with:', { email }); // Don't log password for security
+      console.log('Attempting login with:', { email }); // Don't log password
       
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -37,26 +48,32 @@ export default function Login() {
         throw error;
       }
       
-      console.log('Login successful, user data:', data);
+      if (!data.session) {
+        throw new Error('No session returned after login');
+      }
+
+      console.log('Login successful, session:', {
+        userId: data.session.user.id,
+        expiresAt: new Date(data.session.expires_at! * 1000).toISOString()
+      });
       
       // Ensure our auth context is updated with the new session
       await refreshSession();
       
-      // Show success message first
+      // Show success message
       setMessage('Login successful! Redirecting to dashboard...');
       setLoginSuccess(true);
       
-      // Use direct browser navigation instead of router.push, but with a delay
-      // This gives time for cookies to be set and the message to be displayed
+      // Clear any existing history
+      if (window.history.length > 1) {
+        window.history.pushState(null, '', '/login');
+      }
+      
+      // Use direct browser navigation after a delay
       setTimeout(() => {
-        // Clear any existing redirects in history
-        if (window.history.length > 1) {
-          window.history.pushState(null, '', '/login');
-        }
-        
-        // Navigate to dashboard
         window.location.href = '/dashboard';
       }, 2000);
+      
     } catch (error: any) {
       console.error('Login error details:', error);
       setError(error.message || 'An error occurred during login');

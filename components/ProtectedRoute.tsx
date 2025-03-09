@@ -4,44 +4,47 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user, loading } = useAuth();
+  const { user, session, loading, refreshSession } = useAuth();
   const router = useRouter();
   const [isChecking, setIsChecking] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
-    const checkSession = async () => {
+    const checkAuth = async () => {
       try {
-        // Check if we have a session from Supabase directly
-        const { data } = await supabase.auth.getSession();
-        const hasSession = !!data.session;
-        
-        console.log('ProtectedRoute: Auth check -', {
-          contextUser: !!user,
-          supabaseSession: hasSession,
+        // If we're still loading the auth state, wait
+        if (loading) return;
+
+        console.log('ProtectedRoute: Checking auth state', {
+          hasUser: !!user,
+          hasSession: !!session,
           loading
         });
-        
-        if (hasSession) {
-          setIsAuthenticated(true);
-        } else if (!loading && !user) {
-          console.log('ProtectedRoute: No authenticated user, redirecting to login');
-          router.push('/login');
+
+        // If no user or session, try to refresh
+        if (!user || !session) {
+          await refreshSession();
+          
+          // Get the latest session state
+          const { data } = await supabase.auth.getSession();
+          
+          if (!data.session) {
+            console.log('ProtectedRoute: No session found after refresh, redirecting to login');
+            router.push('/login');
+            return;
+          }
         }
       } catch (error) {
-        console.error('Error checking session:', error);
-        if (!user) {
-          router.push('/login');
-        }
+        console.error('ProtectedRoute: Auth check error:', error);
+        router.push('/login');
       } finally {
         setIsChecking(false);
       }
     };
 
-    checkSession();
-  }, [user, loading, router]);
+    checkAuth();
+  }, [user, session, loading, router, refreshSession]);
 
-  // Show loading state while checking authentication
+  // Show loading state while checking
   if (loading || isChecking) {
     return (
       <div className="flex justify-center items-center h-screen">
@@ -50,8 +53,8 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     );
   }
 
-  // Either show children if authenticated or null
-  return <>{(user || isAuthenticated) ? children : null}</>;
+  // If we have a user and session, render the protected content
+  return user && session ? <>{children}</> : null;
 };
 
 export default ProtectedRoute; 

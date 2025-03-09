@@ -1,5 +1,5 @@
 import useSWR, { SWRConfiguration, SWRResponse } from 'swr';
-import useSWRMutation from 'swr/mutation';
+import useSWRMutation, { SWRMutationConfiguration } from 'swr/mutation';
 import axios from 'axios';
 
 // Global SWR fetcher using axios
@@ -31,33 +31,54 @@ export function useData<T>(
   });
 }
 
-// Async mutation fetchers
+// Async mutation fetcher for useSWRMutation
 async function postFetcher(url: string, { arg }: { arg: any }) {
-  const response = await axios.post(url, arg);
-  return response.data;
+  try {
+    const response = await axios.post(url, arg);
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
 }
 
 async function putFetcher(url: string, { arg }: { arg: any }) {
-  const response = await axios.put(url, arg);
-  return response.data;
+  try {
+    const response = await axios.put(url, arg);
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
 }
 
 async function deleteFetcher(url: string) {
-  const response = await axios.delete(url);
-  return response.data;
+  try {
+    const response = await axios.delete(url);
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
 }
 
-// Simplified mutation hooks that avoid complex generic types
-export function usePostMutation(key: string) {
-  return useSWRMutation(key, postFetcher);
+// Use this hook to mutate data with optimistic updates
+export function usePostMutation<T>(
+  key: string,
+  config?: SWRMutationConfiguration
+) {
+  return useSWRMutation<T, any, string, any>(key, postFetcher, config);
 }
 
-export function usePutMutation(key: string) {
-  return useSWRMutation(key, putFetcher);
+export function usePutMutation<T>(
+  key: string,
+  config?: SWRMutationConfiguration
+) {
+  return useSWRMutation<T, any, string, any>(key, putFetcher, config);
 }
 
-export function useDeleteMutation(key: string) {
-  return useSWRMutation(key, deleteFetcher);
+export function useDeleteMutation<T>(
+  key: string,
+  config?: SWRMutationConfiguration
+) {
+  return useSWRMutation<T, any, string, any>(key, deleteFetcher, config);
 }
 
 // Cache management utilities

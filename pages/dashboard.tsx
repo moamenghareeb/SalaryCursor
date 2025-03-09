@@ -24,37 +24,21 @@ type DashboardProps = {
 export default function Dashboard({ initialData }: DashboardProps) {
   const { isDarkMode } = useTheme();
   
-  // Ensure initialData has a valid structure even if it's missing
-  const safeInitialData = initialData || {
-    employee: null,
-    latestSalary: null,
-    leaveBalance: null,
-    leaveTaken: 0,
-    inLieuSummary: { count: 0, daysAdded: 0 },
-  };
-  
   // Use SWR for client-side data fetching with initialData from SSR
   const { data, error, isLoading } = useData<typeof initialData>(
     '/api/dashboard/summary',
     {
-      fallbackData: safeInitialData,
+      fallbackData: initialData,
       revalidateOnMount: true,
     }
   );
 
-  // Extract data from SWR response with null checks
+  // Extract data from SWR response
   const employee = data?.employee || null;
   const latestSalary = data?.latestSalary || null;
-  const leaveBalance = data?.leaveBalance !== undefined ? data.leaveBalance : null;
+  const leaveBalance = data?.leaveBalance || null;
   const leaveTaken = data?.leaveTaken || 0;
   const inLieuSummary = data?.inLieuSummary || { count: 0, daysAdded: 0 };
-
-  // Handle error state
-  useEffect(() => {
-    if (error) {
-      console.error('Error fetching dashboard data:', error);
-    }
-  }, [error]);
 
   return (
     <ProtectedRoute>
@@ -66,23 +50,12 @@ export default function Dashboard({ initialData }: DashboardProps) {
           <div className="flex justify-center items-center h-64">
             <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-apple-blue"></div>
           </div>
-        ) : error ? (
-          <div className="bg-red-50 border border-red-200 text-red-700 p-6 rounded-md">
-            <h2 className="text-xl font-semibold mb-2">Error Loading Dashboard</h2>
-            <p>There was a problem loading your dashboard data. Please try refreshing the page.</p>
-            <button 
-              onClick={() => window.location.reload()} 
-              className="mt-4 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded"
-            >
-              Refresh Page
-            </button>
-          </div>
         ) : (
           <div className="space-y-6">
             {/* Welcome message */}
             <div className="bg-white dark:bg-dark-surface rounded-apple shadow-apple-card dark:shadow-dark-card p-6 animate-fadeIn">
               <h1 className="text-2xl font-semibold text-apple-gray-dark dark:text-dark-text-primary">
-                Welcome, {employee?.name || 'User'}
+                Welcome, {employee?.first_name} {employee?.last_name}
               </h1>
               <p className="mt-2 text-apple-gray dark:text-dark-text-secondary">
                 Here's an overview of your salary and leave information.
@@ -155,42 +128,20 @@ export default function Dashboard({ initialData }: DashboardProps) {
 }
 
 export const getServerSideProps: GetServerSideProps = async (context) => {
-  console.log('Dashboard getServerSideProps called');
-  console.log('All cookies:', context.req.cookies);
-  
-  // Detect ALL possible Supabase cookie formats
-  const possibleCookies = [
-    'sb-access-token',
-    'supabase-auth-token',
-    'sb:token',
-    'sb-refresh-token',
-    'sb-provider-token',
-    '__session',
-    'sb-auth-token'
-  ];
-  
-  // Find any auth cookie that might exist
-  let authCookie = null;
-  for (const cookieName of possibleCookies) {
-    if (context.req.cookies[cookieName]) {
-      console.log(`Found auth cookie: ${cookieName}`);
-      authCookie = context.req.cookies[cookieName];
-      break;
-    }
-  }
+  // Get the auth cookie from the request
+  const authCookie = context.req.cookies['sb-access-token'] || context.req.cookies['supabase-auth-token'];
   
   // Default initial data
   const initialData = {
     employee: null,
     latestSalary: null,
-    leaveBalance: null as number | null,
+    leaveBalance: null,
     leaveTaken: 0,
     inLieuSummary: { count: 0, daysAdded: 0 },
   };
   
   // If no auth cookie, redirect to login
   if (!authCookie) {
-    console.log('No auth cookie found, redirecting to login');
     return {
       redirect: {
         destination: '/login',
@@ -199,10 +150,31 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     };
   }
   
-  // Helper function to process user data and fetch related information
-  async function processUserData(user: any) {
-    const userId = user.id;
-    console.log('Processing data for user:', userId);
+  try {
+    // Extract token from cookie
+    let token = authCookie;
+    if (authCookie.startsWith('[')) {
+      try {
+        const parsedCookie = JSON.parse(authCookie);
+        token = parsedCookie[0].token;
+      } catch (error) {
+        console.error('Error parsing auth cookie:', error);
+      }
+    }
+    
+    // Get user from token
+    const { data: userData, error: userError } = await supabase.auth.getUser(token);
+    
+    if (userError || !userData.user) {
+      return {
+        redirect: {
+          destination: '/login',
+          permanent: false,
+        },
+      };
+    }
+    
+    const userId = userData.user.id;
     
     // Fetch employee details
     const { data: employeeData, error: employeeError } = await supabase
@@ -211,10 +183,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
       .eq('id', userId)
       .single();
     
-    if (employeeError) {
-      console.error('Error fetching employee data:', employeeError);
-    } else {
-      console.log('Fetched employee data:', employeeData);
+    if (!employeeError && employeeData) {
       initialData.employee = employeeData;
     }
     
@@ -227,10 +196,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
       .limit(1)
       .single();
     
-    if (salaryError) {
-      console.error('Error fetching salary data:', salaryError);
-    } else {
-      console.log('Fetched salary data:', salaryData);
+    if (!salaryError && salaryData) {
       initialData.latestSalary = salaryData;
     }
     
@@ -247,14 +213,9 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
       .gte('start_date', `${currentYear}-01-01`)
       .lte('end_date', `${currentYear}-12-31`);
     
-    if (leaveTakenError) {
-      console.error('Error fetching leave taken data:', leaveTakenError);
-    } else {
-      console.log('Fetched leave taken data:', leaveTakenData);
-      let leaveTaken = 0;
-      if (leaveTakenData) {
-        leaveTaken = leaveTakenData.reduce((total, leave) => total + leave.duration, 0);
-      }
+    let leaveTaken = 0;
+    if (!leaveTakenError && leaveTakenData) {
+      leaveTaken = leaveTakenData.reduce((total, leave) => total + leave.duration, 0);
       initialData.leaveTaken = leaveTaken;
     }
     
@@ -264,85 +225,25 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
       .select('*')
       .eq('employee_id', userId);
     
-    if (inLieuError) {
-      console.error('Error fetching in-lieu data:', inLieuError);
-    } else {
-      console.log('Fetched in-lieu data:', inLieuData);
-      let inLieuDaysAdded = 0;
-      if (inLieuData) {
-        inLieuDaysAdded = inLieuData.reduce((total, record) => total + record.days_added, 0);
-        initialData.inLieuSummary = {
-          count: inLieuData.length,
-          daysAdded: inLieuDaysAdded,
-        };
-      }
+    let inLieuDaysAdded = 0;
+    if (!inLieuError && inLieuData) {
+      inLieuDaysAdded = inLieuData.reduce((total, record) => total + record.days_added, 0);
+      initialData.inLieuSummary = {
+        count: inLieuData.length,
+        daysAdded: inLieuDaysAdded,
+      };
     }
     
     // Calculate final leave balance
     if (baseLeave !== null) {
-      // Define inLieuDaysAdded if it's not defined yet
-      let inLieuDaysAdded = initialData.inLieuSummary?.daysAdded || 0;
-      initialData.leaveBalance = baseLeave + inLieuDaysAdded - initialData.leaveTaken;
+      initialData.leaveBalance = baseLeave + inLieuDaysAdded - leaveTaken;
     }
-    
-    console.log('Returning initial data:', initialData);
     
     return {
       props: {
         initialData,
       },
     };
-  }
-  
-  try {
-    // Extract token from cookie
-    let token = authCookie;
-    if (typeof authCookie === 'string' && authCookie.startsWith('[')) {
-      try {
-        const parsedCookie = JSON.parse(authCookie);
-        token = parsedCookie[0]?.token || parsedCookie?.token || authCookie;
-        console.log('Parsed token from JSON cookie');
-      } catch (error) {
-        console.error('Error parsing auth cookie:', error);
-      }
-    }
-    
-    console.log('Using token (first 10 chars):', token.substring(0, 10) + '...');
-    
-    // Get user from token
-    const { data: userData, error: userError } = await supabase.auth.getUser(token);
-    
-    if (userError) {
-      console.error('Error getting user from token:', userError);
-      
-      // Try getting session another way if token approach fails
-      const { data: sessionData } = await supabase.auth.getSession();
-      if (sessionData?.session?.user) {
-        console.log('Retrieved user from getSession() instead');
-        return processUserData(sessionData.session.user);
-      } else {
-        return {
-          redirect: {
-            destination: '/login',
-            permanent: false,
-          },
-        };
-      }
-    }
-    
-    if (!userData?.user) {
-      console.log('No user data found, redirecting to login');
-      return {
-        redirect: {
-          destination: '/login',
-          permanent: false,
-        },
-      };
-    }
-    
-    console.log('Authenticated user:', userData.user.id);
-    return processUserData(userData.user);
-    
   } catch (error) {
     console.error('Error in getServerSideProps:', error);
     return {
