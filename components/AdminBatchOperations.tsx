@@ -153,8 +153,9 @@ const AdminBatchOperations: React.FC = () => {
           return;
       }
       
-      // For all other operations
-      if (operationType !== 'exportData') {
+      // For all operations except exportData
+      const currentType = operationType;
+      if (currentType === 'salaryUpdate' || currentType === 'leaveApproval' || currentType === 'userNotification') {
         await axios.post(endpoint, payload);
         toast.success(`Batch operation completed successfully`);
       }
