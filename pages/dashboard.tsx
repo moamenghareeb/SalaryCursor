@@ -141,7 +141,7 @@ export default function Dashboard() {
     );
   }
 
-  const { employee, latestSalary, leaveBalance, inLieuTime } = data;
+  const { employee, latestSalary, leaveBalance, leaveTaken, inLieuSummary } = data;
 
   return (
     <Layout>
@@ -183,11 +183,11 @@ export default function Dashboard() {
 
           {/* Leave Balance Card */}
           <div className="bg-white dark:bg-dark-surface rounded-apple shadow-apple-card dark:shadow-dark-card p-6 transition-colors">
-            <h2 className="text-lg font-medium text-apple-gray-dark dark:text-dark-text-primary mb-2">Annual Leave Balance</h2>
+            <h2 className="text-lg font-medium text-apple-gray-dark dark:text-dark-text-primary mb-2">Remaining Leave Balance</h2>
             <div>
               <p className="text-2xl font-bold text-green-600 dark:text-green-500">{leaveBalance?.toFixed(2) || '0.00'} days</p>
               <p className="text-sm text-apple-gray dark:text-dark-text-secondary mt-1">
-                {inLieuTime} days taken this year
+                {leaveTaken || 0} days taken this year
               </p>
               <Link href="/leave" className="mt-4 inline-block text-sm text-apple-blue hover:underline">
                 Request Leave →
@@ -199,9 +199,9 @@ export default function Dashboard() {
           <div className="bg-white dark:bg-dark-surface rounded-apple shadow-apple-card dark:shadow-dark-card p-6 transition-colors">
             <h2 className="text-lg font-medium text-apple-gray-dark dark:text-dark-text-primary mb-2">In-Lieu Time</h2>
             <div>
-              <p className="text-2xl font-bold text-purple-600 dark:text-purple-500">{data?.inLieuSummary?.count || 0} records</p>
+              <p className="text-2xl font-bold text-purple-600 dark:text-purple-500">{inLieuSummary?.count || 0} records</p>
               <p className="text-sm text-apple-gray dark:text-dark-text-secondary mt-1">
-                {data?.inLieuSummary?.daysAdded || 0} days added to leave balance
+                {inLieuSummary?.daysAdded || 0} days added to leave balance
               </p>
               <Link href="/leave" className="mt-4 inline-block text-sm text-apple-blue hover:underline">
                 Manage In-Lieu Time →
