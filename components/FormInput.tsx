@@ -1,4 +1,4 @@
-import React, { forwardRef, InputHTMLAttributes } from 'react';
+import React, { forwardRef, InputHTMLAttributes, ReactNode } from 'react';
 import { FieldError, UseFormRegisterReturn } from 'react-hook-form';
 import { FiAlertCircle } from 'react-icons/fi';
 
@@ -6,12 +6,13 @@ interface FormInputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'na
   label: string;
   name: string;
   error?: FieldError;
+  icon?: ReactNode;
   containerClassName?: string;
   register?: UseFormRegisterReturn;
 }
 
 const FormInput = forwardRef<HTMLInputElement, FormInputProps>(
-  ({ label, name, error, containerClassName = '', className = '', register, ...props }, ref) => {
+  ({ label, name, error, icon, containerClassName = '', className = '', register, ...props }, ref) => {
     return (
       <div className={`mb-4 ${containerClassName}`}>
         <label
@@ -20,17 +21,24 @@ const FormInput = forwardRef<HTMLInputElement, FormInputProps>(
         >
           {label}
         </label>
-        <input
-          id={name}
-          {...(register || { name })}
-          ref={ref}
-          className={`w-full px-3 py-2 border ${
-            error ? 'border-red-500 dark:border-red-400' : 'border-gray-300 dark:border-dark-border'
-          } rounded-md shadow-sm focus:outline-none focus:ring-apple-blue focus:border-apple-blue dark:bg-dark-surface dark:text-dark-text-primary ${className}`}
-          aria-invalid={error ? 'true' : 'false'}
-          aria-describedby={error ? `${name}-error` : undefined}
-          {...props}
-        />
+        <div className="relative">
+          {icon && (
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              {icon}
+            </div>
+          )}
+          <input
+            id={name}
+            {...(register || { name })}
+            ref={ref}
+            className={`w-full ${icon ? 'pl-10' : 'px-3'} py-2 border ${
+              error ? 'border-red-500 dark:border-red-400' : 'border-gray-300 dark:border-dark-border'
+            } rounded-md shadow-sm focus:outline-none focus:ring-apple-blue focus:border-apple-blue dark:bg-dark-surface dark:text-dark-text-primary ${className}`}
+            aria-invalid={error ? 'true' : 'false'}
+            aria-describedby={error ? `${name}-error` : undefined}
+            {...props}
+          />
+        </div>
         {error && (
           <div 
             id={`${name}-error`} 

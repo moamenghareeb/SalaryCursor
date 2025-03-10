@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, FieldError } from 'react-hook-form';
 import axios from 'axios';
 import Layout from '../components/Layout';
 import FormInput from '../components/FormInput';
@@ -127,94 +127,61 @@ export default function ProfilePage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <FormInput
                 label="First Name"
-                error={errors.first_name?.message}
+                name="first_name"
+                error={errors.first_name}
                 icon={<FiUser className="text-apple-gray" />}
-              >
-                <input
-                  type="text"
-                  className={`form-input ${isDarkMode ? 'dark' : ''}`}
-                  placeholder="John"
-                  {...register('first_name', { required: 'First name is required' })}
-                />
-              </FormInput>
+                register={register('first_name', { required: 'First name is required' })}
+              />
               
               <FormInput
                 label="Last Name"
-                error={errors.last_name?.message}
+                name="last_name"
+                error={errors.last_name}
                 icon={<FiUser className="text-apple-gray" />}
-              >
-                <input
-                  type="text"
-                  className={`form-input ${isDarkMode ? 'dark' : ''}`}
-                  placeholder="Doe"
-                  {...register('last_name', { required: 'Last name is required' })}
-                />
-              </FormInput>
+                register={register('last_name', { required: 'Last name is required' })}
+              />
               
               <FormInput
                 label="Email"
-                error={errors.email?.message}
+                name="email"
+                error={errors.email}
                 icon={<FiMail className="text-apple-gray" />}
-              >
-                <input
-                  type="email"
-                  className={`form-input ${isDarkMode ? 'dark' : ''}`}
-                  placeholder="john.doe@example.com"
-                  disabled
-                  {...register('email', { required: 'Email is required' })}
-                />
-              </FormInput>
+                register={register('email', { required: 'Email is required' })}
+                disabled
+              />
               
               <FormInput
                 label="Phone Number"
-                error={errors.phone?.message}
+                name="phone"
+                error={errors.phone}
                 icon={<FiPhone className="text-apple-gray" />}
-              >
-                <input
-                  type="tel"
-                  className={`form-input ${isDarkMode ? 'dark' : ''}`}
-                  placeholder="+1 (555) 123-4567"
-                  {...register('phone')}
-                />
-              </FormInput>
+                register={register('phone')}
+              />
               
               <FormInput
                 label="Address"
-                error={errors.address?.message}
+                name="address"
+                error={errors.address}
                 icon={<FiMapPin className="text-apple-gray" />}
-              >
-                <input
-                  type="text"
-                  className={`form-input ${isDarkMode ? 'dark' : ''}`}
-                  placeholder="123 Main St, City, Country"
-                  {...register('address')}
-                />
-              </FormInput>
+                register={register('address')}
+              />
               
               <FormInput
                 label="Date of Birth"
-                error={errors.dob?.message}
+                name="dob"
+                error={errors.dob}
                 icon={<FiCalendar className="text-apple-gray" />}
-              >
-                <input
-                  type="date"
-                  className={`form-input ${isDarkMode ? 'dark' : ''}`}
-                  {...register('dob')}
-                />
-              </FormInput>
+                register={register('dob')}
+                type="date"
+              />
               
               <FormInput
                 label="Emergency Contact"
-                error={errors.emergency_contact?.message}
+                name="emergency_contact"
+                error={errors.emergency_contact}
                 icon={<FiInfo className="text-apple-gray" />}
-              >
-                <input
-                  type="text"
-                  className={`form-input ${isDarkMode ? 'dark' : ''}`}
-                  placeholder="Name: (555) 123-4567"
-                  {...register('emergency_contact')}
-                />
-              </FormInput>
+                register={register('emergency_contact')}
+              />
             </div>
             
             <div className="flex justify-end">
