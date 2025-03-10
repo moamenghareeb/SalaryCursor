@@ -10,6 +10,7 @@ import LeaveTrendChart from '../components/LeaveTrendChart';
 import { useTheme } from '../lib/themeContext';
 import { useData } from '../lib/swr';
 import { useRouter } from 'next/router';
+import { useAuth } from '../lib/authContext';
 
 type DashboardData = {
   employee: Employee | null;
@@ -27,26 +28,16 @@ export default function Dashboard({ initialData }: DashboardProps) {
   const { isDarkMode } = useTheme();
   const [isClient, setIsClient] = useState(false);
   const router = useRouter();
+  const { user, session, loading: authLoading } = useAuth();
   
   // Set isClient to true when component mounts (client-side only)
   useEffect(() => {
     setIsClient(true);
-    
-    // Quick session check on component mount
-    const checkSession = async () => {
-      const { data } = await supabase.auth.getSession();
-      if (!data.session) {
-        // Redirect to login if no session
-        window.location.href = '/login';
-      }
-    };
-    
-    checkSession();
   }, []);
   
   // Use SWR for client-side data fetching with initialData from SSR
   const { data, error, isLoading } = useData<DashboardData>(
-    '/api/dashboard/summary',
+    isClient && !authLoading && user ? '/api/dashboard/summary' : null,
     {
       fallbackData: initialData,
       revalidateOnMount: true,
@@ -60,8 +51,8 @@ export default function Dashboard({ initialData }: DashboardProps) {
   const leaveTaken = data?.leaveTaken || 0;
   const inLieuSummary = data?.inLieuSummary || { count: 0, daysAdded: 0 };
 
-  // Show loading state until component mounts on client side
-  if (!isClient) {
+  // Show loading state until component mounts on client side or while auth is loading
+  if (!isClient || authLoading) {
     return (
       <Layout>
         <Head>
@@ -69,6 +60,27 @@ export default function Dashboard({ initialData }: DashboardProps) {
         </Head>
         <div className="flex justify-center items-center h-64">
           <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-apple-blue"></div>
+          <span className="ml-3 text-apple-gray">Loading dashboard...</span>
+        </div>
+      </Layout>
+    );
+  }
+  
+  // If the user is not authenticated after auth loading completes, redirect to login
+  if (!authLoading && (!user || !session)) {
+    // Use useEffect for client-side navigation to prevent React warning
+    useEffect(() => {
+      router.replace('/login');
+    }, [router]);
+    
+    return (
+      <Layout>
+        <Head>
+          <title>Redirecting... | SalaryCursor</title>
+        </Head>
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-apple-blue"></div>
+          <span className="ml-3 text-apple-gray">Redirecting to login...</span>
         </div>
       </Layout>
     );
@@ -82,6 +94,7 @@ export default function Dashboard({ initialData }: DashboardProps) {
       {isLoading ? (
         <div className="flex justify-center items-center h-64">
           <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-apple-blue"></div>
+          <span className="ml-3 text-apple-gray">Loading your data...</span>
         </div>
       ) : (
         <div className="space-y-6">
@@ -165,45 +178,8 @@ export const getServerSideProps: GetServerSideProps<DashboardProps> = async (con
     inLieuSummary: { count: 0, daysAdded: 0 },
   };
   
-  // Get the auth cookie from the request
-  const { req } = context;
-  let token = null;
-  
-  // Try different cookie names that Supabase might use
-  const possibleCookies = ['sb-access-token', 'supabase-auth-token'];
-  
-  for (const cookieName of possibleCookies) {
-    const cookie = req.cookies[cookieName];
-    if (cookie) {
-      if (cookie.startsWith('[')) {
-        try {
-          const parsed = JSON.parse(cookie);
-          if (parsed[0]?.token) {
-            token = parsed[0].token;
-            break;
-          }
-        } catch (e) {
-          // Invalid JSON, try next cookie
-        }
-      } else {
-        token = cookie;
-        break;
-      }
-    }
-  }
-  
-  // If no valid token found, redirect to login
-  if (!token) {
-    return {
-      redirect: {
-        destination: '/login',
-        permanent: false,
-      },
-    };
-  }
-  
   // Return the initial (empty) data structure
-  // The actual data will be fetched client-side
+  // Authentication will be handled client-side
   return {
     props: {
       initialData,

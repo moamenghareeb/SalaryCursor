@@ -21,8 +21,14 @@ export default function Login() {
     if (authLoading) return;
 
     if (user && session) {
-      const returnUrl = router.query.returnUrl as string;
-      router.push(returnUrl || '/dashboard');
+      console.log('User authenticated, redirecting to dashboard');
+      // Use a slight delay to avoid race conditions
+      const timer = setTimeout(() => {
+        const returnUrl = router.query.returnUrl as string;
+        window.location.href = returnUrl || '/dashboard';
+      }, 100);
+      
+      return () => clearTimeout(timer);
     }
   }, [user, session, authLoading, router]);
 
@@ -32,13 +38,19 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      console.log('Attempting login with:', email);
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (error) throw error;
+      
+      if (data.session) {
+        setMessage('Login successful! Redirecting...');
+      }
     } catch (error: any) {
+      console.error('Login error:', error);
       setError(error.message);
       captureAuthError(error);
     } finally {
@@ -172,6 +184,15 @@ export default function Login() {
               >
                 {isResetMode ? 'Back to login' : 'Forgot your password?'}
               </button>
+              
+              {!isResetMode && (
+                <div>
+                  <span className="text-sm text-gray-500">Don't have an account? </span>
+                  <Link href="/signup" className="text-sm text-blue-600 hover:text-blue-500 font-medium">
+                    Sign up
+                  </Link>
+                </div>
+              )}
             </div>
           </form>
         </div>
