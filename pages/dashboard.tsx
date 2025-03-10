@@ -51,6 +51,12 @@ export default function Dashboard({ initialData }: DashboardProps) {
   const leaveTaken = data?.leaveTaken || 0;
   const inLieuSummary = data?.inLieuSummary || { count: 0, daysAdded: 0 };
 
+  // Format currency values
+  const formatCurrency = (value: number | undefined | null) => {
+    if (value === undefined || value === null) return 'EGP 0';
+    return `EGP ${value.toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
+  };
+
   // Show loading state until component mounts on client side or while auth is loading
   if (!isClient || authLoading) {
     return (
@@ -115,7 +121,9 @@ export default function Dashboard({ initialData }: DashboardProps) {
               <h2 className="text-lg font-medium text-apple-gray-dark dark:text-dark-text-primary mb-2">Latest Salary</h2>
               {latestSalary ? (
                 <div>
-                  <p className="text-2xl font-bold text-apple-blue">EGP {latestSalary.total_salary?.toFixed(2) || '0.00'}</p>
+                  <div className="text-2xl font-bold text-apple-blue dark:text-blue-400">
+                    {formatCurrency(latestSalary?.total_salary)}
+                  </div>
                   <p className="text-sm text-apple-gray dark:text-dark-text-secondary mt-1">
                     {latestSalary.month || 'N/A'}
                   </p>

@@ -6,73 +6,77 @@ async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
-  // Enhanced token extraction
+  // Enhanced token extraction with better logging
   let token = null;
 
-  // Check for token in Authorization header (Bearer token)
-  const authHeader = req.headers.authorization;
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    token = authHeader.substring(7); // Remove 'Bearer ' prefix
-    console.log('Using token from Authorization header');
-  }
-  
-  // If no token in header, try cookies
-  if (!token) {
-    // Get auth token from request cookies
-    const possibleCookies = ['sb-access-token', 'supabase-auth-token'];
+  try {
+    // Check for token in Authorization header (Bearer token)
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.substring(7); // Remove 'Bearer ' prefix
+      console.log('Using token from Authorization header');
+    }
     
-    for (const cookieName of possibleCookies) {
-      const authCookie = req.cookies[cookieName];
-      if (authCookie) {
-        try {
-          console.log('Auth cookie found:', cookieName);
-          // Handle both direct token and JSON format
-          if (authCookie.startsWith('[')) {
-            // Parse JSON format (['token', 'refresh'])
-            const parsed = JSON.parse(authCookie);
-            token = parsed[0]?.token || parsed[0]; // Handle both formats
-            console.log('Parsed token from JSON array');
-            break;
-          } else if (authCookie.startsWith('{')) {
-            // Parse JSON object format
-            const parsed = JSON.parse(authCookie);
-            token = parsed.token || parsed.access_token;
-            console.log('Parsed token from JSON object');
-            break;
-          } else {
-            token = authCookie;
-            console.log('Using direct token from cookie');
-            break;
+    // If no token in header, try cookies
+    if (!token) {
+      // Get auth token from request cookies
+      const possibleCookies = ['sb-access-token', 'supabase-auth-token'];
+      
+      for (const cookieName of possibleCookies) {
+        const authCookie = req.cookies[cookieName];
+        if (authCookie) {
+          try {
+            console.log('Auth cookie found:', cookieName);
+            // Handle both direct token and JSON format
+            if (authCookie.startsWith('[')) {
+              // Parse JSON format (['token', 'refresh'])
+              const parsed = JSON.parse(authCookie);
+              token = parsed[0]?.token || parsed[0]; // Handle both formats
+              console.log('Parsed token from JSON array');
+              break;
+            } else if (authCookie.startsWith('{')) {
+              // Parse JSON object format
+              const parsed = JSON.parse(authCookie);
+              token = parsed.token || parsed.access_token;
+              console.log('Parsed token from JSON object');
+              break;
+            } else {
+              token = authCookie;
+              console.log('Using direct token from cookie');
+              break;
+            }
+          } catch (error) {
+            console.error('Error parsing auth cookie:', error);
+            // Continue to next cookie rather than failing
           }
-        } catch (error) {
-          console.error('Error parsing auth cookie:', error);
         }
       }
     }
-  }
 
-  // If still no token, return unauthorized
-  if (!token) {
-    console.log('No valid auth token found in headers or cookies');
-    return res.status(401).json({ 
-      error: 'Unauthorized',
-      message: 'No valid authentication found'
-    });
-  }
+    // If still no token, return unauthorized with clear message
+    if (!token) {
+      console.warn('No valid auth token found in headers or cookies');
+      return res.status(401).json({ 
+        error: 'Unauthorized',
+        message: 'Authentication required. Please log in again.'
+      });
+    }
 
-  try {
-    // Set Supabase JWT
+    // Set Supabase JWT with better error handling
     const { data: userData, error: userError } = await supabase.auth.getUser(token);
 
     if (userError || !userData.user) {
-      console.error('Invalid token:', userError);
-      return res.status(401).json({ error: 'Invalid token' });
+      console.error('Invalid token or user not found:', userError);
+      return res.status(401).json({ 
+        error: 'Unauthorized', 
+        message: 'Your session has expired. Please log in again.'
+      });
     }
 
     const userId = userData.user.id;
     console.log('Authenticated user:', userId);
 
-    // Handle GET request - fetch notifications
+    // Handle GET request - fetch notifications with improved error handling
     if (req.method === 'GET') {
       try {
         // Query to get user notifications
@@ -84,17 +88,23 @@ async function handler(
           .limit(50); // Limit to 50 most recent notifications
 
         if (notificationsError) {
-          console.error('Error fetching notifications:', notificationsError);
-          return res.status(500).json({ error: 'Failed to fetch notifications' });
+          console.error('Database error fetching notifications:', notificationsError);
+          return res.status(500).json({ 
+            error: 'Database Error', 
+            message: 'Failed to fetch notifications from database'
+          });
         }
 
-        // Set cache control headers
-        res.setHeader('Cache-Control', 'private, max-age=10');
+        // Set cache control headers with longer validity
+        res.setHeader('Cache-Control', 'private, max-age=30, stale-while-revalidate=60');
         
         return res.status(200).json(notifications || []);
       } catch (error) {
-        console.error('Error processing notifications:', error);
-        return res.status(500).json({ error: 'Internal server error' });
+        console.error('Unexpected error processing notifications:', error);
+        return res.status(500).json({ 
+          error: 'Internal server error',
+          message: 'An unexpected error occurred while fetching notifications'
+        });
       }
     }
     
@@ -157,14 +167,30 @@ async function handler(
       return res.status(405).json({ error: 'Method not allowed' });
     }
   } catch (error) {
-    console.error('Server error:', error);
-    return res.status(500).json({ error: 'Server error' });
+    console.error('Unhandled server error:', error);
+    return res.status(500).json({ 
+      error: 'Server error',
+      message: 'An unexpected error occurred. Please try again later.'
+    });
   }
 }
 
-// Apply rate limiting
-export default withRateLimit(handler, {
-  windowMs: 60 * 1000, // 1 minute
-  maxRequests: 20, // 20 requests per minute
-  message: 'Too many requests for notifications. Please try again later.'
-}); 
+// Apply rate limiting with better error handling
+export default async function safeHandler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
+  try {
+    return await withRateLimit(handler, {
+      windowMs: 60 * 1000, // 1 minute
+      maxRequests: 20, // 20 requests per minute
+      message: 'Too many requests for notifications. Please try again later.'
+    })(req, res);
+  } catch (error) {
+    console.error('Unhandled error in notifications API:', error);
+    return res.status(500).json({ 
+      error: 'Server error',
+      message: 'An unexpected error occurred. Please try again later.'
+    });
+  }
+} 

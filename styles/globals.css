@@ -17,46 +17,79 @@
 
 /* Calendar dark mode styles */
 .dark-theme-calendar .fc-toolbar-title {
-  color: #ffffff !important;
+  color: #ffffff;
 }
 
 .dark-theme-calendar .fc-button {
-  background-color: #2a2a2a !important;
-  border-color: #3a3a3a !important;
-  color: #ffffff !important;
+  background-color: #2a2a2a;
+  border-color: #444444;
+  color: #ffffff;
 }
 
 .dark-theme-calendar .fc-button:hover {
-  background-color: #3a3a3a !important;
+  background-color: #3a3a3a;
+  border-color: #555555;
 }
 
 .dark-theme-calendar .fc-button-active {
-  background-color: #1a1a1a !important;
-  border-color: #3a3a3a !important;
+  background-color: #0071e3 !important;
+  border-color: #0071e3 !important;
 }
 
 .dark-theme-calendar .fc-daygrid-day,
 .dark-theme-calendar .fc-col-header-cell {
-  border-color: #2a2a2a !important;
+  border-color: #444444;
 }
 
 .dark-theme-calendar .fc-daygrid-day-number {
-  color: #e0e0e0 !important;
+  color: #dddddd;
 }
 
 .dark-theme-calendar .fc-daygrid-day.fc-day-today {
-  background-color: rgba(255, 255, 255, 0.1) !important;
+  background-color: rgba(0, 113, 227, 0.15) !important;
 }
 
 .dark-theme-calendar .fc-event {
-  border-radius: 4px !important;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3) !important;
+  border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
 .dark-theme-calendar .fc-h-event .fc-event-title,
 .dark-theme-calendar .fc-h-event .fc-event-time {
-  color: #ffffff !important;
-  font-weight: 500 !important;
+  color: #ffffff;
+}
+
+/* Support for additional calendar elements in dark mode */
+.dark-theme-calendar .fc-list-day-cushion {
+  background-color: #2a2a2a;
+}
+
+.dark-theme-calendar .fc-list-event:hover td {
+  background-color: rgba(0, 113, 227, 0.15);
+}
+
+.dark-theme-calendar .fc-day-other .fc-daygrid-day-number {
+  color: #888888;
+}
+
+.dark-theme-calendar .fc-timegrid-slot {
+  border-color: #444444;
+}
+
+.dark-theme-calendar .fc-theme-standard .fc-view-harness {
+  border-color: #444444;
+}
+
+.dark-theme-calendar .fc-scrollgrid {
+  border-color: #444444;
+}
+
+.dark-theme-calendar .fc-scrollgrid-section > th {
+  border-color: #444444;
+}
+
+.dark-theme-calendar .fc-scrollgrid-section-header > th {
+  border-bottom-color: #444444;
 }
 
 @keyframes fadeIn {

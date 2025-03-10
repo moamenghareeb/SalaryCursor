@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -7,6 +7,19 @@ import { DateSelectArg, EventClickArg, EventContentArg } from '@fullcalendar/cor
 import { useTheme } from '../lib/themeContext';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
+
+// Add this interface definition for FormattedLeaveData
+interface FormattedLeaveData {
+  id: string;
+  start_date: string;
+  end_date: string;
+  leave_type: string;
+  status: string;
+  is_team_member?: boolean;
+  employee_name?: string;
+  reason?: string;
+  duration?: number;
+}
 
 // Define leave event types
 interface LeaveEvent {
@@ -233,95 +246,110 @@ const LeaveCalendar: React.FC = () => {
   const [events, setEvents] = useState<LeaveEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isNewLeaveModalOpen, setIsNewLeaveModalOpen] = useState(false);
-  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
-  const [selectedDates, setSelectedDates] = useState<DateSelectArg | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<LeaveEvent | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isCancelling, setIsCancelling] = useState(false);
-  
-  const { isDarkMode } = useTheme();
+  const [selectedDates, setSelectedDates] = useState<DateSelectArg | null>(null);
+  const [showNewLeaveModal, setShowNewLeaveModal] = useState(false);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [creatingLeave, setCreatingLeave] = useState(false);
+  const [cancellingLeave, setCancellingLeave] = useState(false);
+  const calendarRef = useRef<FullCalendar | null>(null);
+  const { isDarkMode, applyDarkModeClass } = useTheme();
+  const [retryCount, setRetryCount] = useState(0);
+  const maxRetries = 3;
 
+  // Apply dark mode to calendar when component mounts or theme changes
   useEffect(() => {
-    fetchLeaveData();
-  }, []);
+    const calendarElement = document.querySelector('.fc');
+    if (calendarElement) {
+      if (isDarkMode) {
+        calendarElement.classList.add('dark-theme-calendar');
+      } else {
+        calendarElement.classList.remove('dark-theme-calendar');
+      }
+    }
+  }, [isDarkMode]);
 
+  // Effect to apply theme to calendar after it has been initialized
+  useEffect(() => {
+    // Short delay to ensure calendar is rendered
+    const timer = setTimeout(() => {
+      applyDarkModeClass();
+    }, 100);
+    
+    return () => clearTimeout(timer);
+  }, [applyDarkModeClass]);
+
+  // Fetch leave data with retry mechanism
   const fetchLeaveData = async () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await axios.get('/api/leave/calendar', {
-        headers: {
-          'Cache-Control': 'no-cache',
-          'Pragma': 'no-cache',
-          'Expires': '0',
-        }
-      });
       
-      // Process the response data to format for calendar
-      const formattedEvents = response.data.map((leave: any) => {
-        // Parse dates to add a day to end date for proper display
-        const endDate = new Date(leave.end_date);
-        endDate.setDate(endDate.getDate() + 1);
-        
-        // Set event title based on whether it's the user's leave or a team member's
-        const title = leave.is_team_member 
-          ? `${leave.employee_name}: ${leave.leave_type.charAt(0).toUpperCase() + leave.leave_type.slice(1)} Leave` 
-          : `${leave.leave_type.charAt(0).toUpperCase() + leave.leave_type.slice(1)} Leave`;
-        
-        return {
-          id: leave.id,
-          title,
-          start: leave.start_date,
-          end: endDate.toISOString().split('T')[0],
-          leaveType: leave.leave_type,
-          status: leave.status,
-          allDay: true,
-          isTeamMember: leave.is_team_member,
-          employeeName: leave.employee_name,
-          reason: leave.reason
-        };
-      });
+      // Add caching parameter to avoid stale data
+      const timestamp = new Date().getTime();
+      const response = await axios.get(`/api/leave/calendar?t=${timestamp}`);
+      
+      // Format events for the calendar
+      const formattedEvents: LeaveEvent[] = response.data.map((leave: FormattedLeaveData) => ({
+        id: leave.id,
+        title: leave.is_team_member ? `${leave.employee_name}: ${leave.leave_type}` : `${leave.leave_type}`,
+        start: leave.start_date,
+        end: leave.end_date,
+        leaveType: leave.leave_type as 'annual' | 'sick' | 'unpaid' | 'in-lieu',
+        status: leave.status as 'approved' | 'pending' | 'rejected',
+        allDay: true,
+        isTeamMember: leave.is_team_member || false,
+        employeeName: leave.employee_name || '',
+        reason: leave.reason || ''
+      }));
       
       setEvents(formattedEvents);
+      setLoading(false);
     } catch (err: any) {
       console.error('Error fetching leave data:', err);
-      let errorMessage = 'Failed to load leave data';
-      
-      // Extract more specific error message if available
-      if (err.response && err.response.data && err.response.data.error) {
-        errorMessage = err.response.data.error;
-      } else if (err.message) {
-        errorMessage = err.message;
-      }
-      
+      const errorMessage = err.response?.data?.message || 
+                          err.response?.data?.error || 
+                          'Failed to load leave data';
       setError(errorMessage);
-      toast.error(errorMessage);
-    } finally {
       setLoading(false);
+      
+      // If we haven't reached max retries and it's a server error, retry after delay
+      if (retryCount < maxRetries && (err.response?.status >= 500 || !err.response)) {
+        setTimeout(() => {
+          setRetryCount(prev => prev + 1);
+          fetchLeaveData();
+        }, 2000 * Math.pow(2, retryCount)); // Exponential backoff
+      }
     }
   };
 
+  // Fetch data on initial load and when retry count changes
+  useEffect(() => {
+    fetchLeaveData();
+  }, [retryCount]);
+
+  // Handle retry button click
   const handleRetry = () => {
+    setRetryCount(0); // Reset retry count
     fetchLeaveData();
   };
 
   const handleDateSelect = (selectInfo: DateSelectArg) => {
     setSelectedDates(selectInfo);
-    setIsNewLeaveModalOpen(true);
+    setShowNewLeaveModal(true);
   };
 
   const handleEventClick = (clickInfo: EventClickArg) => {
     const event = events.find(e => e.id === clickInfo.event.id);
     if (event) {
       setSelectedEvent(event);
-      setIsDetailsModalOpen(true);
+      setShowDetailsModal(true);
     }
   };
 
   const handleCreateLeave = async (leaveData: any) => {
     try {
-      setIsSubmitting(true);
+      setCreatingLeave(true);
       const response = await axios.post('/api/leave/request', leaveData);
       toast.success('Leave request submitted successfully');
       
@@ -340,29 +368,29 @@ const LeaveCalendar: React.FC = () => {
       };
       
       setEvents([...events, newEvent]);
-      setIsNewLeaveModalOpen(false);
+      setShowNewLeaveModal(false);
     } catch (err) {
       console.error('Error creating leave request:', err);
       toast.error('Failed to submit leave request');
     } finally {
-      setIsSubmitting(false);
+      setCreatingLeave(false);
     }
   };
 
   const handleCancelLeave = async (id: string) => {
     try {
-      setIsCancelling(true);
+      setCancellingLeave(true);
       await axios.delete(`/api/leave/request/${id}`);
       toast.success('Leave request cancelled successfully');
       
       // Remove the event from the calendar
       setEvents(events.filter(event => event.id !== id));
-      setIsDetailsModalOpen(false);
+      setShowDetailsModal(false);
     } catch (err) {
       console.error('Error cancelling leave request:', err);
       toast.error('Failed to cancel leave request');
     } finally {
-      setIsCancelling(false);
+      setCancellingLeave(false);
     }
   };
 
@@ -419,126 +447,65 @@ const LeaveCalendar: React.FC = () => {
   }
 
   return (
-    <div className="bg-white dark:bg-dark-surface rounded-apple shadow-apple-card dark:shadow-dark-card p-6 transition-colors">
-      <div className="mb-4 flex justify-between items-center">
-        <h2 className="text-xl font-semibold text-apple-gray-dark dark:text-dark-text-primary">
-          Leave Calendar
-        </h2>
-        <div className="flex space-x-2">
-          <div className="flex items-center">
-            <div className="w-3 h-3 rounded-full bg-blue-500 mr-1"></div>
-            <span className="text-xs text-apple-gray dark:text-dark-text-secondary">Annual</span>
-          </div>
-          <div className="flex items-center">
-            <div className="w-3 h-3 rounded-full bg-red-500 mr-1"></div>
-            <span className="text-xs text-apple-gray dark:text-dark-text-secondary">Sick</span>
-          </div>
-          <div className="flex items-center">
-            <div className="w-3 h-3 rounded-full bg-orange-500 mr-1"></div>
-            <span className="text-xs text-apple-gray dark:text-dark-text-secondary">Unpaid</span>
-          </div>
-          <div className="flex items-center">
-            <div className="w-3 h-3 rounded-full bg-green-500 mr-1"></div>
-            <span className="text-xs text-apple-gray dark:text-dark-text-secondary">In-Lieu</span>
-          </div>
+    <div className="w-full h-full min-h-[600px] bg-white dark:bg-dark-surface rounded-xl shadow-sm p-4">
+      {loading ? (
+        <div className="flex justify-center items-center h-[600px]">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
         </div>
-      </div>
+      ) : error ? (
+        <div className="flex flex-col justify-center items-center h-[600px]">
+          <div className="text-red-500 mb-4">{error}</div>
+          <button 
+            onClick={handleRetry}
+            className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark focus:outline-none"
+          >
+            Retry
+          </button>
+        </div>
+      ) : (
+        // Use a unique ID for the calendar wrapper to help with theme application
+        <div id="leave-calendar-wrapper" className={isDarkMode ? 'dark-theme-calendar' : ''}>
+          <FullCalendar
+            ref={calendarRef}
+            plugins={[dayGridPlugin, interactionPlugin]}
+            initialView="dayGridMonth"
+            headerToolbar={{
+              left: 'prev,next today',
+              center: 'title',
+              right: 'dayGridMonth'
+            }}
+            events={events}
+            eventContent={renderEventContent}
+            selectable={true}
+            select={handleDateSelect}
+            eventClick={handleEventClick}
+            height="auto"
+            eventTimeFormat={{
+              hour: 'numeric',
+              minute: '2-digit',
+              meridiem: 'short'
+            }}
+          />
+        </div>
+      )}
       
-      <div className={`leave-calendar ${isDarkMode ? 'dark-theme-calendar' : ''}`}>
-        <FullCalendar
-          plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-          initialView="dayGridMonth"
-          headerToolbar={{
-            left: 'prev,next today',
-            center: 'title',
-            right: 'dayGridMonth,timeGridWeek'
-          }}
-          selectable={true}
-          select={handleDateSelect}
-          eventClick={handleEventClick}
-          eventContent={renderEventContent}
-          events={events}
-          height="auto"
-          eventBackgroundColor={isDarkMode ? '#1e1e1e' : '#f5f5f7'}
-          eventBorderColor={isDarkMode ? '#2a2a2a' : '#e2e2e2'}
-          eventTextColor={isDarkMode ? '#ffffff' : '#1d1d1f'}
-          dayHeaderClassNames={isDarkMode ? 'text-dark-text-primary' : 'text-apple-gray-dark'}
-          dayHeaderFormat={{ weekday: 'short', day: 'numeric' }}
-          buttonText={{
-            today: 'Today',
-            month: 'Month',
-            week: 'Week'
-          }}
-          buttonIcons={{
-            prev: 'chevron-left',
-            next: 'chevron-right'
-          }}
-          themeSystem="standard"
-          dayCellClassNames={isDarkMode ? 'dark-calendar-cell' : ''}
-          dayHeaderContent={(args) => {
-            return (
-              <div className={`text-sm font-medium ${isDarkMode ? 'text-dark-text-primary' : 'text-apple-gray-dark'}`}>
-                {args.text}
-              </div>
-            )
-          }}
-        />
-      </div>
-      
+      {/* New Leave Modal */}
       <NewLeaveModal
-        isOpen={isNewLeaveModalOpen}
-        onClose={() => setIsNewLeaveModalOpen(false)}
+        isOpen={showNewLeaveModal}
+        onClose={() => setShowNewLeaveModal(false)}
         selectedDates={selectedDates}
         onSubmit={handleCreateLeave}
-        isSubmitting={isSubmitting}
+        isSubmitting={creatingLeave}
       />
       
+      {/* Leave Details Modal */}
       <LeaveDetailsModal
-        isOpen={isDetailsModalOpen}
-        onClose={() => setIsDetailsModalOpen(false)}
+        isOpen={showDetailsModal}
+        onClose={() => setShowDetailsModal(false)}
         event={selectedEvent}
         onCancel={handleCancelLeave}
-        isCancelling={isCancelling}
+        isCancelling={cancellingLeave}
       />
-      
-      <style jsx global>{`
-        .fc-theme-standard td, .fc-theme-standard th {
-          border-color: ${isDarkMode ? '#2a2a2a' : '#e5e5e5'};
-        }
-        
-        .fc-theme-standard .fc-scrollgrid {
-          border-color: ${isDarkMode ? '#2a2a2a' : '#e5e5e5'};
-        }
-        
-        .fc-col-header-cell-cushion,
-        .fc-daygrid-day-number {
-          color: ${isDarkMode ? '#b3b3b3' : 'inherit'};
-        }
-        
-        .fc-dark-theme .fc-button-primary {
-          background-color: #1e1e1e;
-          border-color: #2a2a2a;
-          color: #fff;
-        }
-        
-        .fc-dark-theme .fc-button-primary:hover {
-          background-color: #2a2a2a;
-        }
-        
-        .fc-dark-theme .fc-button-primary:disabled {
-          background-color: #1e1e1e;
-          opacity: 0.6;
-        }
-        
-        .fc-dark-theme .fc-button-active {
-          background-color: #0071e3 !important;
-          border-color: #0071e3 !important;
-        }
-        
-        .fc-day-today {
-          background-color: ${isDarkMode ? 'rgba(0, 113, 227, 0.1)' : 'rgba(0, 113, 227, 0.05)'} !important;
-        }
-      `}</style>
     </div>
   );
 };

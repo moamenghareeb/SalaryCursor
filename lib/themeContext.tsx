@@ -1,8 +1,9 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 
 type ThemeContextType = {
   isDarkMode: boolean;
   toggleDarkMode: () => void;
+  applyDarkModeClass: (elementId?: string) => void;
 };
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
@@ -10,6 +11,39 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
   const [mounted, setMounted] = useState(false);
+
+  // Helper function to apply class to document and specific elements
+  const applyDarkModeClass = useCallback((elementId?: string) => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+      if (elementId) {
+        const element = document.getElementById(elementId);
+        if (element) {
+          element.classList.add('dark-theme-calendar');
+        }
+      }
+      
+      // Apply to all calendar elements
+      const calendarElements = document.querySelectorAll('.fc');
+      calendarElements.forEach(element => {
+        element.classList.add('dark-theme-calendar');
+      });
+    } else {
+      document.documentElement.classList.remove('dark');
+      if (elementId) {
+        const element = document.getElementById(elementId);
+        if (element) {
+          element.classList.remove('dark-theme-calendar');
+        }
+      }
+      
+      // Remove from all calendar elements
+      const calendarElements = document.querySelectorAll('.fc');
+      calendarElements.forEach(element => {
+        element.classList.remove('dark-theme-calendar');
+      });
+    }
+  }, [isDarkMode]);
 
   // Initialize theme from localStorage or system preference
   useEffect(() => {
@@ -24,11 +58,21 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     
     setIsDarkMode(shouldUseDarkMode);
     
-    // Apply theme to document
+    // Apply theme to document immediately
     if (shouldUseDarkMode) {
       document.documentElement.classList.add('dark');
+      // Apply to all calendar elements that might exist
+      const calendarElements = document.querySelectorAll('.fc');
+      calendarElements.forEach(element => {
+        element.classList.add('dark-theme-calendar');
+      });
     } else {
       document.documentElement.classList.remove('dark');
+      // Remove from all calendar elements that might exist
+      const calendarElements = document.querySelectorAll('.fc');
+      calendarElements.forEach(element => {
+        element.classList.remove('dark-theme-calendar');
+      });
     }
     
     // Listen for theme changes on the documentElement
@@ -41,6 +85,16 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
           const hasDarkClass = document.documentElement.classList.contains('dark');
           if (hasDarkClass !== isDarkMode) {
             setIsDarkMode(hasDarkClass);
+            
+            // Update calendar elements when document class changes
+            const calendarElements = document.querySelectorAll('.fc');
+            calendarElements.forEach(element => {
+              if (hasDarkClass) {
+                element.classList.add('dark-theme-calendar');
+              } else {
+                element.classList.remove('dark-theme-calendar');
+              }
+            });
           }
         }
       });
@@ -68,8 +122,18 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         setIsDarkMode(e.matches);
         if (e.matches) {
           document.documentElement.classList.add('dark');
+          // Apply to all calendar elements
+          const calendarElements = document.querySelectorAll('.fc');
+          calendarElements.forEach(element => {
+            element.classList.add('dark-theme-calendar');
+          });
         } else {
           document.documentElement.classList.remove('dark');
+          // Remove from all calendar elements
+          const calendarElements = document.querySelectorAll('.fc');
+          calendarElements.forEach(element => {
+            element.classList.remove('dark-theme-calendar');
+          });
         }
       }
     };
@@ -78,16 +142,64 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     return () => mediaQuery.removeEventListener('change', handleChange);
   }, [mounted]);
 
-  const toggleDarkMode = () => {
-    setIsDarkMode(!isDarkMode);
-    if (!isDarkMode) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
-    }
-  };
+  // Observer for dynamically added calendar elements
+  useEffect(() => {
+    if (!mounted) return;
+    
+    // Create observer for new elements
+    const bodyObserver = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.type === 'childList') {
+          mutation.addedNodes.forEach((node) => {
+            if (node instanceof HTMLElement) {
+              // Check for calendar elements
+              const calendars = node.querySelectorAll('.fc');
+              if (calendars.length > 0 || node.classList.contains('fc')) {
+                // Apply theme to newly added calendar elements
+                if (isDarkMode) {
+                  if (node.classList.contains('fc')) {
+                    node.classList.add('dark-theme-calendar');
+                  }
+                  calendars.forEach(cal => cal.classList.add('dark-theme-calendar'));
+                }
+              }
+            }
+          });
+        }
+      });
+    });
+    
+    // Start observing the document body
+    bodyObserver.observe(document.body, { childList: true, subtree: true });
+    
+    return () => {
+      bodyObserver.disconnect();
+    };
+  }, [isDarkMode, mounted]);
+
+  const toggleDarkMode = useCallback(() => {
+    setIsDarkMode(prev => {
+      const newMode = !prev;
+      if (newMode) {
+        document.documentElement.classList.add('dark');
+        localStorage.setItem('theme', 'dark');
+        // Apply to all calendar elements
+        const calendarElements = document.querySelectorAll('.fc');
+        calendarElements.forEach(element => {
+          element.classList.add('dark-theme-calendar');
+        });
+      } else {
+        document.documentElement.classList.remove('dark');
+        localStorage.setItem('theme', 'light');
+        // Remove from all calendar elements
+        const calendarElements = document.querySelectorAll('.fc');
+        calendarElements.forEach(element => {
+          element.classList.remove('dark-theme-calendar');
+        });
+      }
+      return newMode;
+    });
+  }, []);
 
   // Avoid rendering children until after theme has been set
   // This prevents flash of wrong theme during hydration
@@ -96,7 +208,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <ThemeContext.Provider value={{ isDarkMode, toggleDarkMode }}>
+    <ThemeContext.Provider value={{ isDarkMode, toggleDarkMode, applyDarkModeClass }}>
       {children}
     </ThemeContext.Provider>
   );
