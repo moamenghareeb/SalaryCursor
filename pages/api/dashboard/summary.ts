@@ -143,15 +143,19 @@ async function handler(
         daysAdded: leaveBalanceResult.inLieuBalance,
       };
       
-      logger.info(`Leave balance from service: ${leaveBalanceResult.remainingBalance}`);
+      logger.info(`Leave balance from service: ${leaveBalanceResult.remainingBalance}, Leave taken: ${leaveBalanceResult.leaveTaken}`);
     } else {
       logger.error(`Error calculating leave balance: ${leaveBalanceResult.error}`);
     }
 
-    // Set cache control headers
-    res.setHeader('Cache-Control', 'private, max-age=300, stale-while-revalidate=600');
+    // Set cache control headers for frequent refreshes
+    res.setHeader('Cache-Control', 'private, max-age=5, stale-while-revalidate=30');
 
-    return res.status(200).json(dashboardData);
+    // Add timestamp to ensure clients know when this data was generated
+    return res.status(200).json({
+      ...dashboardData,
+      timestamp: new Date().toISOString()
+    });
   } catch (error) {
     logger.error('Server error in dashboard summary:', error);
     return res.status(500).json({ 

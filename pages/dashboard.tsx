@@ -72,12 +72,13 @@ export default function Dashboard() {
     session ? '/api/dashboard/summary' : null,
     fetcher,
     {
-      revalidateOnFocus: false,
+      revalidateOnFocus: true,
+      revalidateOnMount: true,
       shouldRetryOnError: true,
       errorRetryCount: maxRetries,
+      dedupingInterval: 10000,
       errorRetryInterval: retryDelay,
       onErrorRetry: (error, key, config, revalidate, { retryCount }) => {
-        // Don't retry on 404s or 401s
         if (error.response?.status === 404 || error.response?.status === 401) {
           return;
         }
@@ -91,6 +92,48 @@ export default function Dashboard() {
       }
     }
   );
+
+  // Debug log to check the data received from the API
+  useEffect(() => {
+    if (data) {
+      console.log('Dashboard data received:', {
+        leaveBalance: data.leaveBalance, 
+        leaveTaken: data.leaveTaken,
+        inLieuSummary: data.inLieuSummary
+      });
+    }
+  }, [data]);
+
+  // Force refresh the dashboard data when the component loads and periodically
+  useEffect(() => {
+    if (session) {
+      console.log('Initial dashboard data refresh...');
+      mutate();
+      
+      const intervalId = setInterval(() => {
+        console.log('Periodic dashboard data refresh...');
+        mutate();
+      }, 30000);
+      
+      return () => clearInterval(intervalId);
+    }
+  }, [session, mutate]);
+
+  // Add another useEffect to refresh data when returning from other pages
+  useEffect(() => {
+    const handleRouteChange = () => {
+      if (session) {
+        console.log('Route changed, refreshing dashboard data...');
+        mutate();
+      }
+    };
+    
+    router.events.on('routeChangeComplete', handleRouteChange);
+    
+    return () => {
+      router.events.off('routeChangeComplete', handleRouteChange);
+    };
+  }, [router, session, mutate]);
 
   if (!isClient || authLoading) {
     return (
@@ -183,11 +226,25 @@ export default function Dashboard() {
 
           {/* Leave Balance Card */}
           <div className="bg-white dark:bg-dark-surface rounded-apple shadow-apple-card dark:shadow-dark-card p-6 transition-colors">
-            <h2 className="text-lg font-medium text-apple-gray-dark dark:text-dark-text-primary mb-2">Remaining Leave Balance</h2>
+            <div className="flex justify-between items-center mb-2">
+              <h2 className="text-lg font-medium text-apple-gray-dark dark:text-dark-text-primary">Remaining Leave Balance</h2>
+              <button 
+                onClick={() => mutate()} 
+                title="Refresh leave balance" 
+                className="text-apple-blue hover:text-apple-blue-hover transition-colors"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              </button>
+            </div>
             <div>
-              <p className="text-2xl font-bold text-green-600 dark:text-green-500">{leaveBalance?.toFixed(2) || '0.00'} days</p>
+              <div className="flex items-baseline">
+                <p className="text-2xl font-bold text-green-600 dark:text-green-500">{data?.leaveBalance?.toFixed(2) || '0.00'} days</p>
+                <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">(Base + In-Lieu - Taken)</span>
+              </div>
               <p className="text-sm text-apple-gray dark:text-dark-text-secondary mt-1">
-                {leaveTaken || 0} days taken this year
+                {data?.leaveTaken || 0} days taken this year
               </p>
               <Link href="/leave" className="mt-4 inline-block text-sm text-apple-blue hover:underline">
                 Request Leave →
@@ -197,11 +254,24 @@ export default function Dashboard() {
 
           {/* In-Lieu Time Card */}
           <div className="bg-white dark:bg-dark-surface rounded-apple shadow-apple-card dark:shadow-dark-card p-6 transition-colors">
-            <h2 className="text-lg font-medium text-apple-gray-dark dark:text-dark-text-primary mb-2">In-Lieu Time</h2>
+            <div className="flex justify-between items-center mb-2">
+              <h2 className="text-lg font-medium text-apple-gray-dark dark:text-dark-text-primary">In-Lieu Time</h2>
+              <button 
+                onClick={() => mutate()} 
+                title="Refresh in-lieu data" 
+                className="text-apple-blue hover:text-apple-blue-hover transition-colors"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              </button>
+            </div>
             <div>
-              <p className="text-2xl font-bold text-purple-600 dark:text-purple-500">{inLieuSummary?.count || 0} records</p>
+              <div className="flex items-baseline">
+                <p className="text-2xl font-bold text-purple-600 dark:text-purple-500">{data?.inLieuSummary?.count || 0} records</p>
+              </div>
               <p className="text-sm text-apple-gray dark:text-dark-text-secondary mt-1">
-                {inLieuSummary?.daysAdded || 0} days added to leave balance
+                {data?.inLieuSummary?.daysAdded || 0} days added to leave balance
               </p>
               <Link href="/leave" className="mt-4 inline-block text-sm text-apple-blue hover:underline">
                 Manage In-Lieu Time →
