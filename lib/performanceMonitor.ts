@@ -1,5 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next'
-import logger from './logger'
+import { logger } from './logger'
 
 export function performanceMonitor(handler: (req: NextApiRequest, res: NextApiResponse) => Promise<void>) {
   return async (req: NextApiRequest, res: NextApiResponse) => {
