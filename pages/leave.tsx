@@ -107,10 +107,10 @@ const styles = StyleSheet.create({
 
 // Add type for PDFDownloadLink render prop
 interface PDFRenderProps {
-  loading: boolean;
-  url: string | null;
-  error: Error | null;
   blob: Blob | null;
+  url: string | null;
+  loading: boolean;
+  error: Error | null;
 }
 
 // Leave PDF Component
@@ -1177,24 +1177,35 @@ export default function Leave() {
                     
                     {leaves.length > 0 && (
                       <div className="flex items-center">
-                        <PDFDownloadLink
-                          document={<LeavePDF employee={employee} leaveData={leaves} inLieuData={inLieuRecords} totalLeaveBalance={leaveBalance} leaveTaken={leaveTaken} remainingLeave={remainingLeave} year={new Date().getFullYear()} />}
-                          fileName={`leave-report-${new Date().getFullYear()}.pdf`}
+                        <BlobProvider
+                          document={
+                            <LeavePDF 
+                              employee={employee} 
+                              leaveData={leaves} 
+                              inLieuData={inLieuRecords} 
+                              totalLeaveBalance={leaveBalance} 
+                              leaveTaken={leaveTaken} 
+                              remainingLeave={remainingLeave} 
+                              year={new Date().getFullYear()} 
+                            />
+                          }
                         >
-                          {({ loading }) => (
-                            <button
+                          {({ blob, url, loading, error }: PDFRenderProps) => (
+                            <a
+                              href={url || '#'}
+                              download={`leave-report-${new Date().getFullYear()}.pdf`}
                               className={`flex items-center space-x-2 px-4 py-2 text-sm font-medium rounded-apple ${
                                 isDarkMode
                                   ? 'bg-dark-surface-light hover:bg-dark-surface-lighter text-dark-text-primary'
                                   : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
                               }`}
-                              disabled={loading}
+                              onClick={(e) => !url && e.preventDefault()}
                             >
                               <FiDownload className="w-4 h-4" />
                               <span>{loading ? 'Generating...' : 'Download Report'}</span>
-                            </button>
+                            </a>
                           )}
-                        </PDFDownloadLink>
+                        </BlobProvider>
                       </div>
                     )}
                   </div>
