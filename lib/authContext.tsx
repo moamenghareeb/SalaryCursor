@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useContext, ReactNode } from 'react';
+import React, { createContext, useState, useEffect, useContext, ReactNode, useRef } from 'react';
 import { supabase } from './supabase';
 import { useRouter } from 'next/router';
 import { Session } from '@supabase/supabase-js';
@@ -26,11 +26,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const refreshInProgress = useRef(false);
 
   // Function to refresh the session state
   const refreshSession = async () => {
     try {
+      // Prevent concurrent refreshes
+      if (refreshInProgress.current) {
+        console.log('Session refresh already in progress, skipping');
+        return;
+      }
+
+      refreshInProgress.current = true;
       setLoading(true);
+      
       const { data, error } = await supabase.auth.getSession();
       if (error) throw error;
       
@@ -47,6 +56,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUser(null);
     } finally {
       setLoading(false);
+      refreshInProgress.current = false;
     }
   };
 
@@ -62,21 +72,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           userId: currentSession?.user?.id
         });
 
-        setSession(currentSession);
-        setUser(currentSession?.user || null);
+        // Only update state if the event is not INITIAL_SESSION to prevent loops
+        if (event !== 'INITIAL_SESSION') {
+          setSession(currentSession);
+          setUser(currentSession?.user || null);
 
-        // Special handling for sign in events
-        if (event === 'SIGNED_IN' && currentSession) {
-          // Force a small delay to ensure cookies are set
-          await new Promise(resolve => setTimeout(resolve, 500));
-          await refreshSession();
-        }
+          // Special handling for sign in events
+          if (event === 'SIGNED_IN' && currentSession) {
+            // Force a small delay to ensure cookies are set
+            await new Promise(resolve => setTimeout(resolve, 500));
+            await refreshSession();
+          }
 
-        // Handle sign out
-        if (event === 'SIGNED_OUT') {
-          setSession(null);
-          setUser(null);
-          router.push('/login');
+          // Handle sign out
+          if (event === 'SIGNED_OUT') {
+            setSession(null);
+            setUser(null);
+            router.push('/login');
+          }
         }
       }
     );
@@ -86,22 +99,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
   }, [router]);
 
-  const signOut = async () => {
-    try {
-      setLoading(true);
-      await supabase.auth.signOut();
-      setSession(null);
-      setUser(null);
-      router.push('/login');
-    } catch (error) {
-      console.error('Error signing out:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
-    <AuthContext.Provider value={{ user, session, loading, signOut, refreshSession }}>
+    <AuthContext.Provider value={{ user, session, loading, signOut: async () => {
+      try {
+        setLoading(true);
+        await supabase.auth.signOut();
+        setSession(null);
+        setUser(null);
+        router.push('/login');
+      } catch (error) {
+        console.error('Error signing out:', error);
+      } finally {
+        setLoading(false);
+      }
+    }, refreshSession }}>
       {children}
     </AuthContext.Provider>
   );

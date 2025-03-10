@@ -21,12 +21,13 @@ export default function Login() {
   useEffect(() => {
     const checkExistingSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        router.push('/dashboard');
+      if (session && !loading) {
+        // Only redirect if we have a session and we're not in a loading state
+        router.replace('/dashboard');
       }
     };
     checkExistingSession();
-  }, [router]);
+  }, [router, loading]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,22 +58,12 @@ export default function Login() {
         expiresAt: new Date(data.session.expires_at! * 1000).toISOString()
       });
       
-      // Ensure our auth context is updated with the new session
-      await refreshSession();
-      
       // Show success message
       setMessage('Login successful! Redirecting to dashboard...');
       setLoginSuccess(true);
       
-      // Clear any existing history
-      if (window.history.length > 1) {
-        window.history.pushState(null, '', '/login');
-      }
-      
-      // Use direct browser navigation after a delay
-      setTimeout(() => {
-        window.location.href = '/dashboard';
-      }, 2000);
+      // Use router.replace instead of direct navigation
+      router.replace('/dashboard');
       
     } catch (error: any) {
       console.error('Login error details:', error);
