@@ -1,24 +1,22 @@
 import { useEffect } from 'react';
-import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabase';
 import Head from 'next/head';
 
 export default function Home() {
-  const router = useRouter();
-  
   useEffect(() => {
     const checkUser = async () => {
       const { data } = await supabase.auth.getSession();
       
+      // Use window.location for direct navigation
       if (data.session) {
-        router.push('/dashboard');
+        window.location.href = '/dashboard';
       } else {
-        router.push('/login');
+        window.location.href = '/login';
       }
     };
     
     checkUser();
-  }, [router]);
+  }, []);
   
   return (
     <>

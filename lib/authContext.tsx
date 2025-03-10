@@ -22,93 +22,135 @@ const AuthContext = createContext<AuthContextType>({
 export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<any>(null);
-  const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [authState, setAuthState] = useState<{
+    user: any;
+    session: Session | null;
+    loading: boolean;
+  }>({
+    user: null,
+    session: null,
+    loading: true,
+  });
   const router = useRouter();
-  const [initialized, setInitialized] = useState(false);
 
-  // Simple session refresh function - no state tracking needed
+  // Simplified refresh function that just gets the current session
   const refreshSession = async () => {
     try {
       const { data, error } = await supabase.auth.getSession();
       if (error) {
-        console.error('Error getting session:', error);
-        setSession(null);
-        setUser(null);
+        console.error('Error refreshing session:', error);
         return;
       }
       
-      setSession(data.session);
-      setUser(data.session?.user || null);
+      setAuthState(prev => ({
+        ...prev,
+        session: data.session,
+        user: data.session?.user || null,
+        loading: false,
+      }));
     } catch (error) {
-      console.error('Exception during session refresh:', error);
-      setSession(null);
-      setUser(null);
-    } finally {
-      setLoading(false);
+      console.error('Exception refreshing session:', error);
+      setAuthState(prev => ({ ...prev, loading: false }));
     }
   };
 
-  // Handle sign out
+  // Sign out function
   const signOut = async () => {
     try {
-      setLoading(true);
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      setAuthState(prev => ({ ...prev, loading: true }));
+      await supabase.auth.signOut();
+      setAuthState({
+        user: null,
+        session: null,
+        loading: false,
+      });
       
-      setSession(null);
-      setUser(null);
-      router.push('/login');
+      // Use router for navigation within the app
+      if (router.pathname !== '/login') {
+        router.push('/login');
+      }
     } catch (error) {
       console.error('Error signing out:', error);
-    } finally {
-      setLoading(false);
+      setAuthState(prev => ({ ...prev, loading: false }));
     }
   };
 
-  // Initial session check and auth state change listener
+  // Initialize auth state
   useEffect(() => {
-    // Skip if already initialized to prevent multiple initializations
-    if (initialized) return;
+    let mounted = true;
+
+    // Initial session check
+    const initializeAuth = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (mounted) {
+          setAuthState({
+            user: session?.user || null,
+            session,
+            loading: false,
+          });
+        }
+      } catch (error) {
+        console.error('Error initializing auth:', error);
+        if (mounted) {
+          setAuthState(prev => ({ ...prev, loading: false }));
+        }
+      }
+    };
+
+    initializeAuth();
     
-    const setupAuth = async () => {
-      // Initial session check
-      await refreshSession();
-      
-      // Auth state change listener - but completely ignore INITIAL_SESSION events
-      const { data } = supabase.auth.onAuthStateChange((event, newSession) => {
+    // Set up Supabase auth change listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, currentSession) => {
         console.log('Auth event:', event);
         
-        if (event === 'INITIAL_SESSION') {
-          // Do nothing for initial session to prevent loops
-          return;
-        }
-        
+        if (!mounted) return;
+
         if (event === 'SIGNED_IN') {
-          setSession(newSession);
-          setUser(newSession?.user || null);
+          setAuthState({
+            user: currentSession?.user || null,
+            session: currentSession,
+            loading: false,
+          });
+          
+          // Navigate to dashboard on sign in
+          if (router.pathname === '/login') {
+            router.push('/dashboard');
+          }
         } else if (event === 'SIGNED_OUT') {
-          setSession(null);
-          setUser(null);
-          router.push('/login');
+          setAuthState({
+            user: null,
+            session: null,
+            loading: false,
+          });
+          
+          // Navigate to login on sign out
+          if (router.pathname !== '/login') {
+            router.push('/login');
+          }
+        } else if (event === 'TOKEN_REFRESHED') {
+          setAuthState(prev => ({
+            ...prev,
+            session: currentSession,
+            user: currentSession?.user || prev.user,
+          }));
         }
-      });
-      
-      setInitialized(true);
-      return () => {
-        data.subscription.unsubscribe();
-      };
-    };
+      }
+    );
     
-    setupAuth();
-  }, [router, initialized]);
+    // Clean up
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, [router.pathname]);
 
   return (
     <AuthContext.Provider value={{ 
-      user, 
-      session, 
-      loading, 
+      user: authState.user, 
+      session: authState.session, 
+      loading: authState.loading, 
       signOut, 
       refreshSession 
     }}>

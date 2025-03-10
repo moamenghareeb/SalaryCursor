@@ -1,51 +1,38 @@
 import { useRouter } from 'next/router';
 import { useAuth } from '../lib/authContext';
 import { useEffect, useState } from 'react';
-import { supabase } from '../lib/supabase';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user, session, loading, refreshSession } = useAuth();
+  const { user, session, loading } = useAuth();
   const router = useRouter();
-  const [isChecking, setIsChecking] = useState(true);
+  const [isAuthorized, setIsAuthorized] = useState(false);
 
   useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        // If we're still loading the auth state, wait
-        if (loading) return;
+    // Skip check if still loading
+    if (loading) return;
 
-        console.log('ProtectedRoute: Checking auth state', {
-          hasUser: !!user,
-          hasSession: !!session,
-          loading
-        });
+    // If we have both user and session, mark as authorized
+    if (user && session) {
+      setIsAuthorized(true);
+      return;
+    }
 
-        // If no user or session, try to refresh
-        if (!user || !session) {
-          await refreshSession();
-          
-          // Get the latest session state
-          const { data } = await supabase.auth.getSession();
-          
-          if (!data.session) {
-            console.log('ProtectedRoute: No session found after refresh, redirecting to login');
-            router.push('/login');
-            return;
-          }
-        }
-      } catch (error) {
-        console.error('ProtectedRoute: Auth check error:', error);
-        router.push('/login');
-      } finally {
-        setIsChecking(false);
-      }
+    // If auth check is complete and we don't have user/session, redirect to login
+    const redirectToLogin = () => {
+      const currentPath = router.pathname;
+      router.push({
+        pathname: '/login',
+        query: { returnUrl: currentPath }
+      });
     };
 
-    checkAuth();
-  }, [user, session, loading, router, refreshSession]);
+    // Use a small delay to prevent immediate redirect during initial load
+    const redirectTimer = setTimeout(redirectToLogin, 100);
+    return () => clearTimeout(redirectTimer);
+  }, [user, session, loading, router]);
 
-  // Show loading state while checking
-  if (loading || isChecking) {
+  // Show loading state while checking auth or while auth context is loading
+  if (loading || !isAuthorized) {
     return (
       <div className="flex justify-center items-center h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
@@ -53,8 +40,8 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     );
   }
 
-  // If we have a user and session, render the protected content
-  return user && session ? <>{children}</> : null;
+  // If authorized, render the protected content
+  return <>{children}</>;
 };
 
 export default ProtectedRoute; 
