@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   BarChart,
   Bar,
@@ -15,6 +15,8 @@ import {
 import axios from 'axios';
 import { useTheme } from '../lib/themeContext';
 import { toast } from 'react-hot-toast';
+import { useAuth } from '../lib/authContext';
+import LoadingSpinner from './LoadingSpinner';
 
 // Updated type definitions to match the API response
 type MonthlyLeaveData = {
@@ -32,40 +34,108 @@ type LeaveTypeData = {
   color: string;
 };
 
+// Added fallback data to ensure chart always has something to display
+const fallbackMonthlyData: MonthlyLeaveData[] = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+].map(month => ({
+  month,
+  annual: 0,
+  casual: 0,
+  sick: 0,
+  unpaid: 0,
+  total: 0,
+}));
+
+const fallbackLeaveTypeData: LeaveTypeData[] = [
+  { name: 'Annual', value: 0, color: '#8884d8' },
+  { name: 'Casual', value: 0, color: '#82ca9d' },
+  { name: 'Sick', value: 0, color: '#ffc658' },
+  { name: 'Unpaid', value: 0, color: '#ff8042' },
+];
+
+// Custom tooltip for the bar chart
+const CustomTooltip = ({ active, payload, label }: any) => {
+  const { isDarkMode } = useTheme();
+  if (active && payload && payload.length) {
+    return (
+      <div className={`px-3 py-2 rounded-md shadow-lg ${isDarkMode ? 'bg-dark-surface text-dark-text-primary' : 'bg-white text-gray-800'}`}>
+        <p className="font-medium">{`${label}`}</p>
+        {payload.map((entry: any, index: number) => (
+          <p key={`item-${index}`} style={{ color: entry.color }}>
+            {`${entry.name}: ${entry.value} day${entry.value !== 1 ? 's' : ''}`}
+          </p>
+        ))}
+      </div>
+    );
+  }
+  return null;
+};
+
 const LeaveTrendChart: React.FC = () => {
-  const [monthlyData, setMonthlyData] = useState<MonthlyLeaveData[]>([]);
-  const [leaveTypeData, setLeaveTypeData] = useState<LeaveTypeData[]>([]);
+  const [monthlyData, setMonthlyData] = useState<MonthlyLeaveData[]>(fallbackMonthlyData);
+  const [leaveTypeData, setLeaveTypeData] = useState<LeaveTypeData[]>(fallbackLeaveTypeData);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [chartType, setChartType] = useState<'bar' | 'pie'>('bar');
   const [retryCount, setRetryCount] = useState<number>(0);
   const { isDarkMode } = useTheme();
+  const { session } = useAuth();
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   // Function to fetch leave data with retry logic and better error handling
-  const fetchLeaveData = async () => {
+  const fetchLeaveData = useCallback(async (forceRefresh = false) => {
     setLoading(true);
     setError(null);
     
     try {
-      const response = await axios.get('/api/leave/trends', {
-        headers: {
-          'Cache-Control': 'no-cache',
-        },
-      });
+      console.log('Fetching leave trend data...');
+      
+      // Add authentication if available
+      let headers: Record<string, string> = {
+        'Cache-Control': forceRefresh ? 'no-cache' : 'max-age=300',
+      };
+      
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+
+      const response = await axios.get('/api/leave/trends', { headers });
       
       // Verify the response format
       if (response.data && 
           Array.isArray(response.data.monthlyData) && 
           Array.isArray(response.data.leaveTypeData)) {
         
+        // Check if there's actual data or just empty entries
+        const hasData = response.data.monthlyData.some((month: MonthlyLeaveData) => 
+          month.annual > 0 || month.casual > 0 || month.sick > 0 || month.unpaid > 0
+        );
+        
         setMonthlyData(response.data.monthlyData);
         setLeaveTypeData(response.data.leaveTypeData);
+        setLastUpdated(new Date());
+        
+        // Only show success message if not the initial load and there's actual data
+        if (forceRefresh) {
+          if (hasData) {
+            toast.success('Leave trend data updated successfully');
+          } else {
+            toast('No leave data found for the current year', {
+              icon: 'ℹ️',
+            });
+          }
+        }
         
         // Log data loading success
-        console.log('Leave trend data loaded successfully');
+        console.log('Leave trend data loaded successfully', hasData ? 'with data' : 'but empty');
       } else {
         console.warn('Invalid leave trend data format:', response.data);
         setError('Received invalid data format from server');
+        
+        if (forceRefresh) {
+          toast.error('Could not load leave trend data (invalid format)');
+        }
       }
     } catch (error) {
       console.error('Error fetching leave trend data:', error);
@@ -73,170 +143,185 @@ const LeaveTrendChart: React.FC = () => {
       // Provide user-friendly error message
       if (axios.isAxiosError(error)) {
         if (error.response?.status === 401) {
-          setError('Your session has expired. Please log in again.');
+          setError('Session expired. Please refresh the page.');
+          if (forceRefresh) toast.error('Your session has expired. Please log in again.');
         } else if (error.response?.status === 404) {
-          setError('Leave data not found. It might not be available yet.');
+          setError('Leave data not available');
+          if (forceRefresh) toast.error('Leave data not found');
         } else if (error.code === 'ECONNABORTED') {
-          setError('Request timed out. Please try again later.');
+          setError('Request timed out');
+          if (forceRefresh) toast.error('Request timed out. Please try again later.');
         } else if (!navigator.onLine) {
-          setError('You appear to be offline. Please check your internet connection.');
+          setError('You are offline');
+          if (forceRefresh) toast.error('You are offline. Please check your connection.');
         } else {
-          setError('Failed to load leave trend data. Please try again later.');
+          setError(`Error: ${error.message}`);
+          if (forceRefresh) toast.error(`Could not load leave trend data: ${error.message}`);
         }
       } else {
-        setError('An unexpected error occurred. Please try again.');
+        setError('Unknown error occurred');
+        if (forceRefresh) toast.error('An unknown error occurred while loading leave data');
+      }
+      
+      // After 3 retries, use fallback data to ensure something renders
+      if (retryCount >= 2) {
+        console.log('Using fallback data after multiple failures');
+        // Keep using existing state which was initialized with fallback data
       }
     } finally {
       setLoading(false);
     }
-  };
+  }, [session, retryCount]);
 
-  // Retry mechanism with exponential backoff
+  // Initial data load
   useEffect(() => {
-    if (retryCount > 0 && retryCount <= 3) {
+    fetchLeaveData();
+    
+    // Set up a refresh interval (every 5 minutes)
+    const intervalId = setInterval(() => {
+      fetchLeaveData();
+    }, 5 * 60 * 1000);
+    
+    return () => clearInterval(intervalId);
+  }, [fetchLeaveData]);
+
+  // Retry logic for failure cases
+  useEffect(() => {
+    if (error && retryCount < 3) {
       const timer = setTimeout(() => {
-        console.log(`Retrying leave trend data fetch (attempt ${retryCount})...`);
+        console.log(`Retrying fetch (attempt ${retryCount + 1}/3)...`);
+        setRetryCount(prev => prev + 1);
         fetchLeaveData();
-      }, Math.min(1000 * 2 ** retryCount, 10000)); // Exponential backoff with 10s max
+      }, 3000 * (retryCount + 1)); // exponential backoff
       
       return () => clearTimeout(timer);
     }
-  }, [retryCount]);
-
-  // Initial data fetch
-  useEffect(() => {
-    fetchLeaveData();
-  }, []);
-
-  // Toggle chart type
-  const toggleChartType = () => {
-    setChartType(prevType => prevType === 'bar' ? 'pie' : 'bar');
-  };
-
-  // Handle retry button click
-  const handleRetry = () => {
-    setRetryCount(prev => prev + 1);
-    fetchLeaveData();
-  };
-
-  // Bar chart custom tooltip formatter
-  const CustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
+  }, [error, retryCount, fetchLeaveData]);
+  
+  // Generate a helpful message when no data is available
+  const getEmptyDataMessage = () => {
+    if (leaveTypeData.every(item => item.value === 0)) {
       return (
-        <div className={`bg-white dark:bg-gray-800 p-2 rounded shadow-md border ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
-          <p className={`font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{`${label}`}</p>
-          {payload.map((entry: any, index: number) => (
-            <p key={`item-${index}`} style={{ color: entry.color }}>
-              {`${entry.name}: ${entry.value} days`}
-            </p>
-          ))}
+        <div className="text-center mt-4">
+          <p className={isDarkMode ? 'text-dark-text-secondary' : 'text-gray-500'}>
+            No leave data found for the current year.
+          </p>
+          <p className={`mt-2 text-sm ${isDarkMode ? 'text-dark-text-tertiary' : 'text-gray-400'}`}>
+            Data will appear here once you have taken leave.
+          </p>
         </div>
       );
     }
     return null;
   };
 
-  // Render loading state
-  if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center p-4 h-64 bg-white dark:bg-gray-800 rounded-lg shadow">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mb-4"></div>
-        <p className="text-gray-500 dark:text-gray-400">Loading leave trend data...</p>
-      </div>
-    );
-  }
-
-  // Render error state with retry button
-  if (error) {
-    return (
-      <div className="flex flex-col items-center justify-center p-4 h-64 bg-white dark:bg-gray-800 rounded-lg shadow">
-        <div className="text-red-500 mb-2">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        </div>
-        <p className="text-center text-gray-700 dark:text-gray-300 mb-4">{error}</p>
-        <button
-          onClick={handleRetry}
-          className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
-        >
-          Retry
-        </button>
-      </div>
-    );
-  }
-
-  // No data state (empty results)
-  if (monthlyData.length === 0 || leaveTypeData.every(item => item.value === 0)) {
-    return (
-      <div className="flex flex-col items-center justify-center p-4 h-64 bg-white dark:bg-gray-800 rounded-lg shadow">
-        <div className="text-gray-500 dark:text-gray-400 mb-2">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-          </svg>
-        </div>
-        <p className="text-center text-gray-700 dark:text-gray-300">No leave data found for this year.</p>
-        <p className="text-center text-gray-500 dark:text-gray-400 text-sm mt-2">Any approved leave requests will appear here.</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-lg font-semibold text-gray-800 dark:text-white">Leave Trends</h2>
-        <div className="flex gap-2">
+    <div className={`p-6 rounded-apple shadow-apple-card ${isDarkMode ? 'bg-dark-surface text-dark-text-primary' : 'bg-white'}`}>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className={`text-lg font-medium ${isDarkMode ? 'text-dark-text-primary' : 'text-gray-900'}`}>
+          Leave Trends
+        </h2>
+        
+        <div className="flex items-center space-x-2">
           <button
-            onClick={toggleChartType}
-            className="px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600 transition-colors"
+            onClick={() => setChartType('bar')}
+            className={`px-3 py-1 text-sm rounded-md transition-colors ${
+              chartType === 'bar' 
+                ? (isDarkMode ? 'bg-dark-accent text-white' : 'bg-blue-500 text-white') 
+                : (isDarkMode ? 'bg-dark-surface-secondary text-dark-text-primary' : 'bg-gray-100 text-gray-600')
+            }`}
           >
-            {chartType === 'bar' ? 'Show Pie Chart' : 'Show Bar Chart'}
+            Bar
           </button>
           <button
-            onClick={fetchLeaveData}
-            className="px-3 py-1 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-sm rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+            onClick={() => setChartType('pie')}
+            className={`px-3 py-1 text-sm rounded-md transition-colors ${
+              chartType === 'pie' 
+                ? (isDarkMode ? 'bg-dark-accent text-white' : 'bg-blue-500 text-white') 
+                : (isDarkMode ? 'bg-dark-surface-secondary text-dark-text-primary' : 'bg-gray-100 text-gray-600')
+            }`}
           >
-            Refresh
+            Pie
+          </button>
+          <button
+            onClick={() => fetchLeaveData(true)}
+            className={`p-1 rounded-md transition-colors ${
+              isDarkMode ? 'hover:bg-dark-surface-secondary' : 'hover:bg-gray-100'
+            }`}
+            title="Refresh data"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
           </button>
         </div>
       </div>
+      
+      {lastUpdated && (
+        <p className={`text-xs mb-2 ${isDarkMode ? 'text-dark-text-tertiary' : 'text-gray-400'}`}>
+          Last updated: {lastUpdated.toLocaleTimeString()}
+        </p>
+      )}
 
-      <div className="h-64">
-        <ResponsiveContainer width="100%" height="100%">
-          {chartType === 'bar' ? (
-            <BarChart data={monthlyData} margin={{ top: 5, right: 5, bottom: 5, left: 0 }}>
-              <XAxis dataKey="month" stroke={isDarkMode ? '#fff' : '#333'} />
-              <YAxis stroke={isDarkMode ? '#fff' : '#333'} />
-              <Tooltip content={<CustomTooltip />} />
-              <Legend wrapperStyle={{ color: isDarkMode ? '#fff' : '#333' }} />
-              <Bar dataKey="annual" name="Annual" fill="#8884d8" />
-              <Bar dataKey="casual" name="Casual" fill="#82ca9d" />
-              <Bar dataKey="sick" name="Sick" fill="#ffc658" />
-              <Bar dataKey="unpaid" name="Unpaid" fill="#ff8042" />
-            </BarChart>
-          ) : (
-            <PieChart>
-              <Pie
-                data={leaveTypeData.filter(item => item.value > 0)}
-                cx="50%"
-                cy="50%"
-                labelLine={true}
-                outerRadius={80}
-                fill="#8884d8"
-                dataKey="value"
-                nameKey="name"
-                label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-              >
-                {leaveTypeData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
-                ))}
-              </Pie>
-              <Tooltip formatter={(value) => [`${value} days`, 'Duration']} />
-              <Legend formatter={(value) => <span style={{ color: isDarkMode ? '#fff' : '#333' }}>{value}</span>} />
-            </PieChart>
-          )}
-        </ResponsiveContainer>
-      </div>
+      {loading ? (
+        <div className="flex justify-center items-center h-64">
+          <LoadingSpinner />
+        </div>
+      ) : error ? (
+        <div className="flex flex-col items-center justify-center h-64">
+          <p className={`text-center ${isDarkMode ? 'text-dark-text-secondary' : 'text-gray-500'}`}>
+            {error}
+          </p>
+          <button
+            onClick={() => fetchLeaveData(true)}
+            className={`mt-4 px-3 py-1 text-sm rounded-md ${
+              isDarkMode ? 'bg-dark-accent text-white' : 'bg-blue-500 text-white'
+            }`}
+          >
+            Try Again
+          </button>
+        </div>
+      ) : (
+        <>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              {chartType === 'bar' ? (
+                <BarChart data={monthlyData} margin={{ top: 5, right: 5, bottom: 5, left: 0 }}>
+                  <XAxis dataKey="month" stroke={isDarkMode ? '#fff' : '#333'} />
+                  <YAxis stroke={isDarkMode ? '#fff' : '#333'} />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Legend wrapperStyle={{ color: isDarkMode ? '#fff' : '#333' }} />
+                  <Bar dataKey="annual" name="Annual" fill="#8884d8" />
+                  <Bar dataKey="casual" name="Casual" fill="#82ca9d" />
+                  <Bar dataKey="sick" name="Sick" fill="#ffc658" />
+                  <Bar dataKey="unpaid" name="Unpaid" fill="#ff8042" />
+                </BarChart>
+              ) : (
+                <PieChart>
+                  <Pie
+                    data={leaveTypeData.filter(item => item.value > 0)}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={true}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="value"
+                    nameKey="name"
+                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                  >
+                    {leaveTypeData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(value) => [`${value} days`, 'Duration']} />
+                  <Legend formatter={(value) => <span style={{ color: isDarkMode ? '#fff' : '#333' }}>{value}</span>} />
+                </PieChart>
+              )}
+            </ResponsiveContainer>
+          </div>
+          {getEmptyDataMessage()}
+        </>
+      )}
     </div>
   );
 };

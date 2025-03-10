@@ -10,6 +10,7 @@ import { FiDownload, FiCalendar, FiEdit, FiTrash, FiCheck, FiX } from 'react-ico
 import { useAuth } from '../lib/authContext';
 import { useTheme } from '../lib/themeContext';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { leaveService } from '../lib/leaveService';
 
 // Extend the Employee type to include annual_leave_balance and hire_date
 interface Employee extends BaseEmployee {
@@ -339,9 +340,6 @@ export default function Leave() {
       
       setEmployee(employeeData);
       setYearsOfService(employeeData.years_of_service);
-
-      // Calculate base leave balance based on years of service
-      const baseLeave = employeeData.years_of_service >= 10 ? 24.67 : 18.67;
       
       // Fetch all leaves and in-lieu records before calculating balances
       console.log('Fetching leaves for employee:', userId);
@@ -385,63 +383,35 @@ export default function Leave() {
       console.log('Fetched in-lieu query result:', inLieuResult);
       console.log('Fetched in-lieu records:', inLieuData.length, inLieuData);
       setInLieuRecords(inLieuData);
+
+      // NEW: Use the centralized leave service to calculate leave balance
+      const currentYear = new Date().getFullYear();
+      const leaveBalanceResult = await leaveService.calculateLeaveBalance(userId, currentYear);
       
-      // IMPORTANT: Check if the employee's database balance doesn't match the actual records
-      // If no in-lieu records exist but balance is not 0, reset it to 0 in database
-      if (inLieuData.length === 0 && employeeData.annual_leave_balance > 0) {
-        console.log('No in-lieu records found but balance is not 0, resetting to 0');
-        // Reset the employee's annual_leave_balance to 0
-        const { error: resetError } = await supabase
-          .from('employees')
-          .update({ annual_leave_balance: 0 })
-          .eq('id', userId);
-        
-        if (resetError) {
-          console.error('Error resetting leave balance:', resetError);
-        } else {
-          console.log('Successfully reset leave balance to 0');
-          // Update local value to match database
-          employeeData.annual_leave_balance = 0;
-        }
+      if (leaveBalanceResult.error) {
+        console.error('Error calculating leave balance:', leaveBalanceResult.error);
+        setError('Failed to calculate leave balance: ' + leaveBalanceResult.error);
+        setLoading(false);
+        return;
       }
       
-      // Add any additional leave balance from in-lieu time
-      const additionalLeave = Number(employeeData.annual_leave_balance || 0);
-      const totalLeaveBalance = baseLeave + additionalLeave;
+      // Set all the balance values from the service
+      setBaseLeaveBalance(leaveBalanceResult.baseLeaveBalance);
+      setAdditionalLeaveBalance(leaveBalanceResult.inLieuBalance);
+      setLeaveBalance(leaveBalanceResult.baseLeaveBalance + leaveBalanceResult.inLieuBalance);
+      setLeaveTaken(leaveBalanceResult.leaveTaken);
       
-      // Set the various leave balances
-      setBaseLeaveBalance(baseLeave);
-      setAdditionalLeaveBalance(additionalLeave);
-      setLeaveBalance(totalLeaveBalance);
-      console.log('Leave balance calculation:', {
-        baseLeave,
-        additionalLeave,
-        totalLeaveBalance,
-        employeeBalance: employeeData.annual_leave_balance,
-        inLieuRecordCount: inLieuData.length
+      console.log('Leave balance calculation from service:', {
+        baseLeave: leaveBalanceResult.baseLeaveBalance,
+        inLieuBalance: leaveBalanceResult.inLieuBalance,
+        leaveTaken: leaveBalanceResult.leaveTaken,
+        remainingBalance: leaveBalanceResult.remainingBalance
       });
-
-      // Calculate total days taken for current year
-      const currentYear = new Date().getFullYear();
-      const currentYearLeaves = leaveData.filter(leave => 
-        new Date(leave.start_date).getFullYear() === currentYear
-      );
-      
-      const total = currentYearLeaves.reduce((sum, item) => sum + item.days_taken, 0);
-      console.log('Leave taken this year calculation:', {
-        currentYear,
-        currentYearLeaves,
-        total,
-        remaining: totalLeaveBalance - total
-      });
-      setLeaveTaken(total);
       
       // Clear any previous success messages after a data refresh, unless preserveSuccess is true
       if (!preserveSuccess) {
         setSuccess(null);
       }
-      
-      setLoading(false);
     } catch (error: any) {
       console.error('Error in fetchData:', error);
       setError('An unexpected error occurred: ' + error.message);

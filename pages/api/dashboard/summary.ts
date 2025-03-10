@@ -2,6 +2,7 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { supabase } from '../../../lib/supabase';
 import { withRateLimit } from '../../../lib/rateLimit';
 import { logger } from '../../../lib/logger';
+import { leaveService } from '../../../lib/leaveService';
 
 // Cache TTL in seconds
 const CACHE_TTL = 300; // 5 minutes
@@ -128,92 +129,26 @@ async function handler(
       dashboardData.latestSalary = salaryData;
     }
 
-    // Get leave allocation for current year, or use default based on years of service
+    // NEW: Use centralized leave service to calculate leave balance
     const currentYear = new Date().getFullYear();
+    const leaveBalanceResult = await leaveService.calculateLeaveBalance(userId, currentYear);
     
-    // First check for specific allocation in leave_allocations table
-    const { data: leaveAllocation, error: leaveAllocationError } = await supabase
-      .from('leave_allocations')
-      .select('allocated_days, type')
-      .eq('employee_id', userId)
-      .eq('year', currentYear)
-      .eq('type', 'annual')
-      .single();
-      
-    let baseLeave: number;
-    if (!leaveAllocationError && leaveAllocation && leaveAllocation.allocated_days) {
-      baseLeave = leaveAllocation.allocated_days;
-      logger.info('Using allocated leave days:', baseLeave);
-    } else {
-      // Fall back to calculation based on years of service
-      baseLeave = employeeData?.years_of_service >= 10 ? 24.67 : 18.67;
-      logger.info('Using calculated leave days based on years of service:', baseLeave);
-    }
-
-    // IMPROVED: Get leave taken with better filtering
-    const startOfYear = `${currentYear}-01-01`;
-    const endOfYear = `${currentYear}-12-31`;
-    
-    const { data: takenLeaveData, error: takenLeaveError } = await supabase
-      .from('leave_requests')
-      .select('duration, status, leave_type, start_date, end_date')
-      .eq('employee_id', userId)
-      .eq('leave_type', 'annual')
-      .eq('status', 'approved')
-      .gte('start_date', startOfYear)
-      .lte('end_date', endOfYear);
-
-    if (takenLeaveError) {
-      logger.error('Error fetching taken leave:', takenLeaveError);
-    }
-    
-    // FIXED: Calculate taken leave days with proper validation
-    let leaveTaken = 0;
-    if (takenLeaveData && Array.isArray(takenLeaveData)) {
-      // Map through each leave request and sum up the durations
-      leaveTaken = takenLeaveData.reduce((total, leave) => {
-        // Make sure we only count valid durations
-        const duration = typeof leave.duration === 'number' ? leave.duration : 0;
-        return total + duration;
-      }, 0);
-      
-      logger.info(`Calculated leave taken: ${leaveTaken} from ${takenLeaveData.length} records`);
-      
-      // Update in dashboard data
-      dashboardData.leaveTaken = leaveTaken;
-    }
-
-    // Get in-lieu records
-    const { data: inLieuData, error: inLieuError } = await supabase
-      .from('in_lieu_records')
-      .select('*')
-      .eq('employee_id', userId);
-
-    let inLieuDaysAdded = 0;
-    if (!inLieuError && inLieuData) {
-      // Safely calculate in-lieu days with validation
-      inLieuDaysAdded = inLieuData.reduce((total, record) => {
-        const daysAdded = typeof record.days_added === 'number' ? record.days_added : 0;
-        return total + daysAdded;
-      }, 0);
-      
+    // Update dashboard data with calculated values
+    if (!leaveBalanceResult.error) {
+      dashboardData.leaveBalance = leaveBalanceResult.remainingBalance;
+      dashboardData.leaveTaken = leaveBalanceResult.leaveTaken;
       dashboardData.inLieuSummary = {
-        count: inLieuData.length,
-        daysAdded: inLieuDaysAdded,
+        // Get in-lieu records count
+        count: await getInLieuRecordsCount(userId),
+        daysAdded: leaveBalanceResult.inLieuBalance,
       };
       
-      logger.info(`Calculated in-lieu days: ${inLieuDaysAdded} from ${inLieuData.length} records`);
-    }
-
-    // Calculate final leave balance with proper checks for null/undefined
-    if (baseLeave !== null && baseLeave !== undefined) {
-      dashboardData.leaveBalance = parseFloat((baseLeave + inLieuDaysAdded - leaveTaken).toFixed(2));
-      logger.info(`Final leave balance calculation: ${baseLeave} (base) + ${inLieuDaysAdded} (in-lieu) - ${leaveTaken} (taken) = ${dashboardData.leaveBalance}`);
+      logger.info(`Leave balance from service: ${leaveBalanceResult.remainingBalance}`);
     } else {
-      logger.warn('Could not calculate leave balance because baseLeave is null or undefined');
+      logger.error(`Error calculating leave balance: ${leaveBalanceResult.error}`);
     }
 
-    // Set cache control headers with better options
+    // Set cache control headers
     res.setHeader('Cache-Control', 'private, max-age=300, stale-while-revalidate=600');
 
     return res.status(200).json(dashboardData);
@@ -224,6 +159,21 @@ async function handler(
       message: 'An unexpected error occurred. Please try again later.'
     });
   }
+}
+
+// Helper function to get in-lieu records count
+async function getInLieuRecordsCount(userId: string): Promise<number> {
+  const { data, error } = await supabase
+    .from('in_lieu_records')
+    .select('id')
+    .eq('employee_id', userId);
+    
+  if (error || !data) {
+    logger.error('Error counting in-lieu records:', error);
+    return 0;
+  }
+  
+  return data.length;
 }
 
 // Apply rate limiting

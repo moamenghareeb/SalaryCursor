@@ -2,6 +2,7 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { supabase } from '../../../lib/supabase';
 import { withRateLimit } from '../../../lib/rateLimit';
 import { logger } from '../../../lib/logger';
+import { leaveService } from '../../../lib/leaveService';
 
 // Define response data types
 type MonthlyLeaveData = {
@@ -22,6 +23,7 @@ type LeaveTypeData = {
 type LeaveStatsResponse = {
   monthlyData: MonthlyLeaveData[];
   leaveTypeData: LeaveTypeData[];
+  remainingBalance?: number;
 };
 
 // Function to generate initial empty data when DB is empty
@@ -59,10 +61,10 @@ async function handler(
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Enhanced token extraction with better logging
+  // Enhanced token extraction similar to dashboard API
   let token = null;
 
-  // Check for token in Authorization header
+  // Check for token in Authorization header (Bearer token)
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.startsWith('Bearer ')) {
     token = authHeader.substring(7); // Remove 'Bearer ' prefix
@@ -71,19 +73,19 @@ async function handler(
   
   // If no token in header, try cookies
   if (!token) {
-    // Check multiple possible cookie names
+    // Get auth token from request cookies
     const possibleCookies = ['sb-access-token', 'supabase-auth-token'];
     
     for (const cookieName of possibleCookies) {
       const authCookie = req.cookies[cookieName];
       if (authCookie) {
         try {
-          logger.debug(`Auth cookie found: ${cookieName}`);
+          logger.debug('Auth cookie found:', cookieName);
           // Handle both direct token and JSON format
           if (authCookie.startsWith('[')) {
             // Parse JSON format (['token', 'refresh'])
             const parsed = JSON.parse(authCookie);
-            token = parsed[0]?.token || parsed[0]; 
+            token = parsed[0]?.token || parsed[0]; // Handle both formats
             logger.debug('Parsed token from JSON array');
             break;
           } else if (authCookie.startsWith('{')) {
@@ -98,7 +100,7 @@ async function handler(
             break;
           }
         } catch (error) {
-          logger.error(`Error parsing auth cookie: ${error}`);
+          logger.error('Error parsing auth cookie:', error);
         }
       }
     }
@@ -106,60 +108,42 @@ async function handler(
 
   // If still no token, return unauthorized
   if (!token) {
-    logger.warn('No valid auth token found in request');
+    logger.warn('No valid auth token found in headers or cookies');
     return res.status(401).json({ 
       error: 'Unauthorized',
-      message: 'Authentication required. Please log in again.'
+      message: 'No valid authentication found'
     });
   }
 
   try {
-    // Set Supabase JWT
+    // Authenticate user
     const { data: userData, error: userError } = await supabase.auth.getUser(token);
 
     if (userError || !userData.user) {
-      logger.error(`Invalid token: ${userError?.message || 'User not found'}`);
-      return res.status(401).json({
+      logger.error('Invalid token:', userError);
+      return res.status(401).json({ 
         error: 'Unauthorized',
         message: 'Your session has expired. Please log in again.'
       });
     }
 
     const userId = userData.user.id;
-    logger.info(`Fetching leave trends for user: ${userId}`);
+    logger.info(`Processing leave trends for user: ${userId}`);
 
-    // Fetch employee information (for department-based filtering)
-    const { data: employeeData, error: employeeError } = await supabase
-      .from('employees')
-      .select('id, department_id')
-      .eq('id', userId)
-      .single();
-
-    if (employeeError) {
-      logger.error(`Error fetching employee data: ${employeeError.message}`);
-      return res.status(500).json({
-        error: 'Database Error',
-        message: 'Failed to fetch employee data. Please try again later.'
-      });
-    }
-
-    if (!employeeData || !employeeData.department_id) {
-      logger.warn(`Employee data or department not found for user: ${userId}`);
-      // Return empty data instead of an error
-      return res.status(200).json(generateEmptyData());
-    }
-
-    // Get the current year
-    const currentYear = new Date().getFullYear();
+    // Get current year (or from query if specified)
+    const yearParam = req.query.year ? parseInt(req.query.year as string) : null;
+    const currentYear = yearParam && !isNaN(yearParam) ? yearParam : new Date().getFullYear();
     
-    // Query leave data for this year grouped by month
+    // Fetch leave records for the year
+    const startOfYear = `${currentYear}-01-01`;
+    const endOfYear = `${currentYear}-12-31`;
+    
     const { data: leaveData, error: leaveError } = await supabase
-      .from('leave_requests')
+      .from('leaves')
       .select('*')
       .eq('employee_id', userId)
-      .eq('status', 'approved')
-      .gte('start_date', `${currentYear}-01-01`)
-      .lte('end_date', `${currentYear}-12-31`);
+      .gte('start_date', startOfYear)
+      .lte('end_date', endOfYear);
 
     if (leaveError) {
       logger.error(`Error fetching leave data: ${leaveError.message}`);
@@ -169,10 +153,16 @@ async function handler(
       });
     }
 
+    // Also fetch the current leave balance using our service
+    const leaveBalanceResult = await leaveService.calculateLeaveBalance(userId, currentYear);
+    
     // Early return with empty data if no leave records
     if (!leaveData || leaveData.length === 0) {
       logger.info(`No leave data found for user ${userId} in ${currentYear}`);
-      return res.status(200).json(generateEmptyData());
+      // Return empty data but include the current balance
+      const emptyData = generateEmptyData();
+      emptyData.remainingBalance = leaveBalanceResult.remainingBalance;
+      return res.status(200).json(emptyData);
     }
 
     // Process leave data by month
@@ -196,13 +186,13 @@ async function handler(
       // Extract month from start_date (format: YYYY-MM-DD)
       const startDate = new Date(leave.start_date);
       const monthIndex = startDate.getMonth();
-      const leaveType = leave.leave_type.toLowerCase();
+      const leaveType = leave.leave_type?.toLowerCase();
       
-      // Safely handle duration
-      const duration = typeof leave.duration === 'number' ? leave.duration : 0;
+      // Safely handle duration - use days_taken for consistency
+      const duration = typeof leave.days_taken === 'number' ? leave.days_taken : 0;
       
       // Add to the appropriate leave type if valid
-      if (['annual', 'casual', 'sick', 'unpaid'].includes(leaveType)) {
+      if (leaveType && ['annual', 'casual', 'sick', 'unpaid'].includes(leaveType)) {
         monthlyData[monthIndex][leaveType as keyof Omit<MonthlyLeaveData, 'month' | 'total'>] += duration;
       } else {
         logger.warn(`Unknown leave type: ${leaveType} for leave ID: ${leave.id}`);
@@ -234,15 +224,17 @@ async function handler(
 
     // Set cache control headers
     res.setHeader('Cache-Control', 'private, max-age=300, stale-while-revalidate=600');
-
+    
+    // Return the processed data
     logger.info(`Successfully processed leave trends for user: ${userId}`);
     
     return res.status(200).json({
       monthlyData,
       leaveTypeData,
+      remainingBalance: leaveBalanceResult.remainingBalance
     });
-  } catch (error) {
-    logger.error(`Server error in leave trends: ${error}`);
+  } catch (error: any) {
+    logger.error(`Server error in leave trends: ${error.message || error}`);
     // Return empty data with 200 status for graceful fallback
     return res.status(200).json(generateEmptyData());
   }
@@ -252,5 +244,5 @@ async function handler(
 export default withRateLimit(handler, {
   windowMs: 60 * 1000, // 1 minute
   maxRequests: 20, // 20 requests per minute
-  message: 'Too many leave trend requests. Please try again later.'
+  message: 'Too many requests for leave trends. Please try again later.'
 }); 
