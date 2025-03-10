@@ -10,25 +10,53 @@ import LoadingSpinner from '../components/LoadingSpinner';
 
 const LeaveCalendarPage: NextPage = () => {
   const [isClient, setIsClient] = useState(false);
-  const { user, session, loading } = useAuth();
+  const { user, session, loading: authLoading } = useAuth();
   const { isDarkMode } = useTheme();
+  const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
+  const maxRetries = 3;
   
   // Check auth on client side
   useEffect(() => {
     setIsClient(true);
     
     // Check session if auth context is done loading
-    if (!loading && (!user || !session)) {
+    if (!authLoading && (!user || !session)) {
       window.location.href = '/login';
     }
-  }, [user, session, loading]);
+  }, [user, session, authLoading]);
+
+  // Handle retry
+  const handleRetry = () => {
+    if (retryCount < maxRetries) {
+      setRetryCount(prev => prev + 1);
+      setError(null);
+    }
+  };
   
   // Show loading state until client-side rendering is available
-  if (!isClient || loading) {
+  if (!isClient || authLoading) {
     return (
       <Layout>
         <div className="flex justify-center items-center h-64">
           <LoadingSpinner />
+        </div>
+      </Layout>
+    );
+  }
+
+  // Show error state if authentication failed
+  if (!user || !session) {
+    return (
+      <Layout>
+        <div className="flex flex-col justify-center items-center h-64">
+          <div className="text-red-500 mb-4">Authentication required</div>
+          <button
+            onClick={() => window.location.href = '/login'}
+            className="px-4 py-2 bg-apple-blue hover:bg-apple-blue-hover text-white rounded-md"
+          >
+            Go to Login
+          </button>
         </div>
       </Layout>
     );
@@ -52,7 +80,7 @@ const LeaveCalendarPage: NextPage = () => {
         </div>
         
         <div className={`rounded-apple shadow-apple-card ${isDarkMode ? 'dark:shadow-dark-card' : ''}`}>
-          <LeaveCalendar />
+          <LeaveCalendar key={retryCount} />
         </div>
       </div>
     </Layout>

@@ -7,6 +7,8 @@ import { DateSelectArg, EventClickArg, EventContentArg } from '@fullcalendar/cor
 import { useTheme } from '../lib/themeContext';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
+import LoadingSpinner from '../components/LoadingSpinner';
+import { supabase } from '../lib/supabase';
 
 // Add this interface definition for FormattedLeaveData
 interface FormattedLeaveData {
@@ -256,6 +258,7 @@ const LeaveCalendar: React.FC = () => {
   const { isDarkMode, applyDarkModeClass } = useTheme();
   const [retryCount, setRetryCount] = useState(0);
   const maxRetries = 3;
+  const retryDelay = 2000; // 2 seconds
 
   // Apply dark mode to calendar when component mounts or theme changes
   useEffect(() => {
@@ -285,9 +288,21 @@ const LeaveCalendar: React.FC = () => {
       setLoading(true);
       setError(null);
       
-      // Add caching parameter to avoid stale data
+      // Get auth token from Supabase
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setError('Your session has expired. Please log in again.');
+        setLoading(false);
+        return;
+      }
+
+      // Add caching parameter and auth token
       const timestamp = new Date().getTime();
-      const response = await axios.get(`/api/leave/calendar?t=${timestamp}`);
+      const response = await axios.get(`/api/leave/calendar?t=${timestamp}`, {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
+        }
+      });
       
       // Format events for the calendar
       const formattedEvents: LeaveEvent[] = response.data.map((leave: FormattedLeaveData) => ({
@@ -305,20 +320,29 @@ const LeaveCalendar: React.FC = () => {
       
       setEvents(formattedEvents);
       setLoading(false);
+      setRetryCount(0); // Reset retry count on success
     } catch (err: any) {
       console.error('Error fetching leave data:', err);
-      const errorMessage = err.response?.data?.message || 
-                          err.response?.data?.error || 
-                          'Failed to load leave data';
-      setError(errorMessage);
+      
+      // Handle specific error cases
+      if (err.response?.status === 401) {
+        setError('Your session has expired. Please log in again.');
+      } else if (err.response?.status === 404) {
+        setError('Employee data not found. Please contact HR.');
+      } else if (err.response?.status === 429) {
+        setError('Too many requests. Please try again in a moment.');
+      } else {
+        setError(err.response?.data?.message || 'Failed to load leave data. Please try again.');
+      }
+      
       setLoading(false);
       
-      // If we haven't reached max retries and it's a server error, retry after delay
+      // If we haven't reached max retries and it's a server error or network error, retry after delay
       if (retryCount < maxRetries && (err.response?.status >= 500 || !err.response)) {
         setTimeout(() => {
           setRetryCount(prev => prev + 1);
           fetchLeaveData();
-        }, 2000 * Math.pow(2, retryCount)); // Exponential backoff
+        }, retryDelay * Math.pow(2, retryCount)); // Exponential backoff
       }
     }
   };
@@ -330,8 +354,13 @@ const LeaveCalendar: React.FC = () => {
 
   // Handle retry button click
   const handleRetry = () => {
-    setRetryCount(0); // Reset retry count
-    fetchLeaveData();
+    if (retryCount < maxRetries) {
+      setRetryCount(prev => prev + 1);
+    } else {
+      // Reset retry count and try again
+      setRetryCount(0);
+      fetchLeaveData();
+    }
   };
 
   const handleDateSelect = (selectInfo: DateSelectArg) => {
@@ -427,20 +456,20 @@ const LeaveCalendar: React.FC = () => {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64 bg-white dark:bg-dark-surface rounded-apple shadow-apple-card dark:shadow-dark-card p-6">
-        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-apple-blue"></div>
+        <LoadingSpinner />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="flex flex-col justify-center items-center h-64 bg-white dark:bg-dark-surface rounded-apple shadow-apple-card dark:shadow-dark-card p-6 text-apple-gray-dark dark:text-dark-text-primary">
-        <p className="text-center mb-4">{error}</p>
+      <div className="flex flex-col justify-center items-center h-64 bg-white dark:bg-dark-surface rounded-apple shadow-apple-card dark:shadow-dark-card p-6">
+        <div className="text-red-500 dark:text-red-400 mb-4">{error}</div>
         <button
           onClick={handleRetry}
           className="px-4 py-2 bg-apple-blue hover:bg-apple-blue-hover text-white rounded-md"
         >
-          Retry
+          {retryCount >= maxRetries ? 'Try Again' : 'Retry'}
         </button>
       </div>
     );
