@@ -9,6 +9,7 @@ import axios from 'axios';
 import { toast } from 'react-hot-toast';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { supabase } from '../lib/supabase';
+import { useAuth } from '../lib/authContext';
 
 // Add this interface definition for FormattedLeaveData
 interface FormattedLeaveData {
@@ -260,6 +261,8 @@ const LeaveCalendar: React.FC = () => {
   const maxRetries = 3;
   const retryDelay = 2000; // 2 seconds
 
+  const { session } = useAuth();
+
   // Apply dark mode to calendar when component mounts or theme changes
   useEffect(() => {
     const calendarElement = document.querySelector('.fc');
@@ -287,9 +290,9 @@ const LeaveCalendar: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
+      console.log('LeaveCalendar session:', session);
       
-      // Get auth token from Supabase
-      const { data: { session } } = await supabase.auth.getSession();
+      // Use session from useAuth
       if (!session) {
         setError('Your session has expired. Please log in again.');
         setLoading(false);

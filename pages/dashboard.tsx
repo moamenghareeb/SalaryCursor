@@ -28,20 +28,6 @@ type DashboardProps = {
   initialData: DashboardData;
 };
 
-const fetcher = async (url: string) => {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) {
-    throw new Error('Your session has expired. Please log in again.');
-  }
-  
-  const response = await axios.get(url, {
-    headers: {
-      Authorization: `Bearer ${session.access_token}`
-    }
-  });
-  return response.data;
-};
-
 export default function Dashboard() {
   const { isDarkMode } = useTheme();
   const router = useRouter();
@@ -50,8 +36,40 @@ export default function Dashboard() {
   const maxRetries = 3;
   const retryDelay = 2000; // 2 seconds
 
+  const { user, session, loading: authLoading, refreshSession } = useAuth();
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  useEffect(() => {
+    if (!authLoading && !session) {
+      refreshSession();
+      const timer = setTimeout(() => {
+        if (!session) {
+          router.push('/login');
+        }
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [authLoading, session, refreshSession, router]);
+
+  // Define fetcher inside the component using session from useAuth
+  const fetcher = async (url: string) => {
+    console.log('Dashboard fetcher session:', session);
+    if (!session) {
+      throw new Error('Your session has expired. Please log in again.');
+    }
+    const response = await axios.get(url, {
+      headers: {
+        Authorization: `Bearer ${session.access_token}`
+      }
+    });
+    return response.data;
+  };
+
   const { data, error, mutate } = useSWR(
-    '/api/dashboard/summary',
+    session ? '/api/dashboard/summary' : null,
     fetcher,
     {
       revalidateOnFocus: false,
@@ -63,12 +81,9 @@ export default function Dashboard() {
         if (error.response?.status === 404 || error.response?.status === 401) {
           return;
         }
-        
         if (retryCount >= maxRetries) {
           return;
         }
-        
-        // Retry after delay with exponential backoff
         setTimeout(() => {
           setRetryCount(retryCount);
           revalidate({ retryCount });
@@ -77,34 +92,14 @@ export default function Dashboard() {
     }
   );
 
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
-
-  // Handle authentication
-  useEffect(() => {
-    const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        router.push('/login');
-      }
-    };
-    checkAuth();
-  }, [router]);
-
-  const handleRetry = () => {
-    if (retryCount < maxRetries) {
-      setRetryCount(prev => prev + 1);
-      mutate();
-    } else {
-      // Reset retry count and try again
-      setRetryCount(0);
-      mutate();
-    }
-  };
-
-  if (!isClient) {
-    return null;
+  if (!isClient || authLoading) {
+    return (
+      <Layout>
+        <div className="flex justify-center items-center h-64">
+          <LoadingSpinner />
+        </div>
+      </Layout>
+    );
   }
 
   if (error) {
@@ -118,7 +113,15 @@ export default function Dashboard() {
              error.message || 'Failed to load dashboard data. Please try again.'}
           </div>
           <button
-            onClick={handleRetry}
+            onClick={() => {
+              if (retryCount < maxRetries) {
+                setRetryCount(prev => prev + 1);
+                mutate();
+              } else {
+                setRetryCount(0);
+                mutate();
+              }
+            }}
             className="px-4 py-2 bg-apple-blue hover:bg-apple-blue-hover text-white rounded-md"
           >
             {retryCount >= maxRetries ? 'Try Again' : 'Retry'}
