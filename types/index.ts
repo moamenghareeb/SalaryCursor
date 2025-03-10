@@ -36,6 +36,7 @@ export interface Leave {
   end_date: string;
   days_taken: number;
   reason: string;
+  leave_type?: string;
   year: number;
   created_at: string;
   updated_at: string;

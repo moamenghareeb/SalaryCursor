@@ -270,6 +270,7 @@ export default function Leave() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [reason, setReason] = useState('');
+  const [leaveType, setLeaveType] = useState('Annual');
   const [editingLeave, setEditingLeave] = useState<Leave | null>(null);
   const [showInLieuForm, setShowInLieuForm] = useState(false);
   const [yearsOfService, setYearsOfService] = useState<number>(0);
@@ -459,6 +460,7 @@ export default function Leave() {
             end_date: endDate,
             days_taken: days,
             reason,
+            leave_type: leaveType,
             year,
           })
           .eq('id', editingLeave.id);
@@ -475,6 +477,7 @@ export default function Leave() {
             end_date: endDate,
             days_taken: days,
             reason,
+            leave_type: leaveType,
             year,
           }]);
 
@@ -486,6 +489,7 @@ export default function Leave() {
       setStartDate('');
       setEndDate('');
       setReason('');
+      setLeaveType('Annual');
       setEditingLeave(null);
 
       // Refresh data
@@ -580,6 +584,7 @@ export default function Leave() {
     setStartDate(leave.start_date);
     setEndDate(leave.end_date);
     setReason(leave.reason);
+    setLeaveType(leave.leave_type || 'Annual');
   };
 
   const handleCancelEdit = () => {
@@ -587,6 +592,7 @@ export default function Leave() {
     setStartDate('');
     setEndDate('');
     setReason('');
+    setLeaveType('Annual');
   };
 
   const handleUpdateYears = async () => {
@@ -1027,6 +1033,25 @@ export default function Leave() {
                       </div>
 
                       <div>
+                        <label className="block text-sm font-medium text-apple-gray-dark dark:text-dark-text-primary mb-1">Leave Type</label>
+                        <select
+                          value={leaveType}
+                          onChange={(e) => setLeaveType(e.target.value)}
+                          className={`w-full px-4 py-3 rounded-lg border transition-colors ${
+                            isDarkMode
+                              ? 'bg-dark-bg border-dark-border text-dark-text-primary focus:border-apple-blue'
+                              : 'border-gray-200 focus:border-apple-blue focus:ring-1 focus:ring-apple-blue'
+                          }`}
+                          required
+                        >
+                          <option value="Annual">Annual Leave</option>
+                          <option value="Casual">Casual Leave</option>
+                          <option value="Sick">Sick Leave</option>
+                          <option value="Unpaid">Unpaid Leave</option>
+                        </select>
+                      </div>
+
+                      <div>
                         <label className="block text-sm font-medium text-apple-gray-dark dark:text-dark-text-primary mb-1">Reason</label>
                         <textarea
                           value={reason}
@@ -1037,6 +1062,7 @@ export default function Leave() {
                               : 'border-gray-200 focus:border-apple-blue focus:ring-1 focus:ring-apple-blue'
                           }`}
                           rows={3}
+                          placeholder="Enter reason for leave request"
                           required
                         />
                       </div>
@@ -1110,7 +1136,6 @@ export default function Leave() {
                               : 'border-gray-200 focus:border-apple-blue focus:ring-1 focus:ring-apple-blue'
                           }`}
                           rows={3}
-                          required
                           placeholder="Why did you work on this day? (e.g. weekend emergency, public holiday coverage)"
                         />
                       </div>
@@ -1200,6 +1225,9 @@ export default function Leave() {
                               Days
                             </th>
                             <th className="px-4 py-3 text-left text-xs font-medium text-apple-gray dark:text-dark-text-secondary uppercase tracking-wider">
+                              Type
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-apple-gray dark:text-dark-text-secondary uppercase tracking-wider">
                               Reason
                             </th>
                             <th className="px-4 py-3 text-left text-xs font-medium text-apple-gray dark:text-dark-text-secondary uppercase tracking-wider">
@@ -1213,8 +1241,11 @@ export default function Leave() {
                               <td className="px-4 py-3 text-sm text-apple-gray-dark dark:text-dark-text-primary">
                                 {new Date(leave.start_date).toLocaleDateString()} to {new Date(leave.end_date).toLocaleDateString()}
                               </td>
-                              <td className="px-4 py-3 text-sm text-apple-gray-dark dark:text-dark-text-primary">
+                              <td className="px-4 py-3 whitespace-nowrap text-sm text-apple-gray-dark dark:text-dark-text-primary">
                                 {leave.days_taken}
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm text-apple-gray-dark dark:text-dark-text-primary">
+                                {leave.leave_type || 'Annual'}
                               </td>
                               <td className="px-4 py-3 text-sm text-apple-gray-dark dark:text-dark-text-primary">
                                 {leave.reason || 'No reason provided'}
