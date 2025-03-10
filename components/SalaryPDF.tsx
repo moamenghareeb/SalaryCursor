@@ -75,8 +75,8 @@ type SalaryPDFProps = {
 };
 
 const SalaryPDF: React.FC<SalaryPDFProps> = ({ salary, employee, month, exchangeRate }) => {
-  // Format currency with 2 decimal places
-  const formatCurrency = (amount: number) => amount.toFixed(2);
+  // Format currency with comma separators and 2 decimal places
+  const formatCurrency = (amount: number) => amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   return (
     <Page size="A4" style={styles.page}>
@@ -103,21 +103,21 @@ const SalaryPDF: React.FC<SalaryPDFProps> = ({ salary, employee, month, exchange
       </View>
 
       <View style={styles.section}>
-        <Text style={[styles.label, { marginBottom: 10 }]}>Salary Components (USD)</Text>
+        <Text style={[styles.label, { marginBottom: 10 }]}>Salary Components (EGP)</Text>
         
         <View style={styles.row}>
           <Text style={styles.label}>Basic Salary</Text>
-          <Text style={styles.value}>${formatCurrency(salary.basicSalary)}</Text>
+          <Text style={styles.value}>EGP {formatCurrency(salary.basicSalary)}</Text>
         </View>
         
         <View style={styles.row}>
           <Text style={styles.label}>Cost of Living</Text>
-          <Text style={styles.value}>${formatCurrency(salary.costOfLiving)}</Text>
+          <Text style={styles.value}>EGP {formatCurrency(salary.costOfLiving)}</Text>
         </View>
         
         <View style={styles.row}>
           <Text style={styles.label}>Shift Allowance</Text>
-          <Text style={styles.value}>${formatCurrency(salary.shiftAllowance)}</Text>
+          <Text style={styles.value}>EGP {formatCurrency(salary.shiftAllowance)}</Text>
         </View>
         
         <View style={styles.row}>
@@ -127,24 +127,24 @@ const SalaryPDF: React.FC<SalaryPDFProps> = ({ salary, employee, month, exchange
         
         <View style={styles.row}>
           <Text style={styles.label}>Overtime Pay</Text>
-          <Text style={styles.value}>${formatCurrency(salary.overtimePay)}</Text>
+          <Text style={styles.value}>EGP {formatCurrency(salary.overtimePay)}</Text>
         </View>
         
         <View style={styles.row}>
           <Text style={styles.label}>Variable Pay</Text>
-          <Text style={styles.value}>${formatCurrency(salary.variablePay)}</Text>
+          <Text style={styles.value}>EGP {formatCurrency(salary.variablePay)}</Text>
         </View>
         
         <View style={styles.row}>
           <Text style={styles.label}>Deductions</Text>
-          <Text style={styles.value}>-${formatCurrency(salary.deduction)}</Text>
+          <Text style={styles.value}>-EGP {formatCurrency(salary.deduction)}</Text>
         </View>
       </View>
 
       <View style={[styles.section, { marginTop: 20 }]}>
         <View style={styles.row}>
-          <Text style={styles.total}>Total Salary (USD)</Text>
-          <Text style={styles.total}>${formatCurrency(salary.totalSalary)}</Text>
+          <Text style={styles.total}>Total Salary (EGP)</Text>
+          <Text style={styles.total}>EGP {formatCurrency(salary.totalSalary)}</Text>
         </View>
         
         <View style={styles.row}>
@@ -153,8 +153,8 @@ const SalaryPDF: React.FC<SalaryPDFProps> = ({ salary, employee, month, exchange
         </View>
         
         <View style={styles.row}>
-          <Text style={styles.total}>Total Salary (EGP)</Text>
-          <Text style={styles.total}>EGP {formatCurrency(salary.totalSalary * exchangeRate)}</Text>
+          <Text style={styles.total}>Total Salary (USD)</Text>
+          <Text style={styles.total}>USD {formatCurrency(salary.totalSalary / exchangeRate)}</Text>
         </View>
       </View>
 
@@ -166,6 +166,9 @@ const SalaryPDF: React.FC<SalaryPDFProps> = ({ salary, employee, month, exchange
             month: 'long',
             day: 'numeric'
           })}
+        </Text>
+        <Text style={{ fontSize: 8, marginTop: 5, color: '#999' }}>
+          SalaryCursor - All rights reserved © {new Date().getFullYear()}
         </Text>
       </View>
     </Page>
