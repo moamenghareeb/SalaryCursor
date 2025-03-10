@@ -23,50 +23,72 @@ async function handler(
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Check for token in Authorization header (Bearer token)
+  // Enhanced token extraction
   let token = null;
+
+  // Check for token in Authorization header (Bearer token)
   const authHeader = req.headers.authorization;
-  
   if (authHeader && authHeader.startsWith('Bearer ')) {
     token = authHeader.substring(7); // Remove 'Bearer ' prefix
+    console.log('Using token from Authorization header');
   }
   
   // If no token in header, try cookies
   if (!token) {
     // Get auth token from request cookies
-    const authCookie = req.cookies['sb-access-token'] || req.cookies['supabase-auth-token'];
+    const possibleCookies = ['sb-access-token', 'supabase-auth-token'];
     
-    // Try to extract token from the cookie
-    if (authCookie) {
-      try {
-        // Handle both direct token and JSON format
-        if (authCookie.startsWith('[')) {
-          const parsedCookie = JSON.parse(authCookie);
-          token = parsedCookie[0].token;
-        } else {
-          token = authCookie;
+    for (const cookieName of possibleCookies) {
+      const authCookie = req.cookies[cookieName];
+      if (authCookie) {
+        try {
+          console.log('Auth cookie found:', cookieName);
+          // Handle both direct token and JSON format
+          if (authCookie.startsWith('[')) {
+            // Parse JSON format (['token', 'refresh'])
+            const parsed = JSON.parse(authCookie);
+            token = parsed[0]?.token || parsed[0]; // Handle both formats
+            console.log('Parsed token from JSON array');
+            break;
+          } else if (authCookie.startsWith('{')) {
+            // Parse JSON object format
+            const parsed = JSON.parse(authCookie);
+            token = parsed.token || parsed.access_token;
+            console.log('Parsed token from JSON object');
+            break;
+          } else {
+            token = authCookie;
+            console.log('Using direct token from cookie');
+            break;
+          }
+        } catch (error) {
+          console.error('Error parsing auth cookie:', error);
         }
-      } catch (error) {
-        console.error('Error parsing auth cookie:', error);
       }
     }
   }
 
   // If still no token, return unauthorized
   if (!token) {
-    return res.status(401).json({ error: 'Unauthorized' });
+    console.log('No valid auth token found in headers or cookies');
+    return res.status(401).json({ 
+      error: 'Unauthorized',
+      message: 'No valid authentication found'
+    });
   }
-
-  // Set Supabase JWT
-  const { data: userData, error: userError } = await supabase.auth.getUser(token);
-
-  if (userError || !userData.user) {
-    return res.status(401).json({ error: 'Invalid token' });
-  }
-
-  const userId = userData.user.id;
 
   try {
+    // Set Supabase JWT
+    const { data: userData, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !userData.user) {
+      console.error('Invalid token:', userError);
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const userId = userData.user.id;
+    console.log('Authenticated user:', userId);
+
     // Initial data structure
     const dashboardData: DashboardData = {
       employee: null,
@@ -149,8 +171,8 @@ async function handler(
 
     return res.status(200).json(dashboardData);
   } catch (error) {
-    console.error('Error fetching dashboard data:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    console.error('Server error:', error);
+    return res.status(500).json({ error: 'Server error' });
   }
 }
 
