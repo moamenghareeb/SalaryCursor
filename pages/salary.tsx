@@ -7,6 +7,7 @@ import { Font } from '@react-pdf/renderer';
 import SalaryPDF from '../components/SalaryPDF';
 import { User } from '@supabase/supabase-js';
 import Head from 'next/head';
+import { useTheme } from '../lib/themeContext';
 
 // Register fonts - use direct font import
 Font.register({
@@ -25,6 +26,7 @@ Font.register({
 });
 
 export default function Salary() {
+  const { isDarkMode } = useTheme();
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [loading, setLoading] = useState(true);
   const [calculationLoading, setCalculationLoading] = useState(false);
@@ -722,34 +724,40 @@ to add the missing absences column to the salaries table.
 
       <div className="px-4 sm:px-6 lg:px-8">
         {authError && (
-          <div className="mb-6 p-3 bg-red-50 border border-red-200 text-red-700 rounded-md">
-            {authError}
+          <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-md mb-6">
+            <p>{authError}</p>
+            <button 
+              onClick={() => window.location.href = '/login'} 
+              className="mt-2 text-sm text-red-700 dark:text-red-300 underline"
+            >
+              Go to Login
+            </button>
           </div>
         )}
 
         {/* Header section */}
         <section className="mb-8">
-          <h1 className="text-3xl font-medium text-apple-gray-dark mb-2">Salary Management</h1>
-          <p className="text-apple-gray">Calculate and manage salary information for {employee?.name}</p>
+          <h1 className="text-3xl font-medium text-apple-gray-dark dark:text-dark-text-primary mb-2">Salary Management</h1>
+          <p className="text-apple-gray dark:text-dark-text-secondary">Calculate and manage salary information for {employee?.name}</p>
         </section>
 
         {/* Main content grid */}
         <div className="grid gap-6 lg:grid-cols-3">
           {/* Salary Calculator Card */}
-          <div className="lg:col-span-2 bg-white rounded-apple shadow-apple-card p-6">
+          <div className="lg:col-span-2 bg-white dark:bg-dark-surface rounded-apple shadow-apple-card dark:shadow-dark-card p-6">
             <div className="flex justify-between items-start mb-6">
-              <h2 className="text-lg font-medium text-apple-gray-dark">Salary Calculator</h2>
+              <h2 className="text-lg font-medium text-apple-gray-dark dark:text-dark-text-primary">Salary Calculator</h2>
               <div className="flex items-center space-x-2">
                 <button
                   onClick={clearSavedInputs}
-                  className="px-4 py-2 text-sm text-apple-gray-dark bg-apple-gray-light rounded-full hover:bg-gray-200 transition-colors"
+                  className="px-4 py-2 text-sm text-apple-gray-dark dark:text-gray-300 bg-apple-gray-light dark:bg-gray-800 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700"
                 >
                   Clear
                 </button>
                 <button
                   onClick={calculateSalary}
                   disabled={calculationLoading}
-                  className="px-4 py-2 text-sm text-white bg-apple-blue rounded-full hover:bg-apple-blue-hover transition-colors disabled:opacity-50"
+                  className="px-4 py-2 text-sm text-white bg-apple-blue dark:bg-blue-600 rounded-full hover:bg-blue-600 dark:hover:bg-blue-500 disabled:opacity-50"
                 >
                   {calculationLoading ? 'Calculating...' : 'Calculate'}
                 </button>
@@ -760,93 +768,93 @@ to add the missing absences column to the salaries table.
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-apple-gray-dark mb-1">
+                  <label className="block text-sm font-medium text-apple-gray-dark dark:text-dark-text-primary mb-1">
                     Basic Salary (EGP)
                   </label>
                   <input
                     type="number"
                     value={salaryCalc.basicSalary || ''}
                     onChange={(e) => handleInputChange('basicSalary', parseFloat(e.target.value) || 0)}
-                    className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:border-apple-blue focus:ring-1 focus:ring-apple-blue outline-none transition-colors"
+                    className="w-full px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 focus:border-apple-blue dark:focus:border-blue-600 focus:ring-1 focus:ring-apple-blue dark:focus:ring-blue-600 outline-none transition-colors"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-apple-gray-dark mb-1">
+                  <label className="block text-sm font-medium text-apple-gray-dark dark:text-dark-text-primary mb-1">
                     Cost of Living (EGP)
                   </label>
                   <input
                     type="number"
                     value={salaryCalc.costOfLiving || ''}
                     onChange={(e) => handleInputChange('costOfLiving', parseFloat(e.target.value) || 0)}
-                    className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:border-apple-blue focus:ring-1 focus:ring-apple-blue outline-none transition-colors"
+                    className="w-full px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 focus:border-apple-blue dark:focus:border-blue-600 focus:ring-1 focus:ring-apple-blue dark:focus:ring-blue-600 outline-none transition-colors"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-apple-gray-dark mb-1">
+                  <label className="block text-sm font-medium text-apple-gray-dark dark:text-dark-text-primary mb-1">
                     Shift Allowance (EGP)
                   </label>
                   <input
                     type="number"
                     value={salaryCalc.shiftAllowance || ''}
                     onChange={(e) => handleInputChange('shiftAllowance', parseFloat(e.target.value) || 0)}
-                    className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:border-apple-blue focus:ring-1 focus:ring-apple-blue outline-none transition-colors"
+                    className="w-full px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 focus:border-apple-blue dark:focus:border-blue-600 focus:ring-1 focus:ring-apple-blue dark:focus:ring-blue-600 outline-none transition-colors"
                   />
                 </div>
               </div>
 
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-apple-gray-dark mb-1">
+                  <label className="block text-sm font-medium text-apple-gray-dark dark:text-dark-text-primary mb-1">
                     Overtime Hours
                   </label>
                   <input
                     type="number"
                     value={salaryCalc.overtimeHours || ''}
                     onChange={(e) => handleInputChange('overtimeHours', parseFloat(e.target.value) || 0)}
-                    className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:border-apple-blue focus:ring-1 focus:ring-apple-blue outline-none transition-colors"
+                    className="w-full px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 focus:border-apple-blue dark:focus:border-blue-600 focus:ring-1 focus:ring-apple-blue dark:focus:ring-blue-600 outline-none transition-colors"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-apple-gray-dark mb-1">
+                  <label className="block text-sm font-medium text-apple-gray-dark dark:text-dark-text-primary mb-1">
                     Variable Pay (EGP)
                   </label>
                   <input
                     type="number"
                     value={salaryCalc.variablePay || ''}
                     onChange={(e) => handleInputChange('variablePay', parseFloat(e.target.value) || 0)}
-                    className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:border-apple-blue focus:ring-1 focus:ring-apple-blue outline-none transition-colors"
+                    className="w-full px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 focus:border-apple-blue dark:focus:border-blue-600 focus:ring-1 focus:ring-apple-blue dark:focus:ring-blue-600 outline-none transition-colors"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-apple-gray-dark mb-1">
+                  <label className="block text-sm font-medium text-apple-gray-dark dark:text-dark-text-primary mb-1">
                     Deductions (EGP)
                   </label>
                   <input
                     type="number"
                     value={salaryCalc.deduction || ''}
                     onChange={(e) => handleInputChange('deduction', parseFloat(e.target.value) || 0)}
-                    className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:border-apple-blue focus:ring-1 focus:ring-apple-blue outline-none transition-colors"
+                    className="w-full px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 focus:border-apple-blue dark:focus:border-blue-600 focus:ring-1 focus:ring-apple-blue dark:focus:ring-blue-600 outline-none transition-colors"
                   />
                 </div>
               </div>
             </div>
 
             {/* Exchange Rate Section */}
-            <div className="mt-6 p-4 bg-apple-gray-light rounded-lg">
+            <div className="mt-6 p-4 bg-apple-gray-light dark:bg-gray-800 rounded-lg">
               <div className="flex justify-between items-center">
                 <div>
-                  <h3 className="text-sm font-medium text-apple-gray-dark">Exchange Rate</h3>
-                  <p className="text-sm text-apple-gray">
+                  <h3 className="text-sm font-medium text-apple-gray-dark dark:text-dark-text-primary">Exchange Rate</h3>
+                  <p className="text-sm text-apple-gray dark:text-dark-text-secondary">
                     Last updated: {rateLastUpdated || 'Not available'}
                   </p>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <span className="text-lg font-medium text-apple-gray-dark">
+                  <span className="text-lg font-medium text-apple-gray-dark dark:text-dark-text-primary">
                     1 USD = {exchangeRate} EGP
                   </span>
                   <button
                     onClick={manuallyUpdateRate}
-                    className="p-2 text-apple-blue hover:text-apple-blue-hover"
+                    className="p-2 text-apple-blue dark:text-blue-400 hover:text-apple-blue-hover"
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -858,23 +866,23 @@ to add the missing absences column to the salaries table.
           </div>
 
           {/* Results Card */}
-          <div className="bg-white rounded-apple shadow-apple-card p-6">
-            <h2 className="text-lg font-medium text-apple-gray-dark mb-6">Calculation Results</h2>
+          <div className="bg-white dark:bg-dark-surface rounded-apple shadow-apple-card dark:shadow-dark-card p-6">
+            <h2 className="text-lg font-medium text-apple-gray-dark dark:text-dark-text-primary mb-6">Calculation Results</h2>
             
             {salaryCalc.totalSalary > 0 && (
               <div className="space-y-4">
                 <div>
-                  <p className="text-sm text-apple-gray">Total Salary (EGP)</p>
-                  <p className="text-2xl font-medium text-apple-gray-dark">
-                    EGP {salaryCalc.totalSalary.toFixed(2)}
+                  <p className="text-sm text-apple-gray dark:text-dark-text-secondary">Total Salary (EGP)</p>
+                  <p className="text-2xl font-medium text-apple-gray-dark dark:text-dark-text-primary">
+                    EGP {salaryCalc.totalSalary.toLocaleString('en-US', { maximumFractionDigits: 2 })}
                   </p>
                 </div>
                 
-                <div className="pt-4 border-t border-gray-100">
+                <div className="pt-4 border-t border-gray-100 dark:border-gray-700">
                   <button
                     onClick={saveSalary}
                     disabled={calculationLoading || !salaryCalc.totalSalary}
-                    className="w-full px-4 py-2 bg-apple-blue text-white rounded-full hover:bg-apple-blue-hover transition-colors disabled:opacity-50"
+                    className="w-full px-4 py-2 bg-apple-blue dark:bg-blue-600 text-white rounded-full hover:bg-apple-blue-hover dark:hover:bg-blue-500 disabled:opacity-50"
                   >
                     {calculationLoading ? 'Saving...' : 'Save Salary'}
                   </button>
@@ -917,7 +925,7 @@ to add the missing absences column to the salaries table.
                           alert(`Error generating PDF: ${error instanceof Error ? error.message : 'Unknown error'}`);
                         }
                       }}
-                      className="w-full mt-2 px-4 py-2 bg-apple-gray-light text-apple-gray-dark rounded-full hover:bg-gray-200 transition-colors"
+                      className="w-full mt-2 px-4 py-2 bg-apple-gray-light dark:bg-gray-700 text-apple-gray-dark dark:text-gray-300 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                     >
                       Generate PDF
                     </button>
@@ -928,20 +936,20 @@ to add the missing absences column to the salaries table.
 
             {!salaryCalc.totalSalary && (
               <div className="text-center py-8">
-                <p className="text-apple-gray">No calculations yet</p>
-                <p className="text-sm text-apple-gray mt-1">Enter values and click Calculate</p>
+                <p className="text-apple-gray dark:text-dark-text-secondary">No calculations yet</p>
+                <p className="text-sm text-apple-gray dark:text-dark-text-secondary mt-1">Enter values and click Calculate</p>
               </div>
             )}
           </div>
         </div>
 
         {/* Salary History Section */}
-        <div className="mt-8 bg-white rounded-apple shadow-apple-card p-6">
+        <div className="mt-8 bg-white dark:bg-dark-surface rounded-apple shadow-apple-card dark:shadow-dark-card p-6">
           <div className="flex justify-between items-center mb-6">
-            <h2 className="text-lg font-medium text-apple-gray-dark">Salary History</h2>
+            <h2 className="text-lg font-medium text-apple-gray-dark dark:text-dark-text-primary">Salary History</h2>
             <button
               onClick={fetchSalaryHistory}
-              className="px-4 py-2 text-sm text-apple-gray-dark bg-apple-gray-light rounded-full hover:bg-gray-200 transition-colors"
+              className="px-4 py-2 text-sm text-apple-gray-dark dark:text-gray-300 bg-apple-gray-light dark:bg-gray-700 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
             >
               Refresh
             </button>
@@ -950,26 +958,26 @@ to add the missing absences column to the salaries table.
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-gray-100">
-                  <th className="text-left py-3 px-4 text-sm font-medium text-apple-gray">Month</th>
-                  <th className="text-right py-3 px-4 text-sm font-medium text-apple-gray">Basic Salary (EGP)</th>
-                  <th className="text-right py-3 px-4 text-sm font-medium text-apple-gray">Total (EGP)</th>
-                  <th className="text-right py-3 px-4 text-sm font-medium text-apple-gray">Actions</th>
+                <tr className="border-b border-gray-100 dark:border-gray-700">
+                  <th className="text-left py-3 px-4 text-sm font-medium text-apple-gray dark:text-dark-text-secondary">Month</th>
+                  <th className="text-right py-3 px-4 text-sm font-medium text-apple-gray dark:text-dark-text-secondary">Basic Salary (EGP)</th>
+                  <th className="text-right py-3 px-4 text-sm font-medium text-apple-gray dark:text-dark-text-secondary">Total (EGP)</th>
+                  <th className="text-right py-3 px-4 text-sm font-medium text-apple-gray dark:text-dark-text-secondary">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {salaryHistory.map((salary, index) => (
-                  <tr key={index} className="border-b border-gray-50 hover:bg-gray-50">
-                    <td className="py-3 px-4 text-apple-gray-dark">
+                  <tr key={index} className="border-b border-gray-50 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800">
+                    <td className="py-3 px-4 text-apple-gray dark:text-dark-text-primary">
                       {new Date(salary.month).toLocaleDateString('en-US', {
                         year: 'numeric',
                         month: 'long'
                       })}
                     </td>
-                    <td className="text-right py-3 px-4 text-apple-gray-dark">
+                    <td className="text-right py-3 px-4 text-apple-gray dark:text-dark-text-primary">
                       EGP {salary.basic_salary.toFixed(2)}
                     </td>
-                    <td className="text-right py-3 px-4 text-apple-gray-dark">
+                    <td className="text-right py-3 px-4 text-apple-gray dark:text-dark-text-primary">
                       EGP {salary.total_salary.toFixed(2)}
                     </td>
                     <td className="text-right py-3 px-4">
@@ -1015,7 +1023,7 @@ to add the missing absences column to the salaries table.
                             alert(`Error generating PDF: ${error instanceof Error ? error.message : 'Unknown error'}`);
                           }
                         }}
-                        className="text-apple-blue hover:text-apple-blue-hover"
+                        className="text-apple-blue dark:text-blue-400 hover:text-apple-blue-hover"
                       >
                         View PDF
                       </button>
@@ -1027,7 +1035,7 @@ to add the missing absences column to the salaries table.
 
             {salaryHistory.length === 0 && (
               <div className="text-center py-8">
-                <p className="text-apple-gray">No salary history available</p>
+                <p className="text-apple-gray dark:text-dark-text-secondary">No salary history available</p>
               </div>
             )}
           </div>
@@ -1037,12 +1045,12 @@ to add the missing absences column to the salaries table.
       {/* PDF Modal */}
       {pdfModalOpen && employee && calculationResults && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
-          <div className="bg-white rounded-apple w-full max-w-4xl max-h-[90vh] overflow-hidden">
-            <div className="flex justify-between items-center p-4 border-b border-gray-100">
-              <h3 className="text-lg font-medium text-apple-gray-dark">Salary PDF Preview</h3>
+          <div className="bg-white dark:bg-dark-surface rounded-apple w-full max-w-4xl max-h-[90vh] overflow-hidden">
+            <div className="flex justify-between items-center p-4 border-b border-gray-100 dark:border-gray-700">
+              <h3 className="text-lg font-medium text-apple-gray-dark dark:text-dark-text-primary">Salary PDF Preview</h3>
               <button
                 onClick={() => setPdfModalOpen(false)}
-                className="text-apple-gray hover:text-apple-gray-dark"
+                className="text-apple-gray dark:text-gray-300 hover:text-apple-gray-dark"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

@@ -50,25 +50,26 @@ export default function ProfilePage() {
   const fetchProfileData = async () => {
     try {
       setLoadingProfile(true);
-      const { data, error } = await supabase
-        .from('employees')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-        
-      if (error) throw error;
+      console.log('Fetching profile data for user ID:', user.id);
       
-      setProfileData(data);
+      // Use the correct API endpoint (user-profile instead of profile)
+      const response = await axios.get('/api/user-profile');
+      console.log('Profile data response:', response.data);
+      
+      const profileData = response.data.profile || {};
+      console.log('Processed profile data:', profileData);
+      
+      setProfileData(profileData);
       
       // Pre-populate form with existing data
       reset({
-        first_name: data.first_name || '',
-        last_name: data.last_name || '',
-        email: data.email || user.email || '',
-        phone: data.phone || '',
-        address: data.address || '',
-        dob: data.dob || '',
-        emergency_contact: data.emergency_contact || '',
+        first_name: profileData.first_name || '',
+        last_name: profileData.last_name || '',
+        email: profileData.email || user.email || '',
+        phone: profileData.phone || '',
+        address: profileData.address || '',
+        dob: profileData.dob || '',
+        emergency_contact: profileData.emergency_contact || '',
       });
     } catch (error) {
       console.error('Error loading profile:', error);
@@ -81,14 +82,17 @@ export default function ProfilePage() {
   const onSubmit = async (data: ProfileFormData) => {
     try {
       setIsSaving(true);
+      console.log('Submitting profile update:', data);
       
-      const response = await axios.put('/api/profile', {
+      // Use the correct API endpoint (user-profile instead of profile)
+      const response = await axios.put('/api/user-profile', {
         ...data,
         id: user.id,
       });
       
+      console.log('Profile update response:', response.data);
       toast.success('Profile updated successfully');
-      setProfileData(response.data);
+      setProfileData(response.data.profile || {});
     } catch (error) {
       console.error('Error updating profile:', error);
       toast.error('Failed to update profile');
