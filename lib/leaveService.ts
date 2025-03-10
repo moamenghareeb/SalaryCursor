@@ -101,6 +101,7 @@ export const leaveService = {
         .select('*')
         .eq('employee_id', userId)
         .eq('status', 'approved')
+        .eq('leave_type', 'Annual')
         .gte('start_date', startOfYear)
         .lte('end_date', endOfYear);
 
@@ -110,16 +111,37 @@ export const leaveService = {
           const daysTaken = typeof leave.days_taken === 'number' ? leave.days_taken : 0;
           return total + daysTaken;
         }, 0);
-        logger.info(`Calculated leave taken: ${leaveTaken} from ${takenLeaveData.length} records`);
+        logger.info(`Calculated Annual leave taken: ${leaveTaken} from ${takenLeaveData.length} records`);
       } else if (takenLeaveError) {
         logger.error(`Error fetching taken leave data: ${takenLeaveError.message}`);
       }
+      
+      // Step 5: Get count of all leave types for reporting
+      const { data: allLeaveData } = await supabase
+        .from('leaves')
+        .select('id, leave_type, days_taken')
+        .eq('employee_id', userId)
+        .eq('status', 'approved')
+        .gte('start_date', startOfYear)
+        .lte('end_date', endOfYear);
+        
+      // Log breakdown of different leave types
+      if (allLeaveData && allLeaveData.length > 0) {
+        const leaveBreakdown = allLeaveData.reduce((acc: Record<string, number>, leave) => {
+          const leaveType = leave.leave_type || 'Annual';
+          const days = typeof leave.days_taken === 'number' ? leave.days_taken : 0;
+          acc[leaveType] = (acc[leaveType] || 0) + days;
+          return acc;
+        }, {});
+        
+        logger.info(`Leave breakdown for ${currentYear}: ${JSON.stringify(leaveBreakdown)}`);
+      }
 
-      // Step 5: Calculate final remaining balance
+      // Step 6: Calculate final remaining balance
       const remainingBalance = parseFloat((baseLeaveBalance + inLieuBalance - leaveTaken).toFixed(2));
       logger.info(`Final leave balance calculation: ${baseLeaveBalance} (base) + ${inLieuBalance} (in-lieu) - ${leaveTaken} (taken) = ${remainingBalance}`);
 
-      // Step 6: Update employee record to ensure consistency across the application
+      // Step 7: Update employee record to ensure consistency across the application
       const { error: updateError } = await supabase
         .from('employees')
         .update({ 

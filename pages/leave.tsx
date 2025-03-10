@@ -1062,8 +1062,7 @@ export default function Leave() {
                               : 'border-gray-200 focus:border-apple-blue focus:ring-1 focus:ring-apple-blue'
                           }`}
                           rows={3}
-                          placeholder="Enter reason for leave request"
-                          required
+                          placeholder="Enter reason for leave request (optional)"
                         />
                       </div>
 
