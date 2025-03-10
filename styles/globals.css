@@ -2,6 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Import dark mode styles */
+@import './darkMode.css';
+
 @layer utilities {
   /* Custom animation classes */
   .animate-fadeIn {
@@ -15,7 +18,7 @@
   }
 }
 
-/* Calendar dark mode styles */
+/* Calendar dark mode styles - Keep for backward compatibility */
 .dark-theme-calendar .fc-toolbar-title {
   color: #ffffff;
 }

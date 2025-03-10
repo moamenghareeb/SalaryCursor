@@ -1,0 +1,302 @@
+/* Global Dark Mode Styles */
+
+/* Base styles for dark theme */
+.dark {
+  --bg-primary: #121212;
+  --bg-secondary: #1e1e1e;
+  --bg-tertiary: #2a2a2a;
+  --bg-button: #0071e3;
+  --bg-button-hover: #0062c4;
+  --bg-input: #242424;
+  
+  --text-primary: #e0e0e0;
+  --text-secondary: #a0a0a0;
+  --text-tertiary: #808080;
+  --text-accent: #3b97ff;
+  
+  --border-color: #444444;
+  --border-light: #333333;
+  --border-accent: #0071e3;
+  
+  --shadow-small: 0 2px 4px rgba(0, 0, 0, 0.3);
+  --shadow-medium: 0 4px 8px rgba(0, 0, 0, 0.4);
+  --shadow-large: 0 8px 16px rgba(0, 0, 0, 0.5);
+  
+  /* Status colors */
+  --success: #43a047;
+  --warning: #ff9800;
+  --error: #e53935;
+  --info: #0288d1;
+  
+  /* Component-specific */
+  --card-bg: #1e1e1e;
+  --sidebar-bg: #121212;
+  --topbar-bg: rgba(18, 18, 18, 0.8);
+  --toast-bg: #333333;
+  --dropdown-bg: #242424;
+  --modal-bg: #1e1e1e;
+  --tooltip-bg: #333333;
+}
+
+/* Core elements */
+.dark body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.dark a {
+  color: var(--text-accent);
+}
+
+.dark h1, .dark h2, .dark h3, .dark h4, .dark h5, .dark h6 {
+  color: var(--text-primary);
+}
+
+/* Inputs and form elements */
+.dark input,
+.dark textarea,
+.dark select {
+  background-color: var(--bg-input);
+  border-color: var(--border-color);
+  color: var(--text-primary);
+}
+
+.dark input:focus,
+.dark textarea:focus,
+.dark select:focus {
+  border-color: var(--border-accent);
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(0, 113, 227, 0.2);
+}
+
+.dark input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.dark input:disabled,
+.dark textarea:disabled,
+.dark select:disabled {
+  background-color: var(--bg-tertiary);
+  color: var(--text-tertiary);
+}
+
+/* Buttons */
+.dark button {
+  background-color: var(--bg-button);
+  color: white;
+}
+
+.dark button:hover {
+  background-color: var(--bg-button-hover);
+}
+
+.dark button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.dark button.secondary {
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.dark button.secondary:hover {
+  background-color: var(--bg-secondary);
+}
+
+/* Card and panels */
+.dark .card, 
+.dark .panel {
+  background-color: var(--card-bg);
+  border-color: var(--border-light);
+  box-shadow: var(--shadow-small);
+}
+
+/* Tables */
+.dark table {
+  border-color: var(--border-color);
+}
+
+.dark th {
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.dark td {
+  border-color: var(--border-light);
+}
+
+.dark tr:hover {
+  background-color: var(--bg-tertiary);
+}
+
+/* Sidebar and navigation */
+.dark .sidebar {
+  background-color: var(--sidebar-bg);
+  border-right: 1px solid var(--border-color);
+}
+
+.dark .nav-item {
+  color: var(--text-secondary);
+}
+
+.dark .nav-item:hover,
+.dark .nav-item.active {
+  color: var(--text-primary);
+  background-color: var(--bg-tertiary);
+}
+
+/* Top navigation */
+.dark .top-nav {
+  background-color: var(--topbar-bg);
+  border-bottom: 1px solid var(--border-color);
+  backdrop-filter: blur(10px);
+}
+
+/* Modals and dialogs */
+.dark .modal {
+  background-color: var(--modal-bg);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-large);
+}
+
+.dark .modal-header {
+  border-bottom: 1px solid var(--border-color);
+}
+
+.dark .modal-footer {
+  border-top: 1px solid var(--border-color);
+}
+
+/* Dashboard cards */
+.dark .dashboard-card {
+  background-color: var(--card-bg);
+  border: 1px solid var(--border-color);
+}
+
+.dark .dashboard-card-title {
+  color: var(--text-primary);
+}
+
+.dark .dashboard-card-value {
+  color: var(--text-accent);
+}
+
+/* Calendars (extended FullCalendar styles) */
+.dark .fc-toolbar-title {
+  color: var(--text-primary);
+}
+
+.dark .fc-button {
+  background-color: var(--bg-tertiary);
+  border-color: var(--border-color);
+  color: var(--text-primary);
+}
+
+.dark .fc-button:hover {
+  background-color: var(--bg-secondary);
+}
+
+.dark .fc-button-active {
+  background-color: var(--bg-button) !important;
+  border-color: var(--bg-button) !important;
+}
+
+.dark .fc-daygrid-day,
+.dark .fc-col-header-cell {
+  border-color: var(--border-color);
+}
+
+.dark .fc-daygrid-day-number {
+  color: var(--text-primary);
+}
+
+.dark .fc-day-other .fc-daygrid-day-number {
+  color: var(--text-tertiary);
+}
+
+.dark .fc-daygrid-day.fc-day-today {
+  background-color: rgba(0, 113, 227, 0.15) !important;
+}
+
+.dark .fc-list-day-cushion {
+  background-color: var(--bg-tertiary);
+}
+
+/* Status indicators */
+.dark .status-indicator.success {
+  background-color: var(--success);
+}
+
+.dark .status-indicator.warning {
+  background-color: var(--warning);
+}
+
+.dark .status-indicator.error {
+  background-color: var(--error);
+}
+
+.dark .status-indicator.info {
+  background-color: var(--info);
+}
+
+/* Charts and visualizations */
+.dark .chart-container {
+  background-color: var(--card-bg);
+  border: 1px solid var(--border-color);
+}
+
+.dark .chart-title {
+  color: var(--text-primary);
+}
+
+.dark .chart-legend {
+  color: var(--text-secondary);
+}
+
+/* Tooltips */
+.dark .tooltip {
+  background-color: var(--tooltip-bg);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-small);
+}
+
+/* Notifications and alerts */
+.dark .notification {
+  background-color: var(--toast-bg);
+  color: var(--text-primary);
+  border-left: 4px solid var(--info);
+}
+
+.dark .notification.success {
+  border-left-color: var(--success);
+}
+
+.dark .notification.warning {
+  border-left-color: var(--warning);
+}
+
+.dark .notification.error {
+  border-left-color: var(--error);
+}
+
+/* Loading states */
+.dark .loading-spinner {
+  border-top-color: var(--text-accent);
+}
+
+.dark .skeleton-loader {
+  background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--bg-secondary) 50%, var(--bg-tertiary) 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+}
+
+@keyframes loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+} 
