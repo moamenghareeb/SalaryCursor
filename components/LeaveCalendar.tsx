@@ -17,6 +17,9 @@ interface LeaveEvent {
   leaveType: 'annual' | 'sick' | 'unpaid' | 'in-lieu';
   status: 'approved' | 'pending' | 'rejected';
   allDay: boolean;
+  isTeamMember: boolean;
+  employeeName: string;
+  reason: string;
 }
 
 interface NewLeaveModalProps {
@@ -246,27 +249,61 @@ const LeaveCalendar: React.FC = () => {
   const fetchLeaveData = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('/api/leave/calendar');
+      setError(null);
+      const response = await axios.get('/api/leave/calendar', {
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+        }
+      });
       
-      // Transform API data into calendar events
-      const leaveEvents: LeaveEvent[] = response.data.map((leave: any) => ({
-        id: leave.id,
-        title: `${leave.leave_type.charAt(0).toUpperCase() + leave.leave_type.slice(1)} Leave`,
-        start: leave.start_date,
-        end: leave.end_date,
-        leaveType: leave.leave_type,
-        status: leave.status,
-        allDay: true,
-      }));
+      // Process the response data to format for calendar
+      const formattedEvents = response.data.map((leave: any) => {
+        // Parse dates to add a day to end date for proper display
+        const endDate = new Date(leave.end_date);
+        endDate.setDate(endDate.getDate() + 1);
+        
+        // Set event title based on whether it's the user's leave or a team member's
+        const title = leave.is_team_member 
+          ? `${leave.employee_name}: ${leave.leave_type.charAt(0).toUpperCase() + leave.leave_type.slice(1)} Leave` 
+          : `${leave.leave_type.charAt(0).toUpperCase() + leave.leave_type.slice(1)} Leave`;
+        
+        return {
+          id: leave.id,
+          title,
+          start: leave.start_date,
+          end: endDate.toISOString().split('T')[0],
+          leaveType: leave.leave_type,
+          status: leave.status,
+          allDay: true,
+          isTeamMember: leave.is_team_member,
+          employeeName: leave.employee_name,
+          reason: leave.reason
+        };
+      });
       
-      setEvents(leaveEvents);
-    } catch (err) {
+      setEvents(formattedEvents);
+    } catch (err: any) {
       console.error('Error fetching leave data:', err);
-      setError('Failed to load leave data');
-      toast.error('Failed to load leave calendar data');
+      let errorMessage = 'Failed to load leave data';
+      
+      // Extract more specific error message if available
+      if (err.response && err.response.data && err.response.data.error) {
+        errorMessage = err.response.data.error;
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleRetry = () => {
+    fetchLeaveData();
   };
 
   const handleDateSelect = (selectInfo: DateSelectArg) => {
@@ -297,6 +334,9 @@ const LeaveCalendar: React.FC = () => {
         leaveType: leaveData.leave_type,
         status: 'pending',
         allDay: true,
+        isTeamMember: false,
+        employeeName: '',
+        reason: ''
       };
       
       setEvents([...events, newEvent]);
@@ -369,7 +409,7 @@ const LeaveCalendar: React.FC = () => {
       <div className="flex flex-col justify-center items-center h-64 bg-white dark:bg-dark-surface rounded-apple shadow-apple-card dark:shadow-dark-card p-6 text-apple-gray-dark dark:text-dark-text-primary">
         <p className="text-center mb-4">{error}</p>
         <button
-          onClick={() => fetchLeaveData()}
+          onClick={handleRetry}
           className="px-4 py-2 bg-apple-blue hover:bg-apple-blue-hover text-white rounded-md"
         >
           Retry
@@ -404,7 +444,7 @@ const LeaveCalendar: React.FC = () => {
         </div>
       </div>
       
-      <div className={`leave-calendar ${isDarkMode ? 'fc-dark-theme' : ''}`}>
+      <div className={`leave-calendar ${isDarkMode ? 'dark-theme-calendar' : ''}`}>
         <FullCalendar
           plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
           initialView="dayGridMonth"
@@ -413,12 +453,35 @@ const LeaveCalendar: React.FC = () => {
             center: 'title',
             right: 'dayGridMonth,timeGridWeek'
           }}
-          events={events}
           selectable={true}
           select={handleDateSelect}
           eventClick={handleEventClick}
           eventContent={renderEventContent}
+          events={events}
           height="auto"
+          eventBackgroundColor={isDarkMode ? '#1e1e1e' : '#f5f5f7'}
+          eventBorderColor={isDarkMode ? '#2a2a2a' : '#e2e2e2'}
+          eventTextColor={isDarkMode ? '#ffffff' : '#1d1d1f'}
+          dayHeaderClassNames={isDarkMode ? 'text-dark-text-primary' : 'text-apple-gray-dark'}
+          dayHeaderFormat={{ weekday: 'short', day: 'numeric' }}
+          buttonText={{
+            today: 'Today',
+            month: 'Month',
+            week: 'Week'
+          }}
+          buttonIcons={{
+            prev: 'chevron-left',
+            next: 'chevron-right'
+          }}
+          themeSystem="standard"
+          dayCellClassNames={isDarkMode ? 'dark-calendar-cell' : ''}
+          dayHeaderContent={(args) => {
+            return (
+              <div className={`text-sm font-medium ${isDarkMode ? 'text-dark-text-primary' : 'text-apple-gray-dark'}`}>
+                {args.text}
+              </div>
+            )
+          }}
         />
       </div>
       

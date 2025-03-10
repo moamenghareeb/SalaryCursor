@@ -115,7 +115,7 @@ export default function Dashboard({ initialData }: DashboardProps) {
               <h2 className="text-lg font-medium text-apple-gray-dark dark:text-dark-text-primary mb-2">Latest Salary</h2>
               {latestSalary ? (
                 <div>
-                  <p className="text-2xl font-bold text-apple-blue">${latestSalary.total_salary?.toFixed(2) || '0.00'}</p>
+                  <p className="text-2xl font-bold text-apple-blue">EGP {latestSalary.total_salary?.toFixed(2) || '0.00'}</p>
                   <p className="text-sm text-apple-gray dark:text-dark-text-secondary mt-1">
                     {latestSalary.month || 'N/A'}
                   </p>

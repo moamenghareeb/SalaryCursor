@@ -70,14 +70,16 @@ async function handler(
 
   // If still no token, return unauthorized
   if (!token) {
-    return res.status(401).json({ error: 'Unauthorized' });
+    console.warn('No authentication token found in request');
+    return res.status(401).json({ error: 'Authentication required. Please log in again.' });
   }
 
   // Set Supabase JWT
   const { data: userData, error: userError } = await supabase.auth.getUser(token);
 
   if (userError || !userData.user) {
-    return res.status(401).json({ error: 'Invalid token' });
+    console.error('Invalid token or user not found:', userError);
+    return res.status(401).json({ error: 'Your session has expired. Please log in again.' });
   }
 
   const userId = userData.user.id;
@@ -92,7 +94,12 @@ async function handler(
 
     if (employeeError) {
       console.error('Error fetching employee data:', employeeError);
-      return res.status(500).json({ error: 'Failed to fetch employee data' });
+      return res.status(500).json({ error: 'Failed to fetch employee data. Please try again later.' });
+    }
+
+    if (!employeeData || !employeeData.department) {
+      console.warn('Employee data or department not found for user:', userId);
+      return res.status(404).json({ error: 'Employee information not found. Please contact HR.' });
     }
 
     // Get start of 6 months ago and end of 6 months from now

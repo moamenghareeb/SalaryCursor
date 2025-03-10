@@ -15,6 +15,50 @@
   }
 }
 
+/* Calendar dark mode styles */
+.dark-theme-calendar .fc-toolbar-title {
+  color: #ffffff !important;
+}
+
+.dark-theme-calendar .fc-button {
+  background-color: #2a2a2a !important;
+  border-color: #3a3a3a !important;
+  color: #ffffff !important;
+}
+
+.dark-theme-calendar .fc-button:hover {
+  background-color: #3a3a3a !important;
+}
+
+.dark-theme-calendar .fc-button-active {
+  background-color: #1a1a1a !important;
+  border-color: #3a3a3a !important;
+}
+
+.dark-theme-calendar .fc-daygrid-day,
+.dark-theme-calendar .fc-col-header-cell {
+  border-color: #2a2a2a !important;
+}
+
+.dark-theme-calendar .fc-daygrid-day-number {
+  color: #e0e0e0 !important;
+}
+
+.dark-theme-calendar .fc-daygrid-day.fc-day-today {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.dark-theme-calendar .fc-event {
+  border-radius: 4px !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3) !important;
+}
+
+.dark-theme-calendar .fc-h-event .fc-event-title,
+.dark-theme-calendar .fc-h-event .fc-event-time {
+  color: #ffffff !important;
+  font-weight: 500 !important;
+}
+
 @keyframes fadeIn {
   from {
     opacity: 0;
