@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useContext, ReactNode, useRef } from 'react';
+import React, { createContext, useState, useEffect, useContext, ReactNode } from 'react';
 import { supabase } from './supabase';
 import { useRouter } from 'next/router';
 import { Session } from '@supabase/supabase-js';
@@ -26,93 +26,92 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
-  const refreshInProgress = useRef(false);
+  const [initialized, setInitialized] = useState(false);
 
-  // Function to refresh the session state
+  // Simple session refresh function - no state tracking needed
   const refreshSession = async () => {
     try {
-      // Prevent concurrent refreshes
-      if (refreshInProgress.current) {
-        console.log('Session refresh already in progress, skipping');
+      const { data, error } = await supabase.auth.getSession();
+      if (error) {
+        console.error('Error getting session:', error);
+        setSession(null);
+        setUser(null);
         return;
       }
-
-      refreshInProgress.current = true;
-      setLoading(true);
-      
-      const { data, error } = await supabase.auth.getSession();
-      if (error) throw error;
-      
-      console.log('Auth context refreshSession:', {
-        hasSession: !!data.session,
-        userId: data.session?.user?.id
-      });
       
       setSession(data.session);
       setUser(data.session?.user || null);
     } catch (error) {
-      console.error('Error refreshing session:', error);
+      console.error('Exception during session refresh:', error);
       setSession(null);
       setUser(null);
     } finally {
       setLoading(false);
-      refreshInProgress.current = false;
     }
   };
 
+  // Handle sign out
+  const signOut = async () => {
+    try {
+      setLoading(true);
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      
+      setSession(null);
+      setUser(null);
+      router.push('/login');
+    } catch (error) {
+      console.error('Error signing out:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Initial session check and auth state change listener
   useEffect(() => {
-    // Initial session check
-    refreshSession();
-
-    // Set up auth state change listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, currentSession) => {
-        console.log('Auth state change:', {
-          event,
-          userId: currentSession?.user?.id
-        });
-
-        // Only update state if the event is not INITIAL_SESSION to prevent loops
-        if (event !== 'INITIAL_SESSION') {
-          setSession(currentSession);
-          setUser(currentSession?.user || null);
-
-          // Special handling for sign in events
-          if (event === 'SIGNED_IN' && currentSession) {
-            // Force a small delay to ensure cookies are set
-            await new Promise(resolve => setTimeout(resolve, 500));
-            await refreshSession();
-          }
-
-          // Handle sign out
-          if (event === 'SIGNED_OUT') {
-            setSession(null);
-            setUser(null);
-            router.push('/login');
-          }
+    // Skip if already initialized to prevent multiple initializations
+    if (initialized) return;
+    
+    const setupAuth = async () => {
+      // Initial session check
+      await refreshSession();
+      
+      // Auth state change listener - but completely ignore INITIAL_SESSION events
+      const { data } = supabase.auth.onAuthStateChange((event, newSession) => {
+        console.log('Auth event:', event);
+        
+        if (event === 'INITIAL_SESSION') {
+          // Do nothing for initial session to prevent loops
+          return;
         }
-      }
-    );
-
-    return () => {
-      subscription.unsubscribe();
+        
+        if (event === 'SIGNED_IN') {
+          setSession(newSession);
+          setUser(newSession?.user || null);
+        } else if (event === 'SIGNED_OUT') {
+          setSession(null);
+          setUser(null);
+          router.push('/login');
+        }
+      });
+      
+      setInitialized(true);
+      return () => {
+        data.subscription.unsubscribe();
+      };
     };
-  }, [router]);
+    
+    setupAuth();
+  }, [router, initialized]);
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, signOut: async () => {
-      try {
-        setLoading(true);
-        await supabase.auth.signOut();
-        setSession(null);
-        setUser(null);
-        router.push('/login');
-      } catch (error) {
-        console.error('Error signing out:', error);
-      } finally {
-        setLoading(false);
-      }
-    }, refreshSession }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      session, 
+      loading, 
+      signOut, 
+      refreshSession 
+    }}>
       {children}
     </AuthContext.Provider>
   );

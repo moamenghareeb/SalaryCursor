@@ -17,17 +17,32 @@ export default function Login() {
   const [loginSuccess, setLoginSuccess] = useState(false);
   const { refreshSession } = useAuth();
 
-  // Check if user is already logged in
+  // Check if user is already logged in - only once on component mount
   useEffect(() => {
-    const checkExistingSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session && !loading) {
-        // Only redirect if we have a session and we're not in a loading state
-        router.replace('/dashboard');
+    let isMounted = true;
+    
+    const checkSession = async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        
+        // Only redirect if component is still mounted and we have a session
+        if (isMounted && data.session) {
+          console.log('User already logged in, redirecting to dashboard');
+          // Use window.location for hard navigation to avoid Next.js router issues
+          window.location.href = '/dashboard';
+        }
+      } catch (error) {
+        console.error('Error checking session:', error);
       }
     };
-    checkExistingSession();
-  }, [router, loading]);
+    
+    checkSession();
+    
+    // Cleanup function to prevent state updates after unmount
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,17 +68,17 @@ export default function Login() {
         throw new Error('No session returned after login');
       }
 
-      console.log('Login successful, session:', {
-        userId: data.session.user.id,
-        expiresAt: new Date(data.session.expires_at! * 1000).toISOString()
-      });
+      console.log('Login successful');
       
       // Show success message
       setMessage('Login successful! Redirecting to dashboard...');
       setLoginSuccess(true);
       
-      // Use router.replace instead of direct navigation
-      router.replace('/dashboard');
+      // Use window.location for a hard navigation instead of Next.js router
+      // This ensures a clean page load and avoids router/hydration issues
+      setTimeout(() => {
+        window.location.href = '/dashboard';
+      }, 1000);
       
     } catch (error: any) {
       console.error('Login error details:', error);
