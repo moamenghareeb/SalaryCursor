@@ -5,10 +5,13 @@ import LeaveCalendar from '../components/LeaveCalendar';
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/authContext';
+import { useTheme } from '../lib/themeContext';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 const LeaveCalendarPage: NextPage = () => {
   const [isClient, setIsClient] = useState(false);
   const { user, session, loading } = useAuth();
+  const { isDarkMode } = useTheme();
   
   // Check auth on client side
   useEffect(() => {
@@ -25,7 +28,7 @@ const LeaveCalendarPage: NextPage = () => {
     return (
       <Layout>
         <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-apple-blue"></div>
+          <LoadingSpinner />
         </div>
       </Layout>
     );
@@ -38,8 +41,8 @@ const LeaveCalendarPage: NextPage = () => {
         <meta name="description" content="View and manage your leave requests using a calendar interface" />
       </Head>
       
-      <div className="space-y-6">
-        <div className="bg-white dark:bg-dark-surface rounded-apple shadow-apple-card dark:shadow-dark-card p-6 animate-fadeIn">
+      <div className="space-y-6 animate-fadeIn">
+        <div className={`rounded-apple p-6 ${isDarkMode ? 'bg-dark-surface text-dark-text-primary' : 'bg-white'} shadow-apple-card dark:shadow-dark-card`}>
           <h1 className="text-2xl font-semibold text-apple-gray-dark dark:text-dark-text-primary">
             Leave Calendar
           </h1>
@@ -48,7 +51,9 @@ const LeaveCalendarPage: NextPage = () => {
           </p>
         </div>
         
-        <LeaveCalendar />
+        <div className={`rounded-apple shadow-apple-card ${isDarkMode ? 'dark:shadow-dark-card' : ''}`}>
+          <LeaveCalendar />
+        </div>
       </div>
     </Layout>
   );
