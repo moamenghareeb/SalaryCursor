@@ -6,7 +6,7 @@ import { useTheme } from '../lib/themeContext';
 import { useRouter } from 'next/router';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Link from 'next/link';
-import { FiCalendar, FiDollarSign, FiArrowRight } from 'react-icons/fi';
+import { FiCalendar, FiDollarSign, FiArrowRight, FiPieChart } from 'react-icons/fi';
 import { leaveService } from '../lib/leaveService';
 
 export default function Dashboard() {
@@ -18,6 +18,8 @@ export default function Dashboard() {
   // Data states
   const [employee, setEmployee] = useState<any>(null);
   const [currentSalary, setCurrentSalary] = useState<number | null>(null);
+  const [yearlyTotal, setYearlyTotal] = useState<number | null>(null);
+  const [monthlySalaries, setMonthlySalaries] = useState<any[]>([]);
   const [remainingLeave, setRemainingLeave] = useState<number | null>(null);
   const [debugInfo, setDebugInfo] = useState<string | null>(null);
   
@@ -61,6 +63,8 @@ export default function Dashboard() {
       
       // Get the current date once to use throughout the function
       const currentDate = new Date();
+      const currentYear = currentDate.getFullYear();
+      const currentMonth = currentDate.getMonth() + 1; // 1-12 format
       
       // First get ALL salary records to understand what we're working with
       const { data: allSalaryRecords, error: allSalaryError } = await supabase
@@ -79,9 +83,9 @@ export default function Dashboard() {
           setDebugInfo(`Found ${allSalaryRecords.length} total salary records. 
             Most recent: ${JSON.stringify(allSalaryRecords[0])}`);
           
-          // Check if we have March 2025 data in ANY format
-          const year = currentDate.getFullYear();
-          const month = currentDate.getMonth() + 1; // 1-12 format
+          // Check if we have the current month data in ANY format
+          const year = currentYear;
+          const month = currentMonth;
           
           // Define possible month formats we're looking for
           const targetFormats = [
@@ -94,7 +98,7 @@ export default function Dashboard() {
           ];
           
           // Find a record that matches any of these formats
-          const marchRecord = allSalaryRecords.find(record => {
+          const currentMonthRecord = allSalaryRecords.find(record => {
             if (!record.month) return false;
             const monthStr = String(record.month).trim();
             return targetFormats.some(format => 
@@ -102,24 +106,73 @@ export default function Dashboard() {
             );
           });
           
-          if (marchRecord) {
-            console.log('Found March 2025 record:', marchRecord);
-            setCurrentSalary(marchRecord.total_salary);
+          if (currentMonthRecord) {
+            console.log('Found current month record:', currentMonthRecord);
+            setCurrentSalary(currentMonthRecord.total_salary);
           } else {
-            console.log('No March 2025 record found. Formats searched:', targetFormats);
+            console.log('No current month record found. Formats searched:', targetFormats);
             // Default to the most recent record if we can't find the current month
             const mostRecent = allSalaryRecords[0];
             console.log('Using most recent record instead:', mostRecent);
             setCurrentSalary(mostRecent.total_salary);
           }
+          
+          // Calculate yearly total by filtering and summing records for the current year
+          const currentYearRecords = allSalaryRecords.filter(record => {
+            if (!record.month) return false;
+            const monthStr = String(record.month).trim();
+            // Check if the record's month string contains the current year
+            return monthStr.includes(String(currentYear));
+          });
+          
+          if (currentYearRecords.length > 0) {
+            // Calculate total and organize monthly data
+            const yearlySum = currentYearRecords.reduce((sum, record) => sum + (record.total_salary || 0), 0);
+            setYearlyTotal(yearlySum);
+            
+            // Prepare monthly breakdown for display
+            const monthlyData = [];
+            for (let m = 1; m <= 12; m++) {
+              const monthRecords = currentYearRecords.filter(record => {
+                const monthStr = String(record.month).trim();
+                const monthFormats = [
+                  `${currentYear}-${String(m).padStart(2, '0')}`,
+                  `${currentYear}-${m}`,
+                  `${m}/${currentYear}`,
+                  `${String(m).padStart(2, '0')}/${currentYear}`,
+                  `${m}-${currentYear}`,
+                  `${String(m).padStart(2, '0')}-${currentYear}`
+                ];
+                return monthFormats.some(format => 
+                  monthStr === format || monthStr.startsWith(format + '-') || monthStr.includes(format)
+                );
+              });
+              
+              if (monthRecords.length > 0) {
+                const monthTotal = monthRecords.reduce((sum, record) => sum + (record.total_salary || 0), 0);
+                const monthName = new Date(currentYear, m-1, 1).toLocaleString('default', { month: 'long' });
+                monthlyData.push({
+                  month: m,
+                  name: monthName,
+                  total: monthTotal
+                });
+              }
+            }
+            
+            setMonthlySalaries(monthlyData);
+            console.log('Monthly breakdown:', monthlyData);
+          } else {
+            console.log('No records found for current year');
+            setYearlyTotal(null);
+          }
         } else {
           console.log('No salary records found at all');
           setCurrentSalary(null);
+          setYearlyTotal(null);
         }
       }
       
       // Fetch leave balance
-      const currentYear = currentDate.getFullYear();
       const leaveBalanceResult = await leaveService.calculateLeaveBalance(userId, currentYear);
       
       if (leaveBalanceResult.error) {
@@ -187,7 +240,7 @@ export default function Dashboard() {
         </section>
         
         {/* Dashboard Cards */}
-        <div className="grid gap-6 md:grid-cols-2">
+        <div className="grid gap-6 md:grid-cols-2 mb-6">
           {/* Salary Card */}
           <div className={`rounded-apple p-6 ${isDarkMode ? 'bg-dark-surface' : 'bg-white'} shadow-apple-card dark:shadow-dark-card`}>
             <div className="flex justify-between items-start mb-4">
@@ -259,6 +312,49 @@ export default function Dashboard() {
               </Link>
             </div>
           </div>
+        </div>
+        
+        {/* Yearly Salary Summary Card */}
+        <div className={`rounded-apple p-6 ${isDarkMode ? 'bg-dark-surface' : 'bg-white'} shadow-apple-card dark:shadow-dark-card mb-6`}>
+          <div className="flex justify-between items-start mb-4">
+            <div>
+              <h2 className="text-xl font-semibold text-apple-gray-dark dark:text-dark-text-primary">Yearly Salary Summary</h2>
+              <p className="text-sm text-apple-gray dark:text-dark-text-secondary mt-1">
+                Total earnings for {new Date().getFullYear()}
+              </p>
+            </div>
+            <div className={`p-3 rounded-full ${isDarkMode ? 'bg-purple-900/20' : 'bg-purple-50'}`}>
+              <FiPieChart className={`w-6 h-6 ${isDarkMode ? 'text-purple-400' : 'text-purple-600'}`} />
+            </div>
+          </div>
+          
+          <div className="mt-4">
+            <p className="text-3xl font-bold text-apple-gray-dark dark:text-dark-text-primary">
+              EGP {yearlyTotal ? yearlyTotal.toLocaleString('en-US', { maximumFractionDigits: 2 }) : '0.00'}
+            </p>
+            {!yearlyTotal && (
+              <p className="text-sm text-yellow-600 dark:text-yellow-400 mt-2">
+                No salary records found for {new Date().getFullYear()}
+              </p>
+            )}
+          </div>
+          
+          {/* Monthly Breakdown */}
+          {monthlySalaries.length > 0 && (
+            <div className="mt-6">
+              <h3 className="text-sm font-medium text-apple-gray-dark dark:text-dark-text-primary mb-3">Monthly Breakdown</h3>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                {monthlySalaries.map((item) => (
+                  <div key={item.month} className="p-3 rounded-md bg-gray-50 dark:bg-dark-surface/60">
+                    <p className="text-xs text-apple-gray dark:text-dark-text-secondary">{item.name}</p>
+                    <p className="font-medium text-apple-gray-dark dark:text-dark-text-primary">
+                      EGP {item.total.toLocaleString('en-US', { maximumFractionDigits: 0 })}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </Layout>
