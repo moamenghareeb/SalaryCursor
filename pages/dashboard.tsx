@@ -141,12 +141,12 @@ export default function Dashboard() {
     session ? '/api/dashboard/summary' : null,
     fetcher,
     {
-      revalidateOnFocus: true,
+      revalidateOnFocus: false, // Disable revalidation on window focus
       revalidateOnMount: true,
-      refreshInterval: 30000, // Refresh every 30 seconds
-      dedupingInterval: 5000,
-      errorRetryCount: maxRetries,
-      errorRetryInterval: retryDelay,
+      refreshInterval: 120000, // Refresh every 2 minutes instead of 30 seconds
+      dedupingInterval: 10000, // Increase deduping interval
+      errorRetryCount: 2, // Reduce retry attempts
+      errorRetryInterval: 5000, // Increase retry interval
       onSuccess: (data) => {
         console.log('SWR success, data:', data);
       },
@@ -272,42 +272,30 @@ export default function Dashboard() {
                 )}
               </div>
 
-              {/* Leave Balance Card */}
-              <div className="bg-white dark:bg-dark-surface rounded-apple shadow-apple-card dark:shadow-dark-card p-6 transition-colors">
-                <div className="flex justify-between items-center mb-2">
-                  <h2 className="text-lg font-medium text-apple-gray-dark dark:text-dark-text-primary">Remaining Leave Balance</h2>
-                  <button 
-                    onClick={() => mutate()} 
-                    title="Refresh leave balance" 
-                    className="text-apple-blue hover:text-apple-blue-hover transition-colors"
-                    disabled={isValidating}
-                  >
-                    {isValidating ? (
-                      <span className="h-5 w-5 border-2 border-apple-blue border-t-transparent rounded-full animate-spin inline-block"></span>
-                    ) : (
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                      </svg>
-                    )}
-                  </button>
-                </div>
-                <div>
-                  <div className="flex items-baseline">
-                    <p className="text-2xl font-bold text-green-600 dark:text-green-500">
-                      {data?.leaveBalance !== null && data?.leaveBalance !== undefined 
-                        ? data.leaveBalance.toFixed(2) 
-                        : '0.00'} days
-                    </p>
-                    <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">(Base + In-Lieu - Taken)</span>
-                  </div>
-                  <p className="text-sm text-apple-gray dark:text-dark-text-secondary mt-1">
-                    Base: {data?.debug?.leaveService?.baseLeaveBalance || data?.employee?.annual_leave_balance || 0} days
-                    {data?.inLieuSummary && data.inLieuSummary.daysAdded > 0 && ` + ${data.inLieuSummary.daysAdded} in-lieu`}
-                    {data?.leaveTaken && data.leaveTaken > 0 && ` - ${data.leaveTaken} taken`}
-                  </p>
-                  <Link href="/leave" className="mt-4 inline-block text-sm text-apple-blue hover:underline">
-                    Request Leave →
+              {/* Remaining Leave Balance Card */}
+              <div className="bg-apple-gray-lightest dark:bg-dark-surface-2 rounded-apple p-4">
+                <div className="flex justify-between items-start">
+                  <h3 className="text-lg font-medium text-apple-gray-dark dark:text-dark-text-primary">
+                    Remaining Leave Balance
+                  </h3>
+                  <Link href="/leave" className="text-apple-blue hover:text-apple-blue-hover">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                    </svg>
                   </Link>
+                </div>
+                <div className="mt-2">
+                  <div className="text-2xl font-semibold text-green-600 dark:text-green-400">
+                    {data?.leaveBalance?.toFixed(2) || '0.00'} days
+                    <span className="text-sm text-apple-gray dark:text-dark-text-secondary ml-2">
+                      (Base + In-Lieu - Taken)
+                    </span>
+                  </div>
+                  <div className="mt-1 text-sm text-apple-gray dark:text-dark-text-secondary">
+                    Base: {data?.employee?.annual_leave_balance?.toFixed(2) || '0.00'} days
+                    {data?.inLieuSummary?.daysAdded ? ` + ${data.inLieuSummary.daysAdded} in-lieu days` : ''}
+                    {data?.leaveTaken ? ` - ${data.leaveTaken} days taken` : ''}
+                  </div>
                 </div>
               </div>
 

@@ -19,6 +19,7 @@ type ProfileFormData = {
   address?: string;
   dob?: string;
   emergency_contact?: string;
+  years_of_service?: number;
 };
 
 export default function ProfilePage() {
@@ -70,6 +71,7 @@ export default function ProfilePage() {
         address: profileData.address || '',
         dob: profileData.dob || '',
         emergency_contact: profileData.emergency_contact || '',
+        years_of_service: profileData.years_of_service || 0,
       });
     } catch (error) {
       console.error('Error loading profile:', error);
@@ -185,6 +187,21 @@ export default function ProfilePage() {
                 error={errors.emergency_contact}
                 icon={<FiInfo className="text-apple-gray" />}
                 register={register('emergency_contact')}
+              />
+              
+              <FormInput
+                label="Years of Service"
+                name="years_of_service"
+                type="number"
+                step="1"
+                min="0"
+                error={errors.years_of_service}
+                icon={<FiCalendar className="text-apple-gray" />}
+                register={register('years_of_service', {
+                  valueAsNumber: true,
+                  min: { value: 0, message: 'Years of service cannot be negative' }
+                })}
+                helperText="This affects your annual leave allocation"
               />
             </div>
             

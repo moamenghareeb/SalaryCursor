@@ -9,10 +9,11 @@ interface FormInputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'na
   icon?: ReactNode;
   containerClassName?: string;
   register?: UseFormRegisterReturn;
+  helperText?: string;
 }
 
 const FormInput = forwardRef<HTMLInputElement, FormInputProps>(
-  ({ label, name, error, icon, containerClassName = '', className = '', register, ...props }, ref) => {
+  ({ label, name, error, icon, containerClassName = '', className = '', register, helperText, ...props }, ref) => {
     return (
       <div className={`mb-4 ${containerClassName}`}>
         <label
@@ -35,7 +36,7 @@ const FormInput = forwardRef<HTMLInputElement, FormInputProps>(
               error ? 'border-red-500 dark:border-red-400' : 'border-gray-300 dark:border-dark-border'
             } rounded-md shadow-sm focus:outline-none focus:ring-apple-blue focus:border-apple-blue dark:bg-dark-surface dark:text-dark-text-primary ${className}`}
             aria-invalid={error ? 'true' : 'false'}
-            aria-describedby={error ? `${name}-error` : undefined}
+            aria-describedby={error ? `${name}-error` : helperText ? `${name}-helper` : undefined}
             {...props}
           />
         </div>
@@ -46,6 +47,14 @@ const FormInput = forwardRef<HTMLInputElement, FormInputProps>(
           >
             <FiAlertCircle className="mr-1" />
             <span>{error.message}</span>
+          </div>
+        )}
+        {!error && helperText && (
+          <div 
+            id={`${name}-helper`}
+            className="mt-1 text-sm text-apple-gray dark:text-dark-text-secondary"
+          >
+            {helperText}
           </div>
         )}
       </div>
