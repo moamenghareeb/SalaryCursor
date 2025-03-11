@@ -810,17 +810,6 @@ export default function Salary() {
                 >
                   Clear
                 </button>
-                <button
-                  onClick={calculateSalary}
-                  disabled={calculationLoading}
-                  className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-                    isDarkMode
-                      ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                      : 'bg-apple-blue hover:bg-apple-blue-hover text-white'
-                  } disabled:opacity-50`}
-                >
-                  {calculationLoading ? 'Calculating...' : 'Calculate'}
-                </button>
               </div>
             </div>
 
@@ -1026,6 +1015,18 @@ export default function Salary() {
                 </div>
                 
                 <div className="pt-4 border-t border-gray-100 dark:border-gray-700">
+                  <button
+                    onClick={calculateSalary}
+                    disabled={calculationLoading}
+                    className={`w-full px-4 py-2 text-sm font-medium rounded-lg transition-colors mb-2 ${
+                      isDarkMode
+                        ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                        : 'bg-apple-blue hover:bg-apple-blue-hover text-white'
+                    } disabled:opacity-50`}
+                  >
+                    {calculationLoading ? 'Calculating...' : 'Calculate'}
+                  </button>
+                  
                   <button
                     onClick={saveSalary}
                     disabled={calculationLoading || !salaryCalc.totalSalary}
