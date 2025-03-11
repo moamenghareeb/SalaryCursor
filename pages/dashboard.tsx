@@ -16,14 +16,64 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import { formatCurrency } from '../utils/formatters';
 import { toast } from 'react-hot-toast';
 
+// Define proper types for the debug data
+interface DebugInfo {
+  queries: string[];
+  results: {
+    inLieu?: {
+      data: Array<{
+        id: string;
+        days_added?: number;
+        leave_days_added?: number;
+        status?: string;
+        date?: string;
+        [key: string]: any;
+      }>;
+      error?: any;
+    };
+    leaves?: {
+      data: Array<{
+        id: string;
+        leave_type?: string;
+        days_taken?: number;
+        status?: string;
+        start_date: string;
+        end_date: string;
+        [key: string]: any;
+      }>;
+      error?: any;
+    };
+    [key: string]: any;
+  };
+}
+
+interface LeaveServiceDebug {
+  baseLeaveBalance: number;
+  inLieuBalance: number;
+  leaveTaken: number;
+  remainingBalance: number;
+  error?: string;
+  debug?: DebugInfo;
+}
+
+// Extend Employee type to include leave_balance
+interface DashboardEmployee extends Employee {
+  leave_balance?: number;
+  annual_leave_balance?: number;
+}
+
 // Dashboard data structure - match exactly what the API returns
 type DashboardData = {
-  employee: Employee | null;
+  employee: DashboardEmployee | null;
   latestSalary: Salary | null;
   leaveBalance: number | null; // Remaining leave balance
   leaveTaken: number;
   inLieuSummary: { count: number; daysAdded: number };
   timestamp?: string; // API timestamp for debugging
+  debug?: {
+    leaveService?: LeaveServiceDebug;
+    [key: string]: any;
+  };
 };
 
 export default function Dashboard() {
@@ -105,6 +155,10 @@ export default function Dashboard() {
       }
     }
   );
+
+  // Show debug mode toggle in development only
+  const [showDebug, setShowDebug] = useState(false);
+  const isDevMode = process.env.NODE_ENV === 'development';
 
   // Manual refresh function with visual feedback
   const refreshData = async () => {
@@ -287,6 +341,149 @@ export default function Dashboard() {
                 </div>
               </div>
             </div>
+
+            {/* Debug Panel - Only in development mode */}
+            {isDevMode && (
+              <div className="mt-8">
+                <button 
+                  onClick={() => setShowDebug(!showDebug)}
+                  className="mb-4 px-3 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700"
+                >
+                  {showDebug ? 'Hide Debug Info' : 'Show Debug Info'}
+                </button>
+                
+                {showDebug && data?.debug && (
+                  <div className="bg-gray-100 dark:bg-gray-800 p-6 rounded-lg border-2 border-orange-500 overflow-auto max-h-[600px]">
+                    <h2 className="text-xl font-bold mb-4 text-orange-600 dark:text-orange-400">Leave Balance Debug Information</h2>
+                    
+                    <div className="grid gap-4">
+                      {/* Final Calculation Summary */}
+                      <div className="bg-white dark:bg-gray-700 p-4 rounded-md">
+                        <h3 className="font-bold text-lg mb-2">Final Calculation</h3>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="text-gray-700 dark:text-gray-300">Dashboard leaveBalance:</div>
+                          <div className="font-mono">{data?.leaveBalance !== null ? data.leaveBalance : 'null'}</div>
+                          
+                          <div className="text-gray-700 dark:text-gray-300">Leave Service Base Balance:</div>
+                          <div className="font-mono">{data?.debug?.leaveService?.baseLeaveBalance || 'N/A'}</div>
+                          
+                          <div className="text-gray-700 dark:text-gray-300">Leave Service In-Lieu Balance:</div>
+                          <div className="font-mono">{data?.debug?.leaveService?.inLieuBalance || 'N/A'}</div>
+                          
+                          <div className="text-gray-700 dark:text-gray-300">Leave Service Leave Taken:</div>
+                          <div className="font-mono">{data?.debug?.leaveService?.leaveTaken || 'N/A'}</div>
+                          
+                          <div className="text-gray-700 dark:text-gray-300">Leave Service Remaining Balance:</div>
+                          <div className="font-mono">{data?.debug?.leaveService?.remainingBalance || 'N/A'}</div>
+                          
+                          <div className="text-gray-700 dark:text-gray-300">Manual Calculation:</div>
+                          <div className="font-mono">
+                            {data?.debug?.leaveService ? 
+                              `${data.debug.leaveService.baseLeaveBalance} + ${data.debug.leaveService.inLieuBalance} - ${data.debug.leaveService.leaveTaken} = ${
+                                Number(data.debug.leaveService.baseLeaveBalance) + 
+                                Number(data.debug.leaveService.inLieuBalance) - 
+                                Number(data.debug.leaveService.leaveTaken)
+                              }` : 'N/A'}
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Employee Data */}
+                      <div className="bg-white dark:bg-gray-700 p-4 rounded-md">
+                        <h3 className="font-bold text-lg mb-2">Employee Record Data</h3>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="text-gray-700 dark:text-gray-300">employee.leave_balance:</div>
+                          <div className="font-mono">{data?.employee?.leave_balance !== undefined ? data.employee.leave_balance : 'N/A'}</div>
+                          
+                          <div className="text-gray-700 dark:text-gray-300">employee.annual_leave_balance:</div>
+                          <div className="font-mono">{data?.employee?.annual_leave_balance !== undefined ? data.employee.annual_leave_balance : 'N/A'}</div>
+                          
+                          <div className="text-gray-700 dark:text-gray-300">employee.years_of_service:</div>
+                          <div className="font-mono">{data?.employee?.years_of_service !== undefined ? data.employee.years_of_service : 'N/A'}</div>
+                        </div>
+                      </div>
+                      
+                      {/* Database Queries */}
+                      <div className="bg-white dark:bg-gray-700 p-4 rounded-md">
+                        <h3 className="font-bold text-lg mb-2">Database Queries Executed</h3>
+                        <ul className="list-disc pl-5">
+                          {data?.debug?.leaveService?.debug?.queries.map((query: string, index: number) => (
+                            <li key={index} className="font-mono text-sm">{query}</li>
+                          ))}
+                        </ul>
+                      </div>
+                      
+                      {/* In-Lieu Records */}
+                      {data?.debug?.leaveService?.debug?.results?.inLieu?.data && (
+                        <div className="bg-white dark:bg-gray-700 p-4 rounded-md">
+                          <h3 className="font-bold text-lg mb-2">In-Lieu Records ({data.debug.leaveService.debug.results.inLieu.data.length})</h3>
+                          <table className="min-w-full">
+                            <thead>
+                              <tr className="bg-gray-100 dark:bg-gray-600">
+                                <th className="px-2 py-1 text-left">ID</th>
+                                <th className="px-2 py-1 text-left">days_added</th>
+                                <th className="px-2 py-1 text-left">leave_days_added</th>
+                                <th className="px-2 py-1 text-left">status</th>
+                                <th className="px-2 py-1 text-left">date</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {data.debug.leaveService.debug.results.inLieu.data.map((record: any, index: number) => (
+                                <tr key={index} className={index % 2 === 0 ? 'bg-gray-50 dark:bg-gray-800' : ''}>
+                                  <td className="px-2 py-1 font-mono">{record.id}</td>
+                                  <td className="px-2 py-1 font-mono">{record.days_added !== undefined ? record.days_added : 'N/A'}</td>
+                                  <td className="px-2 py-1 font-mono">{record.leave_days_added !== undefined ? record.leave_days_added : 'N/A'}</td>
+                                  <td className="px-2 py-1 font-mono">{record.status || 'N/A'}</td>
+                                  <td className="px-2 py-1 font-mono">{record.date || 'N/A'}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                      
+                      {/* Leave Records */}
+                      {data?.debug?.leaveService?.debug?.results?.leaves?.data && (
+                        <div className="bg-white dark:bg-gray-700 p-4 rounded-md">
+                          <h3 className="font-bold text-lg mb-2">Leave Records ({data.debug.leaveService.debug.results.leaves.data.length})</h3>
+                          <table className="min-w-full">
+                            <thead>
+                              <tr className="bg-gray-100 dark:bg-gray-600">
+                                <th className="px-2 py-1 text-left">ID</th>
+                                <th className="px-2 py-1 text-left">leave_type</th>
+                                <th className="px-2 py-1 text-left">days_taken</th>
+                                <th className="px-2 py-1 text-left">status</th>
+                                <th className="px-2 py-1 text-left">dates</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {data.debug.leaveService.debug.results.leaves.data.map((record: any, index: number) => (
+                                <tr key={index} className={index % 2 === 0 ? 'bg-gray-50 dark:bg-gray-800' : ''}>
+                                  <td className="px-2 py-1 font-mono">{record.id}</td>
+                                  <td className="px-2 py-1 font-mono">{record.leave_type || 'N/A'}</td>
+                                  <td className="px-2 py-1 font-mono">{record.days_taken !== undefined ? record.days_taken : 'N/A'}</td>
+                                  <td className="px-2 py-1 font-mono">{record.status || 'N/A'}</td>
+                                  <td className="px-2 py-1 font-mono">{record.start_date} to {record.end_date}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                      
+                      {/* API Response Timestamp */}
+                      <div className="bg-white dark:bg-gray-700 p-4 rounded-md">
+                        <h3 className="font-bold text-lg mb-2">API Response Metadata</h3>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="text-gray-700 dark:text-gray-300">Timestamp:</div>
+                          <div className="font-mono">{data?.timestamp}</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Data Visualizations */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
