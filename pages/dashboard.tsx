@@ -6,7 +6,7 @@ import { useTheme } from '../lib/themeContext';
 import { useRouter } from 'next/router';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Link from 'next/link';
-import { FiCalendar, FiDollarSign, FiArrowRight, FiPieChart } from 'react-icons/fi';
+import { FiCalendar, FiDollarSign, FiArrowRight, FiPieChart, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 import { leaveService } from '../lib/leaveService';
 
 export default function Dashboard() {
@@ -23,9 +23,14 @@ export default function Dashboard() {
   const [remainingLeave, setRemainingLeave] = useState<number | null>(null);
   const [debugInfo, setDebugInfo] = useState<string | null>(null);
   
+  // Year selection states
+  const currentYear = new Date().getFullYear();
+  const [selectedYear, setSelectedYear] = useState<number>(currentYear);
+  const [availableYears, setAvailableYears] = useState<number[]>([currentYear]);
+  
   useEffect(() => {
     fetchDashboardData();
-  }, []);
+  }, [selectedYear]); // Re-fetch data when selected year changes
   
   const fetchDashboardData = async () => {
     try {
@@ -79,9 +84,27 @@ export default function Dashboard() {
         console.log('All salary records:', allSalaryRecords);
         
         if (allSalaryRecords && allSalaryRecords.length > 0) {
+          // Find all available years in the salary data
+          const years = new Set<number>();
+          allSalaryRecords.forEach(record => {
+            if (record.month) {
+              const yearMatch = String(record.month).match(/\b(20\d{2})\b/);
+              if (yearMatch && yearMatch[1]) {
+                years.add(parseInt(yearMatch[1]));
+              }
+            }
+          });
+          
+          // Add current year if it doesn't exist in records
+          years.add(currentYear);
+          
+          // Set available years in descending order (newest first)
+          setAvailableYears(Array.from(years).sort((a, b) => b - a));
+          
           // Store debug info
           setDebugInfo(`Found ${allSalaryRecords.length} total salary records. 
-            Most recent: ${JSON.stringify(allSalaryRecords[0])}`);
+            Most recent: ${JSON.stringify(allSalaryRecords[0])}
+            Available years: ${Array.from(years).join(', ')}`);
           
           // Check if we have the current month data in ANY format
           const year = currentYear;
@@ -117,31 +140,31 @@ export default function Dashboard() {
             setCurrentSalary(mostRecent.total_salary);
           }
           
-          // Calculate yearly total by filtering and summing records for the current year
-          const currentYearRecords = allSalaryRecords.filter(record => {
+          // Calculate yearly total by filtering and summing records for the selected year
+          const yearRecords = allSalaryRecords.filter(record => {
             if (!record.month) return false;
             const monthStr = String(record.month).trim();
-            // Check if the record's month string contains the current year
-            return monthStr.includes(String(currentYear));
+            // Check if the record's month string contains the selected year
+            return monthStr.includes(String(selectedYear));
           });
           
-          if (currentYearRecords.length > 0) {
+          if (yearRecords.length > 0) {
             // Calculate total and organize monthly data
-            const yearlySum = currentYearRecords.reduce((sum, record) => sum + (record.total_salary || 0), 0);
+            const yearlySum = yearRecords.reduce((sum, record) => sum + (record.total_salary || 0), 0);
             setYearlyTotal(yearlySum);
             
             // Prepare monthly breakdown for display
             const monthlyData = [];
             for (let m = 1; m <= 12; m++) {
-              const monthRecords = currentYearRecords.filter(record => {
+              const monthRecords = yearRecords.filter(record => {
                 const monthStr = String(record.month).trim();
                 const monthFormats = [
-                  `${currentYear}-${String(m).padStart(2, '0')}`,
-                  `${currentYear}-${m}`,
-                  `${m}/${currentYear}`,
-                  `${String(m).padStart(2, '0')}/${currentYear}`,
-                  `${m}-${currentYear}`,
-                  `${String(m).padStart(2, '0')}-${currentYear}`
+                  `${selectedYear}-${String(m).padStart(2, '0')}`,
+                  `${selectedYear}-${m}`,
+                  `${m}/${selectedYear}`,
+                  `${String(m).padStart(2, '0')}/${selectedYear}`,
+                  `${m}-${selectedYear}`,
+                  `${String(m).padStart(2, '0')}-${selectedYear}`
                 ];
                 return monthFormats.some(format => 
                   monthStr === format || monthStr.startsWith(format + '-') || monthStr.includes(format)
@@ -150,7 +173,7 @@ export default function Dashboard() {
               
               if (monthRecords.length > 0) {
                 const monthTotal = monthRecords.reduce((sum, record) => sum + (record.total_salary || 0), 0);
-                const monthName = new Date(currentYear, m-1, 1).toLocaleString('default', { month: 'long' });
+                const monthName = new Date(selectedYear, m-1, 1).toLocaleString('default', { month: 'long' });
                 monthlyData.push({
                   month: m,
                   name: monthName,
@@ -162,13 +185,15 @@ export default function Dashboard() {
             setMonthlySalaries(monthlyData);
             console.log('Monthly breakdown:', monthlyData);
           } else {
-            console.log('No records found for current year');
+            console.log('No records found for selected year:', selectedYear);
             setYearlyTotal(null);
+            setMonthlySalaries([]);
           }
         } else {
           console.log('No salary records found at all');
           setCurrentSalary(null);
           setYearlyTotal(null);
+          setMonthlySalaries([]);
         }
       }
       
@@ -186,6 +211,27 @@ export default function Dashboard() {
       setError('An unexpected error occurred. Please try again later.');
     } finally {
       setLoading(false);
+    }
+  };
+  
+  // Handler for changing the selected year
+  const handleYearChange = (year: number) => {
+    setSelectedYear(year);
+  };
+  
+  // Go to previous year
+  const goToPreviousYear = () => {
+    const currentIndex = availableYears.indexOf(selectedYear);
+    if (currentIndex < availableYears.length - 1) {
+      setSelectedYear(availableYears[currentIndex + 1]);
+    }
+  };
+  
+  // Go to next year
+  const goToNextYear = () => {
+    const currentIndex = availableYears.indexOf(selectedYear);
+    if (currentIndex > 0) {
+      setSelectedYear(availableYears[currentIndex - 1]);
     }
   };
   
@@ -319,9 +365,52 @@ export default function Dashboard() {
           <div className="flex justify-between items-start mb-4">
             <div>
               <h2 className="text-xl font-semibold text-apple-gray-dark dark:text-dark-text-primary">Yearly Salary Summary</h2>
-              <p className="text-sm text-apple-gray dark:text-dark-text-secondary mt-1">
-                Total earnings for {new Date().getFullYear()}
-              </p>
+              
+              {/* Year selector */}
+              <div className="flex items-center mt-2 space-x-2">
+                <button 
+                  onClick={goToPreviousYear}
+                  disabled={availableYears.indexOf(selectedYear) === availableYears.length - 1}
+                  className={`p-1 rounded-full ${
+                    isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-200'
+                  } ${
+                    availableYears.indexOf(selectedYear) === availableYears.length - 1 ? 'opacity-30 cursor-not-allowed' : ''
+                  }`}
+                >
+                  <FiChevronLeft className="w-4 h-4 text-apple-gray-dark dark:text-dark-text-secondary" />
+                </button>
+                
+                <div className="relative">
+                  <select 
+                    value={selectedYear}
+                    onChange={(e) => handleYearChange(parseInt(e.target.value))}
+                    className={`appearance-none bg-transparent pr-8 pl-2 py-1 rounded-md border ${
+                      isDarkMode ? 'border-gray-600 text-white' : 'border-gray-300 text-gray-900'
+                    } focus:outline-none focus:ring-1 focus:ring-purple-500`}
+                  >
+                    {availableYears.map(year => (
+                      <option key={year} value={year}>{year}</option>
+                    ))}
+                  </select>
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2">
+                    <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                </div>
+                
+                <button 
+                  onClick={goToNextYear}
+                  disabled={availableYears.indexOf(selectedYear) === 0}
+                  className={`p-1 rounded-full ${
+                    isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-200'
+                  } ${
+                    availableYears.indexOf(selectedYear) === 0 ? 'opacity-30 cursor-not-allowed' : ''
+                  }`}
+                >
+                  <FiChevronRight className="w-4 h-4 text-apple-gray-dark dark:text-dark-text-secondary" />
+                </button>
+              </div>
             </div>
             <div className={`p-3 rounded-full ${isDarkMode ? 'bg-purple-900/20' : 'bg-purple-50'}`}>
               <FiPieChart className={`w-6 h-6 ${isDarkMode ? 'text-purple-400' : 'text-purple-600'}`} />
@@ -334,7 +423,7 @@ export default function Dashboard() {
             </p>
             {!yearlyTotal && (
               <p className="text-sm text-yellow-600 dark:text-yellow-400 mt-2">
-                No salary records found for {new Date().getFullYear()}
+                No salary records found for {selectedYear}
               </p>
             )}
           </div>
