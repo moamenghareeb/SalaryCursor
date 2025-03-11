@@ -1289,34 +1289,44 @@ export default function Leave() {
             
             {/* Tabs for Leave History and In-Lieu Records */}
             <div className="border-b border-gray-200 dark:border-dark-border mb-6">
-              <div className="flex space-x-6">
+              <div className="flex">
                 <button
-                  className={`pb-3 px-3 text-sm font-medium border-b-2 transition-colors ${
+                  className={`pb-3 px-5 text-sm font-medium transition-colors relative ${
                     !showInLieuForm
                       ? (isDarkMode 
-                          ? 'border-blue-500 text-blue-400'
-                          : 'border-apple-blue text-apple-blue')
+                          ? 'text-blue-400'
+                          : 'text-apple-blue')
                       : (isDarkMode
-                          ? 'border-transparent text-dark-text-secondary hover:text-dark-text-primary'
-                          : 'border-transparent text-apple-gray hover:text-apple-gray-dark')
+                          ? 'text-dark-text-secondary hover:text-dark-text-primary'
+                          : 'text-apple-gray hover:text-apple-gray-dark')
                   }`}
                   onClick={() => setShowInLieuForm(false)}
                 >
                   Leave Requests
+                  {!showInLieuForm && (
+                    <span className={`absolute bottom-0 left-0 w-full h-0.5 ${
+                      isDarkMode ? 'bg-blue-500' : 'bg-apple-blue'
+                    }`}></span>
+                  )}
                 </button>
                 <button
-                  className={`pb-3 px-3 text-sm font-medium border-b-2 transition-colors ${
+                  className={`pb-3 px-5 text-sm font-medium transition-colors relative ${
                     showInLieuForm
                       ? (isDarkMode 
-                          ? 'border-blue-500 text-blue-400'
-                          : 'border-apple-blue text-apple-blue')
+                          ? 'text-blue-400'
+                          : 'text-apple-blue')
                       : (isDarkMode
-                          ? 'border-transparent text-dark-text-secondary hover:text-dark-text-primary'
-                          : 'border-transparent text-apple-gray hover:text-apple-gray-dark')
+                          ? 'text-dark-text-secondary hover:text-dark-text-primary'
+                          : 'text-apple-gray hover:text-apple-gray-dark')
                   }`}
                   onClick={() => setShowInLieuForm(true)}
                 >
                   In-Lieu Records
+                  {showInLieuForm && (
+                    <span className={`absolute bottom-0 left-0 w-full h-0.5 ${
+                      isDarkMode ? 'bg-blue-500' : 'bg-apple-blue'
+                    }`}></span>
+                  )}
                 </button>
               </div>
             </div>

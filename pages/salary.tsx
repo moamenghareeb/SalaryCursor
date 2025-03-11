@@ -802,14 +802,22 @@ to add the missing absences column to the salaries table.
               <div className="flex items-center space-x-2">
                 <button
                   onClick={clearSavedInputs}
-                  className="px-4 py-2 text-sm text-apple-gray-dark dark:text-gray-300 bg-apple-gray-light dark:bg-gray-800 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700"
+                  className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                    isDarkMode
+                      ? 'bg-dark-bg text-dark-text-primary hover:bg-dark-surface-light border border-gray-700'
+                      : 'bg-white text-apple-gray-dark hover:bg-gray-100 border border-gray-200'
+                  }`}
                 >
                   Clear
                 </button>
                 <button
                   onClick={calculateSalary}
                   disabled={calculationLoading}
-                  className="px-4 py-2 text-sm text-white bg-apple-blue dark:bg-blue-600 rounded-full hover:bg-blue-600 dark:hover:bg-blue-500 disabled:opacity-50"
+                  className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                    isDarkMode
+                      ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                      : 'bg-apple-blue hover:bg-apple-blue-hover text-white'
+                  } disabled:opacity-50`}
                 >
                   {calculationLoading ? 'Calculating...' : 'Calculate'}
                 </button>
@@ -937,7 +945,11 @@ to add the missing absences column to the salaries table.
                   <button
                     onClick={saveSalary}
                     disabled={calculationLoading || !salaryCalc.totalSalary}
-                    className="w-full px-4 py-2 bg-apple-blue dark:bg-blue-600 text-white rounded-full hover:bg-apple-blue-hover dark:hover:bg-blue-500 disabled:opacity-50"
+                    className={`w-full px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                      isDarkMode
+                        ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                        : 'bg-apple-blue hover:bg-apple-blue-hover text-white'
+                    } disabled:opacity-50`}
                   >
                     {calculationLoading ? 'Saving...' : 'Save Salary'}
                   </button>
@@ -972,15 +984,19 @@ to add the missing absences column to the salaries table.
                           }).catch(error => {
                             setPdfLoading(false);
                             console.error('PDF generation error:', error);
-                            alert(`Error generating PDF: ${error.message || 'Unknown error'}`);
+                            toast.error(`Error generating PDF: ${error.message || 'Unknown error'}`);
                           });
                         } catch (error) {
                           setPdfLoading(false);
                           console.error('PDF generation error:', error);
-                          alert(`Error generating PDF: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                          toast.error(`Error generating PDF: ${error instanceof Error ? error.message : 'Unknown error'}`);
                         }
                       }}
-                      className="w-full mt-2 px-4 py-2 bg-apple-gray-light dark:bg-gray-700 text-apple-gray-dark dark:text-gray-300 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                      className={`w-full mt-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                        isDarkMode
+                          ? 'bg-dark-bg text-dark-text-primary hover:bg-dark-surface-light border border-gray-700'
+                          : 'bg-white text-apple-gray-dark hover:bg-gray-100 border border-gray-200'
+                      }`}
                     >
                       Generate PDF
                     </button>
