@@ -3,6 +3,50 @@ import { supabase } from '../../../lib/supabase';
 import { leaveService } from '../../../lib/leaveService';
 import { logger } from '../../../lib/logger';
 
+interface InLieuRecord {
+  id: string;
+  employee_id: string;
+  date: string;
+  days_added: number;
+  leave_days_added: number;
+  created_at: string;
+  updated_at: string;
+}
+
+interface LeaveRecord {
+  id: string;
+  employee_id: string;
+  start_date: string;
+  end_date: string;
+  days: number;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface EmployeeRecord {
+  id: string;
+  employee_id: number;
+  name: string;
+  email: string;
+  position: string;
+  leave_balance: number;
+  annual_leave_balance: number;
+  joining_date: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface DebugResult {
+  leaveServiceCalculation: any; // Using any for now since we don't have the type from leaveService
+  employeeRecord: EmployeeRecord | null;
+  rawInLieuRecords: InLieuRecord[];
+  rawLeaveRecords: LeaveRecord[];
+  calculatedValues: {
+    timestamp: string;
+  };
+}
+
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
@@ -31,11 +75,11 @@ export default async function handler(
     const userId = userData.user.id;
     
     // Get comprehensive debug information
-    const result = {
+    const result: DebugResult = {
       leaveServiceCalculation: await leaveService.calculateLeaveBalance(userId),
       employeeRecord: null,
-      rawInLieuRecords: null,
-      rawLeaveRecords: null,
+      rawInLieuRecords: [],
+      rawLeaveRecords: [],
       calculatedValues: {
         timestamp: new Date().toISOString()
       }
@@ -56,7 +100,7 @@ export default async function handler(
       .select('*')
       .eq('employee_id', userId);
       
-    result.rawInLieuRecords = inLieuData;
+    result.rawInLieuRecords = inLieuData || [];
     
     // Fetch raw leave records for this year
     const currentYear = new Date().getFullYear();
@@ -70,7 +114,7 @@ export default async function handler(
       .gte('start_date', startOfYear)
       .lte('end_date', endOfYear);
       
-    result.rawLeaveRecords = leaveData;
+    result.rawLeaveRecords = leaveData || [];
     
     // Return all debug information
     return res.status(200).json(result);
