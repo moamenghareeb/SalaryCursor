@@ -9,7 +9,7 @@ import { User } from '@supabase/supabase-js';
 import Head from 'next/head';
 import { useTheme } from '../lib/themeContext';
 import toast from 'react-hot-toast';
-import { FiRefreshCw } from 'react-icons/fi';
+import { FiRefreshCw, FiCalendar } from 'react-icons/fi';
 
 // Register fonts - use direct font import
 Font.register({
@@ -35,7 +35,16 @@ export default function Salary() {
   const [pdfLoading, setPdfLoading] = useState(false);
   const [exchangeRate, setExchangeRate] = useState(31.50); // Default fallback
   const [rateLastUpdated, setRateLastUpdated] = useState('');
-  const [month, setMonth] = useState(new Date().toISOString().substring(0, 7));
+  
+  // Date selection state
+  const currentDate = new Date();
+  const currentYear = currentDate.getFullYear();
+  const currentMonth = currentDate.getMonth() + 1; // 1-12 format
+  
+  const [selectedMonth, setSelectedMonth] = useState(currentMonth);
+  const [selectedYear, setSelectedYear] = useState(currentYear);
+  const [month, setMonth] = useState(`${currentYear}-${String(currentMonth).padStart(2, '0')}`);
+  
   const [salaryHistory, setSalaryHistory] = useState<any[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
@@ -69,6 +78,43 @@ export default function Salary() {
   };
 
   const [salaryCalc, setSalaryCalc] = useState<SalaryCalculation>(defaultSalaryCalc);
+
+  // Function to handle date changes
+  const handleDateChange = (year: number, month: number) => {
+    setSelectedYear(year);
+    setSelectedMonth(month);
+    setMonth(`${year}-${String(month).padStart(2, '0')}`);
+    
+    // Look for existing salary record for this month/year
+    if (salaryHistory && salaryHistory.length > 0) {
+      const formattedMonth = `${year}-${String(month).padStart(2, '0')}`;
+      const existingRecord = salaryHistory.find(salary => {
+        const salaryDate = new Date(salary.month);
+        const salaryYear = salaryDate.getFullYear();
+        const salaryMonth = salaryDate.getMonth() + 1;
+        return salaryYear === year && salaryMonth === month;
+      });
+      
+      if (existingRecord) {
+        // Use existing record
+        setSalaryCalc({
+          basicSalary: existingRecord.basic_salary,
+          costOfLiving: existingRecord.cost_of_living,
+          shiftAllowance: existingRecord.shift_allowance,
+          overtimeHours: existingRecord.overtime_hours,
+          overtimePay: existingRecord.overtime_pay,
+          variablePay: existingRecord.variable_pay,
+          deduction: existingRecord.deduction,
+          totalSalary: existingRecord.total_salary,
+          exchangeRate: existingRecord.exchange_rate,
+        });
+        toast.success(`Loaded existing salary record for ${new Date(existingRecord.month).toLocaleDateString('en-US', {month: 'long', year: 'numeric'})}`);
+      } else {
+        // Keep current form values for a new record
+        toast(`No existing record for ${new Date(year, month-1).toLocaleDateString('en-US', {month: 'long', year: 'numeric'})}. You can create a new one.`);
+      }
+    }
+  };
 
   // Modified useEffects to guarantee localStorage priority
   useEffect(() => {
@@ -308,138 +354,65 @@ export default function Salary() {
         exchange_rate: exchangeRate,
       };
       
-      console.log('Saving salary data:', salaryData);
+      // Check if a record for this month already exists
+      const { data: existingData, error: existingError } = await supabase
+        .from('salaries')
+        .select('id')
+        .eq('employee_id', employee.id)
+        .eq('month', `${month}-01`)
+        .limit(1);
       
-      // Always save to localStorage before sending to API
-      saveInputsToLocalStorage(salaryCalc);
+      let result;
       
-      // Use the new unified API endpoint with explicit token
-      const response = await fetch('/api/salary/', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`
-        },
-        body: JSON.stringify(salaryData),
-        credentials: 'include', // Still include cookies as a fallback
-      });
-      
-      if (!response.ok) {
-        let errorText = 'Failed to save salary';
-        let errorDetails = '';
-        let missingColumn = '';
-        
-        try {
-          const errorData = await response.json();
-          errorText = errorData.error || errorText;
-          errorDetails = errorData.details || '';
-          missingColumn = errorData.missingColumn || '';
-        } catch (e) {
-          // If we can't parse JSON, use the status text
-          errorText = `${errorText}: ${response.statusText}`;
-        }
-        
-        // Special handling for missing absences column
-        if (missingColumn === 'absences' || errorText.includes('absences column')) {
-          const isProduction = errorText.includes('production environment') || 
-                              window.location.hostname !== 'localhost';
-          
-          if (isProduction) {
-            // Show instructions for production environments
-            alert(`
-DATABASE SCHEMA ERROR: Missing 'absences' column
-
-This is a production environment where automated schema fixes aren't possible.
-Please have your database administrator run the following SQL in your Supabase SQL Editor:
-
-ALTER TABLE salaries ADD COLUMN IF NOT EXISTS absences DECIMAL(10, 2) DEFAULT 0;
-SELECT refresh_schema_cache();
-
-After running this SQL, refresh the page and try again.
-            `);
-          } else {
-            // For development environments, offer automated fix
-            const fixIt = confirm(`
-Database schema error: The 'absences' column is missing from your database.
-
-Would you like to automatically apply a fix to add this column?
-            `);
-            
-            if (fixIt) {
-              // Try to apply the fix directly
-              try {
-                console.log('Attempting to fix absences column...');
-                
-                const fixResponse = await fetch('/api/admin/fix-schema', {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${session.access_token}`
-                  },
-                  body: JSON.stringify({ 
-                    fix: 'add_absences_column',
-                    migration: '20240305_add_absences_column.sql' 
-                  })
-                });
-                
-                if (fixResponse.ok) {
-                  alert('Schema fixed successfully! Retrying to save salary data...');
-                  
-                  // Wait a moment for schema to update
-                  await new Promise(resolve => setTimeout(resolve, 2000));
-                  
-                  // Try saving again recursively (only once)
-                  await saveSalary();
-                  return;
-                } else {
-                  const fixErrorData = await fixResponse.json();
-                  throw new Error(`Failed to fix schema: ${fixErrorData.error || 'Unknown error'}`);
-                }
-              } catch (fixError) {
-                console.error('Error fixing schema:', fixError);
-                alert(`
-Could not automatically fix the database schema. Please:
-
-1. Run the migration script "20240305_add_absences_column.sql" in your Supabase project
-2. Refresh the page and try again
-
-Technical details: ${fixError instanceof Error ? fixError.message : 'Unknown error'}
-                `);
-              }
-            } else {
-              alert(`
-Please have your database administrator run the migration script "20240305_add_absences_column.sql"
-to add the missing absences column to the salaries table.
-              `);
-            }
-          }
-          
-          throw new Error(errorText);
-        }
-        
-        // For other errors, just show the error message
-        if (errorDetails) {
-          throw new Error(`${errorText}\n\n${errorDetails}`);
-        } else {
-          throw new Error(errorText);
-        }
+      if (existingError) {
+        throw new Error(`Error checking for existing records: ${existingError.message}`);
       }
       
-      // Refresh salary history immediately using the new API
+      if (existingData && existingData.length > 0) {
+        // Update existing record
+        const { data, error } = await supabase
+          .from('salaries')
+          .update(salaryData)
+          .eq('id', existingData[0].id)
+          .select();
+          
+        if (error) throw error;
+        result = data;
+      } else {
+        // Insert new record
+        const { data, error } = await supabase
+          .from('salaries')
+          .insert(salaryData)
+          .select();
+          
+        if (error) throw error;
+        result = data;
+      }
+      
+      // Also save a history record in the calculation table
+      const { error: calcError } = await supabase
+        .from('salary_calculations')
+        .insert({
+          ...salaryData,
+        });
+        
+      if (calcError) {
+        console.error('Error saving calculation history:', calcError);
+      }
+      
+      toast.success('Salary saved successfully!');
+      
+      // Refresh salary history
       await fetchSalaryHistory();
       
-      // Update localStorage again after successful save
-      saveInputsToLocalStorage(salaryCalc);
-      
-      alert('Salary saved successfully!');
-    } catch (error) {
-      console.error('Error in saveSalary:', error);
-      alert(error instanceof Error ? error.message : 'Failed to save salary. Please try again.');
+    } catch (error: any) {
+      console.error('Error saving salary:', error);
+      toast.error(`Error saving salary: ${error.message}`);
     } finally {
       setCalculationLoading(false);
     }
   };
-  
+
   const fetchSalaryHistory = async () => {
     try {
       if (!employee) return;
@@ -451,22 +424,49 @@ to add the missing absences column to the salaries table.
         throw new Error('Authentication error. Please sign in again.');
       }
       
-      // Use the new unified API endpoint with explicit token
-      const response = await fetch(`/api/salary/?employee_id=${employee.id}`, {
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`
-        },
-        credentials: 'include', // Still include cookies as a fallback
-      });
+      console.log(`Fetching salary history for employee ${employee.id}`);
       
-      if (!response.ok) {
-        console.error('Error fetching salary history:', response.statusText);
-        toast.error(`Error fetching salary history: ${response.status} ${response.statusText}`);
+      // Fetch from Supabase directly to improve reliability
+      const { data, error } = await supabase
+        .from('salaries')
+        .select('*')
+        .eq('employee_id', employee.id)
+        .order('month', { ascending: false });
+      
+      if (error) {
+        console.error('Error fetching salary history from Supabase:', error);
+        toast.error(`Error fetching salary history: ${error.message}`);
         return;
       }
       
-      const data = await response.json();
+      console.log(`Found ${data?.length || 0} salary records`);
       setSalaryHistory(data || []);
+      
+      // Check if we need to auto-load the currently selected month/year
+      if (data && data.length > 0 && selectedMonth && selectedYear) {
+        const existingRecord = data.find(salary => {
+          const salaryDate = new Date(salary.month);
+          const salaryYear = salaryDate.getFullYear();
+          const salaryMonth = salaryDate.getMonth() + 1;
+          return salaryYear === selectedYear && salaryMonth === selectedMonth;
+        });
+        
+        if (existingRecord) {
+          console.log(`Auto-loading record for ${selectedYear}-${selectedMonth}`);
+          // Auto-load the record for the selected month
+          setSalaryCalc({
+            basicSalary: existingRecord.basic_salary,
+            costOfLiving: existingRecord.cost_of_living,
+            shiftAllowance: existingRecord.shift_allowance,
+            overtimeHours: existingRecord.overtime_hours,
+            overtimePay: existingRecord.overtime_pay,
+            variablePay: existingRecord.variable_pay,
+            deduction: existingRecord.deduction,
+            totalSalary: existingRecord.total_salary,
+            exchangeRate: existingRecord.exchange_rate,
+          });
+        }
+      }
     } catch (error) {
       console.error('Error fetching salary history:', error);
       // More detailed error reporting
@@ -824,6 +824,90 @@ to add the missing absences column to the salaries table.
               </div>
             </div>
 
+            {/* Month/Year Picker */}
+            <div className="mb-6 p-4 bg-apple-gray-light dark:bg-gray-800 rounded-lg">
+              <div className="flex items-center mb-3">
+                <FiCalendar className="w-5 h-5 mr-2 text-apple-blue dark:text-blue-400" />
+                <h3 className="text-sm font-medium text-apple-gray-dark dark:text-dark-text-primary">
+                  Select Month & Year
+                </h3>
+              </div>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-apple-gray-dark dark:text-dark-text-secondary mb-1">
+                    Month
+                  </label>
+                  <select 
+                    value={selectedMonth}
+                    onChange={(e) => handleDateChange(selectedYear, parseInt(e.target.value))}
+                    className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-dark-surface focus:ring-1 focus:ring-apple-blue dark:focus:ring-blue-600 focus:border-apple-blue dark:focus:border-blue-600 outline-none"
+                  >
+                    <option value={1}>January</option>
+                    <option value={2}>February</option>
+                    <option value={3}>March</option>
+                    <option value={4}>April</option>
+                    <option value={5}>May</option>
+                    <option value={6}>June</option>
+                    <option value={7}>July</option>
+                    <option value={8}>August</option>
+                    <option value={9}>September</option>
+                    <option value={10}>October</option>
+                    <option value={11}>November</option>
+                    <option value={12}>December</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-apple-gray-dark dark:text-dark-text-secondary mb-1">
+                    Year
+                  </label>
+                  <select 
+                    value={selectedYear}
+                    onChange={(e) => handleDateChange(parseInt(e.target.value), selectedMonth)}
+                    className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-dark-surface focus:ring-1 focus:ring-apple-blue dark:focus:ring-blue-600 focus:border-apple-blue dark:focus:border-blue-600 outline-none"
+                  >
+                    {/* Generate years from 2020 to current year + 1 */}
+                    {Array.from({ length: currentYear - 2020 + 2 }, (_, i) => (
+                      <option key={2020 + i} value={2020 + i}>
+                        {2020 + i}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                
+                <div className="flex items-end">
+                  <button
+                    onClick={() => handleDateChange(currentYear, currentMonth)}
+                    className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors w-full ${
+                      isDarkMode
+                        ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                        : 'bg-apple-blue hover:bg-apple-blue-hover text-white'
+                    }`}
+                  >
+                    <div className="flex items-center justify-center">
+                      <FiRefreshCw className="w-4 h-4 mr-2" />
+                      Current Month
+                    </div>
+                  </button>
+                </div>
+              </div>
+              
+              {salaryHistory && salaryHistory.length > 0 && (
+                <div className="mt-3 text-sm text-apple-gray dark:text-dark-text-secondary">
+                  {salaryHistory.find(salary => {
+                    const salaryDate = new Date(salary.month);
+                    const salaryYear = salaryDate.getFullYear();
+                    const salaryMonth = salaryDate.getMonth() + 1;
+                    return salaryYear === selectedYear && salaryMonth === selectedMonth;
+                  }) 
+                    ? <span className="text-green-600 dark:text-green-400">✓ Saved record exists for this month</span>
+                    : <span className="text-amber-600 dark:text-amber-400">No saved record for this month yet</span>
+                  }
+                </div>
+              )}
+            </div>
+
             {/* Calculator form */}
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-4">
@@ -1041,46 +1125,125 @@ to add the missing absences column to the salaries table.
                 </tr>
               </thead>
               <tbody>
-                {salaryHistory.map((salary, index) => (
-                  <tr key={index} className="border-b border-gray-50 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800">
-                    <td className="py-3 px-4 text-apple-gray dark:text-dark-text-primary">
-                      {new Date(salary.month).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'long'
-                      })}
-                    </td>
-                    <td className="text-right py-3 px-4 text-apple-gray dark:text-dark-text-primary">
-                      EGP {salary.basic_salary.toFixed(2)}
-                    </td>
-                    <td className="text-right py-3 px-4 text-apple-gray dark:text-dark-text-primary">
-                      EGP {salary.total_salary.toFixed(2)}
-                    </td>
-                    <td className="text-right py-3 px-4">
-                      <a
-                        href="#"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          downloadPDF(salary);
-                        }}
-                        className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-colors ${
-                          isDarkMode
-                            ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                            : 'bg-apple-blue hover:bg-apple-blue-hover text-white'
+                {salaryHistory && salaryHistory.length > 0 ? (
+                  salaryHistory.sort((a, b) => new Date(b.month).getTime() - new Date(a.month).getTime()).map((salary) => {
+                    const salaryDate = new Date(salary.month);
+                    const salaryYear = salaryDate.getFullYear();
+                    const salaryMonth = salaryDate.getMonth() + 1;
+                    const isCurrentSelection = salaryYear === selectedYear && salaryMonth === selectedMonth;
+                    
+                    return (
+                      <tr 
+                        key={salary.id} 
+                        className={`border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors ${
+                          isCurrentSelection ? 'bg-blue-50 dark:bg-blue-900/20' : ''
                         }`}
                       >
-                        View PDF
-                      </a>
+                        <td className="py-3 px-4">
+                          <div className="flex items-center">
+                            {isCurrentSelection && (
+                              <div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
+                            )}
+                            <span className={isCurrentSelection ? 'font-medium text-blue-600 dark:text-blue-400' : ''}>
+                              {new Date(salary.month).toLocaleDateString('en-US', {
+                                year: 'numeric',
+                                month: 'long'
+                              })}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="text-right py-3 px-4">
+                          {salary.basic_salary.toLocaleString('en-US', { maximumFractionDigits: 2 })}
+                        </td>
+                        <td className="text-right py-3 px-4 font-medium">
+                          {salary.total_salary.toLocaleString('en-US', { maximumFractionDigits: 2 })}
+                        </td>
+                        <td className="text-right py-2 px-4">
+                          <div className="flex justify-end space-x-2">
+                            <button
+                              onClick={() => handleDateChange(salaryYear, salaryMonth)}
+                              className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
+                                isDarkMode
+                                  ? 'bg-gray-800 text-white hover:bg-gray-700'
+                                  : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
+                              }`}
+                            >
+                              Load
+                            </button>
+                            <button
+                              onClick={() => {
+                                try {
+                                  // Generate PDF for historical salary
+                                  setPdfLoading(true);
+                                  
+                                  const historicalSalaryData: SalaryCalculation = {
+                                    basicSalary: salary.basic_salary,
+                                    costOfLiving: salary.cost_of_living,
+                                    shiftAllowance: salary.shift_allowance,
+                                    overtimeHours: salary.overtime_hours,
+                                    overtimePay: salary.overtime_pay,
+                                    variablePay: salary.variable_pay,
+                                    deduction: salary.deduction,
+                                    totalSalary: salary.total_salary,
+                                    exchangeRate: salary.exchange_rate,
+                                  };
+                                  
+                                  const formattedMonth = new Date(salary.month).toISOString().substring(0, 7);
+                                  
+                                  const MyDocument = () => (
+                                    <Document>
+                                      <SalaryPDF 
+                                        salary={historicalSalaryData}
+                                        employee={employee as Employee} 
+                                        month={formattedMonth}
+                                        exchangeRate={salary.exchange_rate}
+                                      />
+                                    </Document>
+                                  );
+                                  
+                                  const pdfBlob = pdf(<MyDocument />).toBlob();
+                                  pdfBlob.then(blob => {
+                                    setPdfLoading(false);
+                                    const url = URL.createObjectURL(blob);
+                                    const link = document.createElement('a');
+                                    link.href = url;
+                                    link.download = `${employee?.name}_salary_${formattedMonth}.pdf`;
+                                    link.click();
+                                    // Clean up the URL object after download
+                                    setTimeout(() => URL.revokeObjectURL(url), 100);
+                                  }).catch(error => {
+                                    setPdfLoading(false);
+                                    console.error('PDF generation error:', error);
+                                    toast.error(`Error generating PDF: ${error.message || 'Unknown error'}`);
+                                  });
+                                } catch (error) {
+                                  setPdfLoading(false);
+                                  console.error('PDF generation error:', error);
+                                  toast.error(`Error generating PDF: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                                }
+                              }}
+                              className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
+                                isDarkMode
+                                  ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                                  : 'bg-apple-blue hover:bg-apple-blue-hover text-white'
+                              }`}
+                            >
+                              PDF
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td colSpan={4} className="py-8 text-center text-apple-gray dark:text-dark-text-secondary">
+                      No salary history available
                     </td>
                   </tr>
-                ))}
+                )}
               </tbody>
             </table>
-
-            {salaryHistory.length === 0 && (
-              <div className="text-center py-8">
-                <p className="text-apple-gray dark:text-dark-text-secondary">No salary history available</p>
-              </div>
-            )}
           </div>
         </div>
       </div>
