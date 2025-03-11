@@ -58,22 +58,40 @@ export default function Dashboard() {
       
       setEmployee(employeeData);
       
-      // Fetch current month's salary data
+      // Fetch current month's salary data with improved month detection
       const currentDate = new Date();
-      const currentMonthYear = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+      const year = currentDate.getFullYear();
+      const month = currentDate.getMonth() + 1; // 1-12 format
       
+      // Try multiple formats to ensure we catch the right record
       const { data: salaryData, error: salaryError } = await supabase
         .from('salaries')
-        .select('total_salary')
+        .select('*')
         .eq('employee_id', userId)
-        .like('month', `${currentMonthYear}%`)
+        .or(`month.ilike.${year}-${String(month).padStart(2, '0')}%,month.ilike.${year}-${month}%,month.eq.${year}-${month},month.eq.${month}/${year}`)
         .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
+        .limit(10);
       
-      if (!salaryError && salaryData) {
-        setCurrentSalary(salaryData.total_salary);
+      console.log('Salary query results:', salaryData);
+      
+      if (!salaryError && salaryData && salaryData.length > 0) {
+        // Log all returned records for debugging
+        console.log('Found salary records:', salaryData);
+        setCurrentSalary(salaryData[0].total_salary);
       } else {
+        console.log('No salary records found for', year, month);
+        console.log('Salary error:', salaryError);
+        
+        // Try a broader search just to see if any records exist
+        const { data: allSalaries } = await supabase
+          .from('salaries')
+          .select('month, total_salary, created_at')
+          .eq('employee_id', userId)
+          .order('created_at', { ascending: false })
+          .limit(3);
+          
+        console.log('Latest salary records:', allSalaries);
+        
         // No error handling needed - just set to null (will display as 0)
         setCurrentSalary(null);
       }

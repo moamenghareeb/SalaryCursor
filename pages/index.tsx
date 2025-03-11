@@ -10,11 +10,21 @@ export default function Home() {
   useEffect(() => {
     if (!loading) {
       if (user) {
-        router.push('/dashboard');
+        router.replace('/dashboard');
       } else {
-        router.push('/login');
+        router.replace('/login');
       }
     }
+  }, [user, loading, router]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (user && !loading && router.pathname === '/') {
+        router.replace('/dashboard');
+      }
+    }, 500);
+    
+    return () => clearTimeout(timer);
   }, [user, loading, router]);
 
   return (
