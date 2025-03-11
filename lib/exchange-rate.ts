@@ -3,6 +3,7 @@ import { supabase } from './supabase';
 
 const EXCHANGE_RATE_CACHE_KEY = 'current_exchange_rate';
 const CACHE_TTL = 1 * 60 * 60 * 1000; // 1 hour in milliseconds
+const DEFAULT_EXCHANGE_RATE = 50.60; // Latest default fallback rate
 
 // Get the current exchange rate with auto-update
 export async function getCurrentExchangeRate(): Promise<{ rate: number; lastUpdated: string }> {
@@ -13,7 +14,29 @@ export async function getCurrentExchangeRate(): Promise<{ rate: number; lastUpda
       return cachedRate;
     }
 
-    // If not in cache, fetch new rate
+    // Try to get the most recent rate from the database
+    try {
+      const { data: dbRate, error } = await supabase
+        .from('exchange_rates')
+        .select('rate, created_at')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+      
+      if (!error && dbRate && dbRate.rate) {
+        const data = {
+          rate: dbRate.rate,
+          lastUpdated: dbRate.created_at
+        };
+        // Cache the rate from database
+        cache.set(EXCHANGE_RATE_CACHE_KEY, data, CACHE_TTL);
+        return data;
+      }
+    } catch (dbError) {
+      console.warn('Could not retrieve exchange rate from database:', dbError);
+    }
+
+    // If not in cache or database, fetch new rate
     const newRate = await get30DayAverageRate();
     
     if (newRate) {
@@ -23,14 +46,21 @@ export async function getCurrentExchangeRate(): Promise<{ rate: number; lastUpda
       };
       // Cache the rate
       cache.set(EXCHANGE_RATE_CACHE_KEY, data, CACHE_TTL);
+      
+      // Save to database in background
+      saveExchangeRate(newRate).catch(err => {
+        console.warn('Failed to save new exchange rate to database:', err);
+      });
+      
       return data;
     }
 
-    // If API fails, return default rate
-    return { rate: 31.50, lastUpdated: new Date().toISOString() };
+    // If all API calls fail, return default rate
+    console.warn('All exchange rate APIs failed, using default rate:', DEFAULT_EXCHANGE_RATE);
+    return { rate: DEFAULT_EXCHANGE_RATE, lastUpdated: new Date().toISOString() };
   } catch (error) {
     console.error('Error in getCurrentExchangeRate:', error);
-    return { rate: 31.50, lastUpdated: new Date().toISOString() };
+    return { rate: DEFAULT_EXCHANGE_RATE, lastUpdated: new Date().toISOString() };
   }
 }
 
@@ -42,31 +72,51 @@ export async function get30DayAverageRate() {
     // First try using your API key
     const API_KEY = process.env.EXCHANGE_RATE_API_KEY || "e8287e34bce27377331a738e";
     
-    // Try a simpler endpoint that just returns the current rate
-    const response = await fetch(
-      `https://v6.exchangerate-api.com/v6/${API_KEY}/latest/USD`
-    );
+    // Try with a timeout to prevent long-running requests
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
     
-    if (!response.ok) {
-      throw new Error(`API request failed with status ${response.status}`);
+    try {
+      // Try a simpler endpoint that just returns the current rate
+      const response = await fetch(
+        `https://v6.exchangerate-api.com/v6/${API_KEY}/latest/USD`,
+        { signal: controller.signal }
+      );
+      
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        throw new Error(`API request failed with status ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.result === 'success' && data.conversion_rates && data.conversion_rates.EGP) {
+        const rate = parseFloat(data.conversion_rates.EGP.toFixed(2));
+        console.log('Successfully fetched rate:', rate);
+        return rate;
+      } else {
+        throw new Error('Invalid API response format');
+      }
+    } catch (error) {
+      console.error('Error details:', error);
+      clearTimeout(timeoutId);
     }
-    
-    const data = await response.json();
-    
-    if (data.result === 'success' && data.conversion_rates && data.conversion_rates.EGP) {
-      const rate = parseFloat(data.conversion_rates.EGP.toFixed(2));
-      console.log('Successfully fetched rate:', rate);
-      return rate;
-    } else {
-      throw new Error('Invalid API response format');
-    }
-  } catch (error) {
-    console.error('Error details:', error);
     
     // Fallback to free API if primary fails
     try {
       console.log('Trying fallback API...');
-      const fallbackResponse = await fetch('https://open.er-api.com/v6/latest/USD');
+      
+      // Try with a timeout to prevent long-running requests
+      const fallbackController = new AbortController();
+      const fallbackTimeoutId = setTimeout(() => fallbackController.abort(), 5000); // 5 second timeout
+      
+      const fallbackResponse = await fetch(
+        'https://open.er-api.com/v6/latest/USD',
+        { signal: fallbackController.signal }
+      );
+      
+      clearTimeout(fallbackTimeoutId);
       
       if (fallbackResponse.ok) {
         const fallbackData = await fallbackResponse.json();
@@ -80,7 +130,38 @@ export async function get30DayAverageRate() {
       console.error('Fallback API also failed:', fallbackError);
     }
     
-    return null;
+    // Second fallback - try another free API
+    try {
+      console.log('Trying second fallback API...');
+      
+      // Try with a timeout to prevent long-running requests
+      const secondFallbackController = new AbortController();
+      const secondFallbackTimeoutId = setTimeout(() => secondFallbackController.abort(), 5000); // 5 second timeout
+      
+      const secondFallbackResponse = await fetch(
+        'https://api.exchangerate.host/latest?base=USD',
+        { signal: secondFallbackController.signal }
+      );
+      
+      clearTimeout(secondFallbackTimeoutId);
+      
+      if (secondFallbackResponse.ok) {
+        const secondFallbackData = await secondFallbackResponse.json();
+        if (secondFallbackData.rates && secondFallbackData.rates.EGP) {
+          const secondFallbackRate = parseFloat(secondFallbackData.rates.EGP.toFixed(2));
+          console.log('Successfully fetched second fallback rate:', secondFallbackRate);
+          return secondFallbackRate;
+        }
+      }
+    } catch (secondFallbackError) {
+      console.error('Second fallback API also failed:', secondFallbackError);
+    }
+    
+    // All APIs failed, return default value
+    return DEFAULT_EXCHANGE_RATE;
+  } catch (error) {
+    console.error('Error in get30DayAverageRate:', error);
+    return DEFAULT_EXCHANGE_RATE;
   }
 }
 
