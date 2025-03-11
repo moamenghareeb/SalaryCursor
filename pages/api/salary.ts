@@ -27,6 +27,8 @@ export default async function handler(
   if (authHeader && authHeader.startsWith('Bearer ')) {
     token = authHeader.substring(7); // Remove 'Bearer ' prefix
     console.log('Using token from Authorization header');
+  } else {
+    console.log('No valid Authorization header found');
   }
   
   // If no token in header, try cookies
@@ -34,8 +36,10 @@ export default async function handler(
     // Get auth token from request cookies
     const authCookie = req.cookies['sb-access-token'] || req.cookies['supabase-auth-token'];
     
-    // Try to extract token from the cookie
     if (authCookie) {
+      console.log('Found auth cookie:', authCookie ? 'yes' : 'no');
+      
+      // Try to extract token from the cookie
       try {
         // Handle both direct token and JSON format
         if (authCookie.startsWith('[')) {
@@ -50,6 +54,8 @@ export default async function handler(
       } catch (e) {
         console.error('Error parsing auth cookie:', e);
       }
+    } else {
+      console.log('No auth cookie found');
     }
   }
   
@@ -112,8 +118,21 @@ export default async function handler(
       
       if (error) {
         console.error('Database error on GET:', error);
-        return res.status(500).json({ error: error.message });
+        return res.status(500).json({ 
+          error: error.message, 
+          details: error.details || 'Database query failed', 
+          hint: error.hint || 'Check database connection and permissions'
+        });
       }
+      
+      if (!data) {
+        console.log('No salary data found for employee:', employee_id);
+        // Return empty array instead of null
+        return res.status(200).json([]);
+      }
+      
+      // Log success for debugging
+      console.log(`Successfully fetched ${data.length} salary records for employee_id: ${employee_id}`);
       
       return res.status(200).json(data);
     } catch (error) {
