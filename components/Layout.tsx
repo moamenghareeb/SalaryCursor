@@ -77,7 +77,7 @@ export default function Layout({ children }: LayoutProps) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-12 items-center">
             <div className="flex items-center">
-              <Link href="/dashboard" className="text-lg sm:text-xl font-medium text-apple-gray-dark dark:text-dark-text-primary">
+              <Link href="/salary" className="text-lg sm:text-xl font-medium text-apple-gray-dark dark:text-dark-text-primary">
                 SalaryCursor
               </Link>
             </div>
@@ -106,22 +106,6 @@ export default function Layout({ children }: LayoutProps) {
             {/* Desktop menu */}
             <div className="hidden sm:flex sm:items-center sm:space-x-6">
               <Link 
-                href="/dashboard" 
-                className={`px-3 py-1 rounded-full text-sm text-apple-gray-dark dark:text-dark-text-primary font-medium hover:bg-gray-100 dark:hover:bg-dark-surface transition-colors ${
-                  router.pathname === '/dashboard' ? 'bg-gray-100 dark:bg-dark-surface' : ''
-                }`}
-              >
-                Dashboard
-              </Link>
-              <Link 
-                href="/dashboard-new" 
-                className={`px-3 py-1 rounded-full text-sm bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 font-medium hover:bg-green-100 dark:hover:bg-green-900/50 transition-colors ${
-                  router.pathname === '/dashboard-new' ? 'bg-green-100 dark:bg-green-900/70' : ''
-                }`}
-              >
-                New Dashboard
-              </Link>
-              <Link 
                 href="/salary" 
                 className={`px-3 py-1 rounded-full text-sm text-apple-gray-dark dark:text-dark-text-primary font-medium hover:bg-gray-100 dark:hover:bg-dark-surface transition-colors ${
                   router.pathname === '/salary' ? 'bg-gray-100 dark:bg-dark-surface' : ''
@@ -136,14 +120,6 @@ export default function Layout({ children }: LayoutProps) {
                 }`}
               >
                 Leave
-              </Link>
-              <Link 
-                href="/profile" 
-                className={`px-3 py-1 rounded-full text-sm text-apple-gray-dark dark:text-dark-text-primary font-medium hover:bg-gray-100 dark:hover:bg-dark-surface transition-colors ${
-                  router.pathname === '/profile' ? 'bg-gray-100 dark:bg-dark-surface' : ''
-                }`}
-              >
-                Profile
               </Link>
               
               <div className="pl-4 border-l border-gray-200 dark:border-dark-border flex items-center space-x-3">
@@ -165,22 +141,6 @@ export default function Layout({ children }: LayoutProps) {
         <div className={`${isMenuOpen ? 'block' : 'hidden'} sm:hidden border-t border-gray-200 dark:border-dark-border bg-white dark:bg-dark-surface`}>
           <div className="px-2 pt-2 pb-3 space-y-1">
             <Link
-              href="/dashboard"
-              className={`block px-3 py-2 rounded-md text-base font-medium text-apple-gray-dark dark:text-dark-text-primary ${
-                router.pathname === '/dashboard' ? 'bg-gray-100 dark:bg-dark-surface/70' : 'hover:bg-gray-50 dark:hover:bg-dark-surface/70'
-              }`}
-              onClick={() => setIsMenuOpen(false)}
-            >
-              Dashboard
-            </Link>
-            <Link
-              href="/dashboard-new"
-              className="block px-3 py-2 rounded-md text-base font-medium bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-900/50"
-              onClick={() => setIsMenuOpen(false)}
-            >
-              New Dashboard ✨
-            </Link>
-            <Link
               href="/salary"
               className={`block px-3 py-2 rounded-md text-base font-medium text-apple-gray-dark dark:text-dark-text-primary ${
                 router.pathname === '/salary' ? 'bg-gray-100 dark:bg-dark-surface/70' : 'hover:bg-gray-50 dark:hover:bg-dark-surface/70'
@@ -197,15 +157,6 @@ export default function Layout({ children }: LayoutProps) {
               onClick={() => setIsMenuOpen(false)}
             >
               Leave
-            </Link>
-            <Link
-              href="/profile"
-              className={`block px-3 py-2 rounded-md text-base font-medium text-apple-gray-dark dark:text-dark-text-primary ${
-                router.pathname === '/profile' ? 'bg-gray-100 dark:bg-dark-surface/70' : 'hover:bg-gray-50 dark:hover:bg-dark-surface/70'
-              }`}
-              onClick={() => setIsMenuOpen(false)}
-            >
-              Profile
             </Link>
             <div className="px-3 py-2 text-sm text-apple-gray dark:text-dark-text-secondary">{user?.email}</div>
             <button
