@@ -145,12 +145,11 @@ async function handler(
       
       // Update dashboard data with calculated values
       if (!leaveBalanceResult.error) {
-        dashboardData.leaveBalance = leaveBalanceResult.remainingBalance;
-        dashboardData.leaveTaken = leaveBalanceResult.leaveTaken;
+        dashboardData.leaveBalance = leaveBalanceResult.remainingBalance || 0;
+        dashboardData.leaveTaken = leaveBalanceResult.leaveTaken || 0;
         dashboardData.inLieuSummary = {
-          // Get in-lieu records count
           count: await getInLieuRecordsCount(userId),
-          daysAdded: leaveBalanceResult.inLieuBalance,
+          daysAdded: leaveBalanceResult.inLieuBalance || 0,
         };
         
         logger.info(`Leave service results: Balance=${leaveBalanceResult.remainingBalance}, Taken=${leaveBalanceResult.leaveTaken}, InLieu=${leaveBalanceResult.inLieuBalance}`);
