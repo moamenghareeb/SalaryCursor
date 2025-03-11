@@ -161,9 +161,39 @@ async function handler(
         // Double-check the calculation is correct
         const baseLeave = leaveBalanceResult.baseLeaveBalance || 0;
         const inLieuDays = leaveBalanceResult.inLieuBalance || 0;
-        const daysTaken = leaveBalanceResult.leaveTaken || 0;
         
-        // Calculate explicitly to ensure correctness
+        // DIRECT QUERY: Force a direct query for leave taken instead of relying on the service
+        // This is a mandatory override to ensure correct data display
+        const currentYear = new Date().getFullYear();
+        const startOfYear = `${currentYear}-01-01`;
+        const endOfYear = `${currentYear}-12-31`;
+        
+        logger.info(`FORCING direct query for leave taken data - year ${currentYear}`);
+        const { data: leaveTakenData, error: leaveTakenError } = await supabase
+          .from('leaves')
+          .select('*')
+          .eq('employee_id', userId)
+          .eq('leave_type', 'Annual')
+          .eq('status', 'approved');
+          
+        let daysTaken = 0;
+        
+        if (!leaveTakenError && leaveTakenData && leaveTakenData.length > 0) {
+          // Sum up all approved Annual leave using days_taken field
+          daysTaken = leaveTakenData.reduce((total, leave) => {
+            return total + (leave.days_taken || 0);
+          }, 0);
+          
+          logger.info(`DIRECT QUERY found ${leaveTakenData.length} leave records with ${daysTaken} days taken`);
+          logger.info(`Leave records: ${JSON.stringify(leaveTakenData.map(l => ({ id: l.id, days: l.days_taken, start: l.start_date, end: l.end_date, status: l.status })))}`);
+        } else {
+          logger.warn(`No leave records found in direct query: ${leaveTakenError ? leaveTakenError.message : 'No data'}`);
+        }
+        
+        // FORCE dashboardData values based on direct query
+        dashboardData.leaveTaken = daysTaken;
+        
+        // Calculate explicitly to ensure correctness with our directly queried value
         const calculatedBalance = parseFloat((baseLeave + inLieuDays - daysTaken).toFixed(2));
         
         // IMPORTANT: Ensure we're setting leaveBalance to a valid number
@@ -171,45 +201,12 @@ async function handler(
           logger.error('Calculated balance is NaN, using fallback value 0');
           dashboardData.leaveBalance = 0;
         } else {
-          // Set leaveBalance only once with the calculated value
+          // Set leaveBalance with our recalculated value
           dashboardData.leaveBalance = calculatedBalance;
         }
         
-        // Directly verify the leave taken value with a separate query
-        const currentYear = new Date().getFullYear();
-        const startOfYear = `${currentYear}-01-01`;
-        const endOfYear = `${currentYear}-12-31`;
-        
-        logger.info(`Double-checking leave taken data with direct query for ${userId}`);
-        const { data: leaveTakenData, error: leaveTakenError } = await supabase
-          .from('leaves')
-          .select('id, days_taken, leave_type, status, start_date, end_date')
-          .eq('employee_id', userId)
-          .eq('leave_type', 'Annual')
-          .eq('status', 'approved')
-          .gte('start_date', startOfYear)
-          .lte('end_date', endOfYear);
-          
-        if (!leaveTakenError && leaveTakenData) {
-          const directLeaveTaken = leaveTakenData.reduce((total, record) => total + (record.days_taken || 0), 0);
-          logger.info(`Direct leave taken calculation: ${directLeaveTaken} days from ${leaveTakenData.length} records`);
-          
-          // If there's a discrepancy, use the direct query value and recalculate
-          if (Math.abs(directLeaveTaken - daysTaken) > 0.001) {
-            logger.warn(`Leave taken discrepancy detected: service=${daysTaken}, direct=${directLeaveTaken}`);
-            dashboardData.leaveTaken = directLeaveTaken;
-            
-            // Recalculate the balance
-            const recalculatedBalance = parseFloat((baseLeave + inLieuDays - directLeaveTaken).toFixed(2));
-            dashboardData.leaveBalance = recalculatedBalance;
-            logger.info(`Recalculated balance: ${baseLeave} + ${inLieuDays} - ${directLeaveTaken} = ${recalculatedBalance}`);
-          } else {
-            dashboardData.leaveTaken = daysTaken;
-          }
-        } else {
-          logger.error(`Error in direct leave taken verification: ${leaveTakenError?.message || 'Unknown error'}`);
-          dashboardData.leaveTaken = daysTaken;
-        }
+        // Log our final decision
+        logger.info(`FINAL DASHBOARD VALUES: baseLeave=${baseLeave}, inLieuDays=${inLieuDays}, daysTaken=${daysTaken}, leaveBalance=${calculatedBalance}`);
         
         dashboardData.inLieuSummary = {
           count: await getInLieuRecordsCount(userId),

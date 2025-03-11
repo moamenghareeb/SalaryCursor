@@ -134,22 +134,26 @@ async function handler(
     const yearParam = req.query.year ? parseInt(req.query.year as string) : null;
     const currentYear = yearParam && !isNaN(yearParam) ? yearParam : new Date().getFullYear();
     
-    // Fetch leave records for the year
-    const startOfYear = `${currentYear}-01-01`;
-    const endOfYear = `${currentYear}-12-31`;
-    
+    // Fetch leave records for the year - MODIFIED: remove date filters to get all leaves
     const { data: leaveData, error: leaveError } = await supabase
       .from('leaves')
       .select('*')
-      .eq('employee_id', userId)
-      .gte('start_date', startOfYear)
-      .lte('end_date', endOfYear);
+      .eq('employee_id', userId);
+      // Removed date filters to ensure we get ALL leaves
 
     if (leaveError) {
       logger.error(`Error fetching leave data: ${leaveError.message}`);
       return res.status(500).json({
         error: 'Database Error',
         message: 'Failed to fetch leave data. Please try again later.'
+      });
+    }
+    
+    // Log the raw data we found
+    logger.info(`Found ${leaveData?.length || 0} total leave records for user ${userId}`);
+    if (leaveData && leaveData.length > 0) {
+      leaveData.forEach(leave => {
+        logger.info(`Leave record: id=${leave.id}, type=${leave.leave_type}, days=${leave.days_taken}, start=${leave.start_date}, end=${leave.end_date}, status=${leave.status}`);
       });
     }
 
@@ -183,19 +187,44 @@ async function handler(
 
     // Process each leave request
     leaveData.forEach(leave => {
+      // Only process approved leaves
+      if (leave.status !== 'approved') {
+        logger.info(`Skipping non-approved leave: ${leave.id}, status=${leave.status}`);
+        return;
+      }
+      
       // Extract month from start_date (format: YYYY-MM-DD)
       const startDate = new Date(leave.start_date);
       const monthIndex = startDate.getMonth();
-      const leaveType = leave.leave_type?.toLowerCase();
+      
+      // Normalize leave type (case insensitive) and default to Annual if not specified
+      let leaveType = leave.leave_type?.toLowerCase() || 'annual';
+      
+      // Map the leave type to one of our supported types
+      if (leaveType.includes('annual') || leaveType === '' || leaveType === null) {
+        leaveType = 'annual';
+      } else if (leaveType.includes('casual')) {
+        leaveType = 'casual';
+      } else if (leaveType.includes('sick')) {
+        leaveType = 'sick';
+      } else if (leaveType.includes('unpaid')) {
+        leaveType = 'unpaid';
+      } else {
+        // Default unknown types to annual
+        logger.warn(`Unmapped leave type "${leaveType}" for leave ID: ${leave.id} - defaulting to annual`);
+        leaveType = 'annual';
+      }
       
       // Safely handle duration - use days_taken for consistency
       const duration = typeof leave.days_taken === 'number' ? leave.days_taken : 0;
       
-      // Add to the appropriate leave type if valid
-      if (leaveType && ['annual', 'casual', 'sick', 'unpaid'].includes(leaveType)) {
+      // Add to the appropriate leave type
+      if (['annual', 'casual', 'sick', 'unpaid'].includes(leaveType)) {
         monthlyData[monthIndex][leaveType as keyof Omit<MonthlyLeaveData, 'month' | 'total'>] += duration;
+        // Log what we're adding
+        logger.info(`Adding ${duration} days of ${leaveType} leave for ${months[monthIndex]}`);
       } else {
-        logger.warn(`Unknown leave type: ${leaveType} for leave ID: ${leave.id}`);
+        logger.warn(`Failed to process leave type: ${leaveType} for leave ID: ${leave.id}`);
       }
       
       // Update total
