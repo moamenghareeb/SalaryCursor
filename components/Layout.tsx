@@ -114,6 +114,14 @@ export default function Layout({ children }: LayoutProps) {
                 Dashboard
               </Link>
               <Link 
+                href="/dashboard-new" 
+                className={`px-3 py-1 rounded-full text-sm bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 font-medium hover:bg-green-100 dark:hover:bg-green-900/50 transition-colors ${
+                  router.pathname === '/dashboard-new' ? 'bg-green-100 dark:bg-green-900/70' : ''
+                }`}
+              >
+                New Dashboard
+              </Link>
+              <Link 
                 href="/salary" 
                 className={`px-3 py-1 rounded-full text-sm text-apple-gray-dark dark:text-dark-text-primary font-medium hover:bg-gray-100 dark:hover:bg-dark-surface transition-colors ${
                   router.pathname === '/salary' ? 'bg-gray-100 dark:bg-dark-surface' : ''
@@ -164,6 +172,13 @@ export default function Layout({ children }: LayoutProps) {
               onClick={() => setIsMenuOpen(false)}
             >
               Dashboard
+            </Link>
+            <Link
+              href="/dashboard-new"
+              className="block px-3 py-2 rounded-md text-base font-medium bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-900/50"
+              onClick={() => setIsMenuOpen(false)}
+            >
+              New Dashboard ✨
             </Link>
             <Link
               href="/salary"
