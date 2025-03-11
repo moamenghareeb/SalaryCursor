@@ -7,10 +7,9 @@ type LeaveBalanceResult = {
   leaveTaken: number;
   remainingBalance: number;
   error?: string;
-  debug?: DebugInfo; // For additional debug information
+  debug?: DebugInfo;
 };
 
-// Define a proper type for debug information
 type DebugInfo = {
   queries: string[];
   results: {
@@ -96,23 +95,17 @@ export const leaveService = {
       const { data: inLieuData, error: inLieuError } = await supabase
         .from('in_lieu_records')
         .select('*')
-        .eq('employee_id', userId);
-        // Removed status filter since it might not exist
+        .eq('employee_id', userId)
+        .eq('status', 'approved');  // Only count approved in-lieu records
 
       debug.results.inLieu = { data: inLieuData, error: inLieuError };
 
       let inLieuBalance = 0;
       if (!inLieuError && inLieuData) {
-        // Sum up all in-lieu days (not filtering by status for now)
+        // Sum up all approved in-lieu days using leave_days_added field
         inLieuBalance = inLieuData.reduce((total, record) => {
-          // Check for both field names since schema may vary
-          // Prefer leave_days_added if both are present (this is more specific to leave)
-          const daysAdded = typeof record.leave_days_added === 'number' ? record.leave_days_added :
-                           (typeof record.days_added === 'number' ? record.days_added : 0);
-          
-          // Log detailed information for debugging
-          logger.debug(`In-lieu record ${record.id}: days_added=${record.days_added}, leave_days_added=${record.leave_days_added}, using ${daysAdded}`);
-          
+          const daysAdded = record.leave_days_added || 0;
+          logger.debug(`In-lieu record ${record.id}: leave_days_added=${daysAdded}`);
           return total + daysAdded;
         }, 0);
         logger.info(`Calculated in-lieu days: ${inLieuBalance} from ${inLieuData.length} records`);
@@ -129,7 +122,8 @@ export const leaveService = {
         .from('leaves')
         .select('*')
         .eq('employee_id', userId)
-        // Not filtering by status or leave_type since columns might not exist
+        .eq('leave_type', 'Annual')
+        .eq('status', 'approved')
         .gte('start_date', startOfYear)
         .lte('end_date', endOfYear);
 
@@ -137,19 +131,11 @@ export const leaveService = {
 
       let leaveTaken = 0;
       if (!takenLeaveError && takenLeaveData) {
-        // Count only Annual leave if leave_type exists, otherwise count all leave
+        // Sum up all approved Annual leave using days_taken field
         leaveTaken = takenLeaveData.reduce((total, leave) => {
-          // Only count if it's Annual leave or if leave_type doesn't exist
-          if (!leave.leave_type || leave.leave_type === 'Annual') {
-            const daysTaken = typeof leave.days_taken === 'number' ? leave.days_taken : 
-                             (typeof leave.days === 'number' ? leave.days : 0);
-                             
-            // Log detailed information for debugging
-            logger.debug(`Leave record ${leave.id}: type=${leave.leave_type}, days=${leave.days}, days_taken=${leave.days_taken}, using ${daysTaken}`);
-            
-            return total + daysTaken;
-          }
-          return total;
+          const daysTaken = leave.days_taken || 0;
+          logger.debug(`Leave record ${leave.id}: days_taken=${daysTaken}`);
+          return total + daysTaken;
         }, 0);
         logger.info(`Calculated leave taken: ${leaveTaken} from ${takenLeaveData.length} records`);
       } else if (takenLeaveError) {
@@ -163,8 +149,8 @@ export const leaveService = {
       // Step 6: Update employee record to ensure consistency across the application
       try {
         const updates = { 
-          annual_leave_balance: baseLeaveBalance, // Store base annual leave in this field
-          leave_balance: remainingBalance         // Store total remaining balance in this field
+          annual_leave_balance: baseLeaveBalance,
+          leave_balance: remainingBalance
         };
         
         debug.queries.push('update-employee');
