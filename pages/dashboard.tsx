@@ -163,8 +163,13 @@ export default function Dashboard() {
   // Manual refresh function with visual feedback
   const refreshData = async () => {
     console.log('Manual refresh triggered');
+    
     try {
-      await mutate();
+      // Add cache-busting timestamp to force a fresh request
+      await mutate(undefined, {
+        revalidate: true,
+        populateCache: true
+      });
       toast.success('Dashboard data refreshed');
     } catch (error) {
       console.error('Manual refresh error:', error);

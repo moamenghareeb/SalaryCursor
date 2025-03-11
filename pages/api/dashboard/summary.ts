@@ -138,13 +138,17 @@ async function handler(
     const currentYear = new Date().getFullYear();
     try {
       logger.info(`Calling leave service for user ${userId}`);
-      const leaveBalanceResult = await leaveService.calculateLeaveBalance(userId, currentYear);
+      
+      // Always force a fresh calculation to avoid stale data issues
+      const forceFresh = true;
+      const leaveBalanceResult = await leaveService.calculateLeaveBalance(userId, currentYear, forceFresh);
       
       // Store full debug info
       dashboardData.debug.leaveService = leaveBalanceResult;
       
       // Update dashboard data with calculated values
       if (!leaveBalanceResult.error) {
+        // Ensure we're using the FINAL balance (not base) which has taken into account days taken
         dashboardData.leaveBalance = leaveBalanceResult.remainingBalance || 0;
         dashboardData.leaveTaken = leaveBalanceResult.leaveTaken || 0;
         dashboardData.inLieuSummary = {
@@ -171,8 +175,11 @@ async function handler(
       dashboardData.debug.leaveServiceError = leaveServiceError.message || leaveServiceError;
     }
 
-    // Set cache control headers for frequent refreshes
-    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    // Set cache control headers to prevent caching at all levels
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    res.setHeader('Surrogate-Control', 'no-store');
     
     // Always include a timestamp to prevent browser caching
     dashboardData.timestamp = new Date().toISOString();

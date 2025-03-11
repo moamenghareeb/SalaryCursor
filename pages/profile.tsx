@@ -86,18 +86,33 @@ export default function ProfilePage() {
       setIsSaving(true);
       console.log('Submitting profile update:', data);
       
-      // Use the correct API endpoint (user-profile instead of profile)
-      const response = await axios.put('/api/user-profile', {
-        ...data,
-        id: user.id,
-      });
+      // Make sure we have the auth token from the session
+      const token = session?.access_token;
+      if (!token) {
+        console.error('No auth token available');
+        toast.error('Authentication error. Please log in again.');
+        return;
+      }
+      
+      // Use the correct API endpoint with proper authorization
+      const response = await axios.put('/api/user-profile', 
+        {
+          ...data,
+          id: user.id,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
       
       console.log('Profile update response:', response.data);
       toast.success('Profile updated successfully');
       setProfileData(response.data.profile || {});
     } catch (error) {
       console.error('Error updating profile:', error);
-      toast.error('Failed to update profile');
+      toast.error('Failed to update profile. Please try again.');
     } finally {
       setIsSaving(false);
     }

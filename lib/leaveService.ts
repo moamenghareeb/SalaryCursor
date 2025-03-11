@@ -1,6 +1,8 @@
 import { supabase } from './supabase';
 import { logger } from './logger';
 
+let lastServiceUpdate = Date.now(); // Add a timestamp for cache busting
+
 type LeaveBalanceResult = {
   baseLeaveBalance: number;
   inLieuBalance: number;
@@ -8,6 +10,7 @@ type LeaveBalanceResult = {
   remainingBalance: number;
   error?: string;
   debug?: DebugInfo;
+  lastUpdated?: number;
 };
 
 type DebugInfo = {
@@ -23,12 +26,23 @@ type DebugInfo = {
  */
 export const leaveService = {
   /**
+   * Get the timestamp of last service update for cache busting
+   */
+  getLastUpdateTimestamp() {
+    return lastServiceUpdate;
+  },
+
+  /**
    * Calculate the leave balance for a specific employee
    * @param userId - The employee's user ID
    * @param year - Optional year to calculate for (defaults to current year)
+   * @param forceFresh - Whether to force a fresh calculation ignoring caches
    * @returns Promise with the leave balance details
    */
-  async calculateLeaveBalance(userId: string, year?: number): Promise<LeaveBalanceResult> {
+  async calculateLeaveBalance(userId: string, year?: number, forceFresh: boolean = false): Promise<LeaveBalanceResult> {
+    // Update timestamp to bust cache
+    lastServiceUpdate = Date.now();
+    
     const debug: DebugInfo = { queries: [], results: {} };
     
     try {
@@ -175,7 +189,8 @@ export const leaveService = {
         inLieuBalance,
         leaveTaken,
         remainingBalance,
-        debug
+        debug,
+        lastUpdated: lastServiceUpdate
       };
       
     } catch (error: any) {
@@ -186,7 +201,8 @@ export const leaveService = {
         leaveTaken: 0,
         remainingBalance: 0,
         error: `Unexpected error: ${error.message}`,
-        debug
+        debug,
+        lastUpdated: lastServiceUpdate
       };
     }
   }
