@@ -27,7 +27,7 @@ export default function Login() {
       // Use a slight delay to avoid race conditions
       const timer = setTimeout(() => {
         const returnUrl = router.query.returnUrl as string;
-        window.location.href = returnUrl || '/salary';
+        window.location.href = returnUrl || '/dashboard';
       }, 100);
       
       return () => clearTimeout(timer);

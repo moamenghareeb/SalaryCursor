@@ -19,6 +19,7 @@ export default function Dashboard() {
   const [employee, setEmployee] = useState<any>(null);
   const [currentSalary, setCurrentSalary] = useState<number | null>(null);
   const [remainingLeave, setRemainingLeave] = useState<number | null>(null);
+  const [debugInfo, setDebugInfo] = useState<string | null>(null);
   
   useEffect(() => {
     fetchDashboardData();
@@ -58,42 +59,63 @@ export default function Dashboard() {
       
       setEmployee(employeeData);
       
-      // Fetch current month's salary data with improved month detection
+      // Get the current date once to use throughout the function
       const currentDate = new Date();
-      const year = currentDate.getFullYear();
-      const month = currentDate.getMonth() + 1; // 1-12 format
       
-      // Try multiple formats to ensure we catch the right record
-      const { data: salaryData, error: salaryError } = await supabase
+      // First get ALL salary records to understand what we're working with
+      const { data: allSalaryRecords, error: allSalaryError } = await supabase
         .from('salaries')
         .select('*')
         .eq('employee_id', userId)
-        .or(`month.ilike.${year}-${String(month).padStart(2, '0')}%,month.ilike.${year}-${month}%,month.eq.${year}-${month},month.eq.${month}/${year}`)
-        .order('created_at', { ascending: false })
-        .limit(10);
-      
-      console.log('Salary query results:', salaryData);
-      
-      if (!salaryError && salaryData && salaryData.length > 0) {
-        // Log all returned records for debugging
-        console.log('Found salary records:', salaryData);
-        setCurrentSalary(salaryData[0].total_salary);
+        .order('created_at', { ascending: false });
+        
+      if (allSalaryError) {
+        console.error('Error fetching all salary records:', allSalaryError);
       } else {
-        console.log('No salary records found for', year, month);
-        console.log('Salary error:', salaryError);
+        console.log('All salary records:', allSalaryRecords);
         
-        // Try a broader search just to see if any records exist
-        const { data: allSalaries } = await supabase
-          .from('salaries')
-          .select('month, total_salary, created_at')
-          .eq('employee_id', userId)
-          .order('created_at', { ascending: false })
-          .limit(3);
+        if (allSalaryRecords && allSalaryRecords.length > 0) {
+          // Store debug info
+          setDebugInfo(`Found ${allSalaryRecords.length} total salary records. 
+            Most recent: ${JSON.stringify(allSalaryRecords[0])}`);
           
-        console.log('Latest salary records:', allSalaries);
-        
-        // No error handling needed - just set to null (will display as 0)
-        setCurrentSalary(null);
+          // Check if we have March 2025 data in ANY format
+          const year = currentDate.getFullYear();
+          const month = currentDate.getMonth() + 1; // 1-12 format
+          
+          // Define possible month formats we're looking for
+          const targetFormats = [
+            `${year}-${String(month).padStart(2, '0')}`, // 2025-03
+            `${year}-${month}`,                         // 2025-3
+            `${month}/${year}`,                         // 3/2025
+            `${String(month).padStart(2, '0')}/${year}`, // 03/2025
+            `${month}-${year}`,                         // 3-2025
+            `${String(month).padStart(2, '0')}-${year}` // 03-2025
+          ];
+          
+          // Find a record that matches any of these formats
+          const marchRecord = allSalaryRecords.find(record => {
+            if (!record.month) return false;
+            const monthStr = String(record.month).trim();
+            return targetFormats.some(format => 
+              monthStr === format || monthStr.startsWith(format + '-') || monthStr.includes(format)
+            );
+          });
+          
+          if (marchRecord) {
+            console.log('Found March 2025 record:', marchRecord);
+            setCurrentSalary(marchRecord.total_salary);
+          } else {
+            console.log('No March 2025 record found. Formats searched:', targetFormats);
+            // Default to the most recent record if we can't find the current month
+            const mostRecent = allSalaryRecords[0];
+            console.log('Using most recent record instead:', mostRecent);
+            setCurrentSalary(mostRecent.total_salary);
+          }
+        } else {
+          console.log('No salary records found at all');
+          setCurrentSalary(null);
+        }
       }
       
       // Fetch leave balance
@@ -145,6 +167,14 @@ export default function Dashboard() {
             >
               Go to Login
             </button>
+          </div>
+        )}
+        
+        {/* Debug info - only visible during development */}
+        {process.env.NODE_ENV !== 'production' && debugInfo && (
+          <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-4 rounded-md mb-6 text-xs font-mono overflow-auto">
+            <h3 className="font-bold mb-2">Debug Info:</h3>
+            <pre>{debugInfo}</pre>
           </div>
         )}
         
