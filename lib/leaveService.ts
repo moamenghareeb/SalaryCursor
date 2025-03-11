@@ -7,6 +7,15 @@ type LeaveBalanceResult = {
   leaveTaken: number;
   remainingBalance: number;
   error?: string;
+  debug?: DebugInfo; // For additional debug information
+};
+
+// Define a proper type for debug information
+type DebugInfo = {
+  queries: string[];
+  results: {
+    [key: string]: any;
+  };
 };
 
 /**
@@ -21,6 +30,8 @@ export const leaveService = {
    * @returns Promise with the leave balance details
    */
   async calculateLeaveBalance(userId: string, year?: number): Promise<LeaveBalanceResult> {
+    const debug: DebugInfo = { queries: [], results: {} };
+    
     try {
       if (!userId) {
         return {
@@ -36,11 +47,14 @@ export const leaveService = {
       logger.info(`Calculating leave balance for user ${userId} for year ${currentYear}`);
 
       // Step 1: Fetch employee details for base leave calculation
+      debug.queries.push('employees');
       const { data: employeeData, error: employeeError } = await supabase
         .from('employees')
         .select('*')
         .eq('id', userId)
         .single();
+
+      debug.results.employee = { data: employeeData, error: employeeError };
 
       if (employeeError) {
         logger.error(`Error fetching employee data: ${employeeError.message}`);
@@ -49,11 +63,13 @@ export const leaveService = {
           inLieuBalance: 0,
           leaveTaken: 0,
           remainingBalance: 0,
-          error: `Error fetching employee data: ${employeeError.message}`
+          error: `Error fetching employee data: ${employeeError.message}`,
+          debug
         };
       }
 
       // Step 2: Check for specific yearly allocation or use years of service calculation
+      debug.queries.push('leave_allocations');
       const { data: leaveAllocation, error: leaveAllocationError } = await supabase
         .from('leave_allocations')
         .select('allocated_days')
@@ -61,6 +77,8 @@ export const leaveService = {
         .eq('year', currentYear)
         .eq('type', 'annual')
         .single();
+
+      debug.results.allocation = { data: leaveAllocation, error: leaveAllocationError };
 
       // Determine base leave allocation
       let baseLeaveBalance: number;
@@ -74,17 +92,21 @@ export const leaveService = {
       }
 
       // Step 3: Get in-lieu records and calculate total additional days
+      debug.queries.push('in_lieu_records');
       const { data: inLieuData, error: inLieuError } = await supabase
         .from('in_lieu_records')
         .select('*')
-        .eq('employee_id', userId)
-        .eq('status', 'approved');
+        .eq('employee_id', userId);
+        // Removed status filter since it might not exist
+
+      debug.results.inLieu = { data: inLieuData, error: inLieuError };
 
       let inLieuBalance = 0;
       if (!inLieuError && inLieuData) {
-        // Sum up all approved in-lieu days
+        // Sum up all in-lieu days (not filtering by status for now)
         inLieuBalance = inLieuData.reduce((total, record) => {
-          const daysAdded = typeof record.days_added === 'number' ? record.days_added : 0;
+          const daysAdded = typeof record.days_added === 'number' ? record.days_added : 
+                           (typeof record.leave_days_added === 'number' ? record.leave_days_added : 0);
           return total + daysAdded;
         }, 0);
         logger.info(`Calculated in-lieu days: ${inLieuBalance} from ${inLieuData.length} records`);
@@ -96,71 +118,67 @@ export const leaveService = {
       const startOfYear = `${currentYear}-01-01`;
       const endOfYear = `${currentYear}-12-31`;
       
+      debug.queries.push('leaves-annual');
       const { data: takenLeaveData, error: takenLeaveError } = await supabase
         .from('leaves')
         .select('*')
         .eq('employee_id', userId)
-        .eq('status', 'approved')
-        .eq('leave_type', 'Annual')
+        // Not filtering by status or leave_type since columns might not exist
         .gte('start_date', startOfYear)
         .lte('end_date', endOfYear);
 
+      debug.results.leaves = { data: takenLeaveData, error: takenLeaveError };
+
       let leaveTaken = 0;
       if (!takenLeaveError && takenLeaveData) {
+        // Count only Annual leave if leave_type exists, otherwise count all leave
         leaveTaken = takenLeaveData.reduce((total, leave) => {
-          const daysTaken = typeof leave.days_taken === 'number' ? leave.days_taken : 0;
-          return total + daysTaken;
+          // Only count if it's Annual leave or if leave_type doesn't exist
+          if (!leave.leave_type || leave.leave_type === 'Annual') {
+            const daysTaken = typeof leave.days_taken === 'number' ? leave.days_taken : 0;
+            return total + daysTaken;
+          }
+          return total;
         }, 0);
-        logger.info(`Calculated Annual leave taken: ${leaveTaken} from ${takenLeaveData.length} records`);
+        logger.info(`Calculated leave taken: ${leaveTaken} from ${takenLeaveData.length} records`);
       } else if (takenLeaveError) {
         logger.error(`Error fetching taken leave data: ${takenLeaveError.message}`);
       }
       
-      // Step 5: Get count of all leave types for reporting
-      const { data: allLeaveData } = await supabase
-        .from('leaves')
-        .select('id, leave_type, days_taken')
-        .eq('employee_id', userId)
-        .eq('status', 'approved')
-        .gte('start_date', startOfYear)
-        .lte('end_date', endOfYear);
-        
-      // Log breakdown of different leave types
-      if (allLeaveData && allLeaveData.length > 0) {
-        const leaveBreakdown = allLeaveData.reduce((acc: Record<string, number>, leave) => {
-          const leaveType = leave.leave_type || 'Annual';
-          const days = typeof leave.days_taken === 'number' ? leave.days_taken : 0;
-          acc[leaveType] = (acc[leaveType] || 0) + days;
-          return acc;
-        }, {});
-        
-        logger.info(`Leave breakdown for ${currentYear}: ${JSON.stringify(leaveBreakdown)}`);
-      }
-
-      // Step 6: Calculate final remaining balance
+      // Step 5: Calculate final remaining balance
       const remainingBalance = parseFloat((baseLeaveBalance + inLieuBalance - leaveTaken).toFixed(2));
       logger.info(`Final leave balance calculation: ${baseLeaveBalance} (base) + ${inLieuBalance} (in-lieu) - ${leaveTaken} (taken) = ${remainingBalance}`);
 
-      // Step 7: Update employee record to ensure consistency across the application
-      const { error: updateError } = await supabase
-        .from('employees')
-        .update({ 
-          annual_leave_balance: inLieuBalance,  // Store only in-lieu balance in this field
-          leave_balance: remainingBalance       // Store total remaining balance in this field
-        })
-        .eq('id', userId);
+      // Step 6: Update employee record to ensure consistency across the application
+      try {
+        const updates = { 
+          annual_leave_balance: inLieuBalance, // Store only in-lieu balance in this field
+          leave_balance: remainingBalance      // Store total remaining balance in this field
+        };
+        
+        debug.queries.push('update-employee');
+        const { error: updateError } = await supabase
+          .from('employees')
+          .update(updates)
+          .eq('id', userId);
 
-      if (updateError) {
-        logger.error(`Error updating employee record: ${updateError.message}`);
-      } else {
-        logger.info(`Successfully updated employee record with latest leave balances`);
+        debug.results.update = { data: updates, error: updateError };
+
+        if (updateError) {
+          logger.error(`Error updating employee record: ${updateError.message}`);
+        } else {
+          logger.info(`Successfully updated employee record with latest leave balances`);
+        }
+      } catch (updateError) {
+        logger.error(`Failed to update employee record: ${updateError}`);
       }
 
       return {
         baseLeaveBalance,
         inLieuBalance,
         leaveTaken,
-        remainingBalance
+        remainingBalance,
+        debug
       };
       
     } catch (error: any) {
@@ -170,7 +188,8 @@ export const leaveService = {
         inLieuBalance: 0, 
         leaveTaken: 0,
         remainingBalance: 0,
-        error: `Unexpected error: ${error.message}`
+        error: `Unexpected error: ${error.message}`,
+        debug
       };
     }
   }

@@ -14,6 +14,8 @@ type DashboardData = {
   leaveBalance: number | null;
   leaveTaken: number;
   inLieuSummary: { count: number; daysAdded: number };
+  timestamp: string;
+  debug?: any; // For debugging information
 };
 
 async function handler(
@@ -92,7 +94,7 @@ async function handler(
     }
 
     const userId = userData.user.id;
-    logger.info('Fetching dashboard data for user:', userId);
+    logger.info(`Fetching dashboard data for user: ${userId}`);
 
     // Initial data structure
     const dashboardData: DashboardData = {
@@ -101,6 +103,8 @@ async function handler(
       leaveBalance: null,
       leaveTaken: 0,
       inLieuSummary: { count: 0, daysAdded: 0 },
+      timestamp: new Date().toISOString(),
+      debug: {},
     };
 
     // Fetch employee details
@@ -114,6 +118,7 @@ async function handler(
       logger.error('Error fetching employee data:', employeeError);
     } else {
       dashboardData.employee = employeeData;
+      dashboardData.debug.employee = employeeData;
     }
 
     // Fetch latest salary
@@ -129,38 +134,64 @@ async function handler(
       dashboardData.latestSalary = salaryData;
     }
 
-    // NEW: Use centralized leave service to calculate leave balance
+    // Use centralized leave service to calculate leave balance
     const currentYear = new Date().getFullYear();
-    const leaveBalanceResult = await leaveService.calculateLeaveBalance(userId, currentYear);
-    
-    // Update dashboard data with calculated values
-    if (!leaveBalanceResult.error) {
-      dashboardData.leaveBalance = leaveBalanceResult.remainingBalance;
-      dashboardData.leaveTaken = leaveBalanceResult.leaveTaken;
-      dashboardData.inLieuSummary = {
-        // Get in-lieu records count
-        count: await getInLieuRecordsCount(userId),
-        daysAdded: leaveBalanceResult.inLieuBalance,
-      };
+    try {
+      logger.info(`Calling leave service for user ${userId}`);
+      const leaveBalanceResult = await leaveService.calculateLeaveBalance(userId, currentYear);
       
-      logger.info(`Leave balance from service: ${leaveBalanceResult.remainingBalance}, Leave taken: ${leaveBalanceResult.leaveTaken}`);
-    } else {
-      logger.error(`Error calculating leave balance: ${leaveBalanceResult.error}`);
+      // Store full debug info
+      dashboardData.debug.leaveService = leaveBalanceResult;
+      
+      // Update dashboard data with calculated values
+      if (!leaveBalanceResult.error) {
+        dashboardData.leaveBalance = leaveBalanceResult.remainingBalance;
+        dashboardData.leaveTaken = leaveBalanceResult.leaveTaken;
+        dashboardData.inLieuSummary = {
+          // Get in-lieu records count
+          count: await getInLieuRecordsCount(userId),
+          daysAdded: leaveBalanceResult.inLieuBalance,
+        };
+        
+        logger.info(`Leave service results: Balance=${leaveBalanceResult.remainingBalance}, Taken=${leaveBalanceResult.leaveTaken}, InLieu=${leaveBalanceResult.inLieuBalance}`);
+      } else {
+        logger.error(`Error from leave service: ${leaveBalanceResult.error}`);
+        // Still provide partial data if available
+        if (leaveBalanceResult.remainingBalance !== undefined) {
+          dashboardData.leaveBalance = leaveBalanceResult.remainingBalance;
+        }
+        if (leaveBalanceResult.leaveTaken !== undefined) {
+          dashboardData.leaveTaken = leaveBalanceResult.leaveTaken;
+        }
+        if (leaveBalanceResult.inLieuBalance !== undefined) {
+          dashboardData.inLieuSummary.daysAdded = leaveBalanceResult.inLieuBalance;
+        }
+      }
+    } catch (leaveServiceError: any) {
+      logger.error(`Exception from leave service: ${leaveServiceError.message || leaveServiceError}`);
+      dashboardData.debug.leaveServiceError = leaveServiceError.message || leaveServiceError;
     }
 
     // Set cache control headers for frequent refreshes
-    res.setHeader('Cache-Control', 'private, max-age=5, stale-while-revalidate=30');
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    
+    // Always include a timestamp to prevent browser caching
+    dashboardData.timestamp = new Date().toISOString();
 
-    // Add timestamp to ensure clients know when this data was generated
-    return res.status(200).json({
-      ...dashboardData,
-      timestamp: new Date().toISOString()
-    });
-  } catch (error) {
+    // In development, include debug info, otherwise remove it
+    if (process.env.NODE_ENV !== 'production') {
+      return res.status(200).json(dashboardData);
+    } else {
+      // Remove debug info in production
+      const { debug, ...cleanData } = dashboardData;
+      return res.status(200).json(cleanData);
+    }
+  } catch (error: any) {
     logger.error('Server error in dashboard summary:', error);
     return res.status(500).json({ 
       error: 'Server error',
-      message: 'An unexpected error occurred. Please try again later.'
+      message: 'An unexpected error occurred. Please try again later.',
+      timestamp: new Date().toISOString()
     });
   }
 }
