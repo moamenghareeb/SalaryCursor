@@ -45,13 +45,35 @@ const NotificationCenter: React.FC = () => {
     try {
       setLoading(true);
       const response = await axios.get('/api/notifications');
-      setNotifications(response.data);
       
-      // Calculate unread count
-      const unread = response.data.filter((notification: Notification) => !notification.isRead).length;
-      setUnreadCount(unread);
+      // Add proper check to ensure response.data is an array or has a notifications property
+      if (response.data) {
+        // If response has notifications property (new API format)
+        if (Array.isArray(response.data.notifications)) {
+          setNotifications(response.data.notifications);
+          setUnreadCount(response.data.unreadCount || 0);
+        } 
+        // If response is direct array (old API format)
+        else if (Array.isArray(response.data)) {
+          setNotifications(response.data);
+          // Calculate unread count
+          const unread = response.data.filter((notification: Notification) => !notification.isRead).length;
+          setUnreadCount(unread);
+        }
+        // If neither format is valid, set empty array
+        else {
+          console.log('Unexpected notification data format', response.data);
+          setNotifications([]);
+          setUnreadCount(0);
+        }
+      } else {
+        setNotifications([]);
+        setUnreadCount(0);
+      }
     } catch (err) {
       console.error('Error fetching notifications:', err);
+      setNotifications([]);
+      setUnreadCount(0);
     } finally {
       setLoading(false);
     }
