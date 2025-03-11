@@ -146,6 +146,10 @@ export const leaveService = {
       const endOfYear = `${currentYear}-12-31`;
       
       debug.queries.push('leaves-annual');
+      
+      // Log the query we're about to execute for debugging
+      logger.info(`Executing query: SELECT * FROM leaves WHERE employee_id = '${userId}' AND leave_type = 'Annual' AND status = 'approved' AND start_date >= '${startOfYear}' AND end_date <= '${endOfYear}'`);
+      
       const { data: takenLeaveData, error: takenLeaveError } = await supabase
         .from('leaves')
         .select('*')
@@ -160,6 +164,12 @@ export const leaveService = {
       let leaveTaken = 0;
       if (!takenLeaveError && takenLeaveData) {
         logger.info(`Found ${takenLeaveData.length} approved leave records for ${currentYear}`);
+        
+        // Log each leave record for debugging
+        takenLeaveData.forEach(leave => {
+          logger.info(`Leave record details: id=${leave.id}, days_taken=${leave.days_taken}, leave_type=${leave.leave_type}, status=${leave.status}, start_date=${leave.start_date}, end_date=${leave.end_date}`);
+        });
+        
         // Sum up all approved Annual leave using days_taken field
         leaveTaken = takenLeaveData.reduce((total, leave) => {
           const daysTaken = leave.days_taken || 0;

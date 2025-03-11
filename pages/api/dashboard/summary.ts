@@ -175,7 +175,42 @@ async function handler(
           dashboardData.leaveBalance = calculatedBalance;
         }
         
-        dashboardData.leaveTaken = daysTaken;
+        // Directly verify the leave taken value with a separate query
+        const currentYear = new Date().getFullYear();
+        const startOfYear = `${currentYear}-01-01`;
+        const endOfYear = `${currentYear}-12-31`;
+        
+        logger.info(`Double-checking leave taken data with direct query for ${userId}`);
+        const { data: leaveTakenData, error: leaveTakenError } = await supabase
+          .from('leaves')
+          .select('id, days_taken, leave_type, status, start_date, end_date')
+          .eq('employee_id', userId)
+          .eq('leave_type', 'Annual')
+          .eq('status', 'approved')
+          .gte('start_date', startOfYear)
+          .lte('end_date', endOfYear);
+          
+        if (!leaveTakenError && leaveTakenData) {
+          const directLeaveTaken = leaveTakenData.reduce((total, record) => total + (record.days_taken || 0), 0);
+          logger.info(`Direct leave taken calculation: ${directLeaveTaken} days from ${leaveTakenData.length} records`);
+          
+          // If there's a discrepancy, use the direct query value and recalculate
+          if (Math.abs(directLeaveTaken - daysTaken) > 0.001) {
+            logger.warn(`Leave taken discrepancy detected: service=${daysTaken}, direct=${directLeaveTaken}`);
+            dashboardData.leaveTaken = directLeaveTaken;
+            
+            // Recalculate the balance
+            const recalculatedBalance = parseFloat((baseLeave + inLieuDays - directLeaveTaken).toFixed(2));
+            dashboardData.leaveBalance = recalculatedBalance;
+            logger.info(`Recalculated balance: ${baseLeave} + ${inLieuDays} - ${directLeaveTaken} = ${recalculatedBalance}`);
+          } else {
+            dashboardData.leaveTaken = daysTaken;
+          }
+        } else {
+          logger.error(`Error in direct leave taken verification: ${leaveTakenError?.message || 'Unknown error'}`);
+          dashboardData.leaveTaken = daysTaken;
+        }
+        
         dashboardData.inLieuSummary = {
           count: await getInLieuRecordsCount(userId),
           daysAdded: inLieuDays,

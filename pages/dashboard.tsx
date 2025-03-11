@@ -179,6 +179,14 @@ export default function Dashboard() {
       daysTaken: data.leaveTaken
     });
     
+    // Additional logging to help debug
+    console.log('Leave calculation details:', {
+      baseLeave: data.employee?.annual_leave_balance || 18.67,
+      inLieuDays: data.inLieuSummary?.daysAdded || 0,
+      daysTaken: data.leaveTaken || 0,
+      formula: `${data.employee?.annual_leave_balance || 18.67} + ${data.inLieuSummary?.daysAdded || 0} - ${data.leaveTaken || 0} = ${((data.employee?.annual_leave_balance || 18.67) + (data.inLieuSummary?.daysAdded || 0) - (data.leaveTaken || 0)).toFixed(2)}`
+    });
+    
     // Trust the server calculation unless it's clearly invalid
     if (data.leaveBalance === null || data.leaveBalance === undefined || isNaN(data.leaveBalance)) {
       console.warn('Invalid leave balance received from API, falling back to manual calculation');
