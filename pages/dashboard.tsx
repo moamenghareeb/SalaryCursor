@@ -142,12 +142,14 @@ export default function Dashboard() {
     fetcher,
     {
       revalidateOnFocus: false, // Disable revalidation on window focus
-      revalidateOnMount: true,
-      refreshInterval: 120000, // Refresh every 2 minutes instead of 30 seconds
-      dedupingInterval: 10000, // Increase deduping interval
-      errorRetryCount: 2, // Reduce retry attempts
+      revalidateOnMount: true,  // Only load data once on initial mount
+      refreshInterval: 0,       // Disable automatic refreshing completely
+      dedupingInterval: 30000,  // Prevent duplicate requests for 30 seconds
+      errorRetryCount: 2,       // Reduce retry attempts
       errorRetryInterval: 5000, // Increase retry interval
       onSuccess: (data) => {
+        // Update last refreshed timestamp
+        setLastRefreshed(new Date().toLocaleTimeString());
         console.log('SWR success, data:', data);
       },
       onError: (error) => {
@@ -160,17 +162,38 @@ export default function Dashboard() {
   const [showDebug, setShowDebug] = useState(false);
   const isDevMode = process.env.NODE_ENV === 'development';
 
-  // Manual refresh function with visual feedback
+  // Manual refresh function with visual feedback and cache busting
   const refreshData = async () => {
     console.log('Manual refresh triggered');
     
     try {
-      // Add cache-busting timestamp to force a fresh request
-      await mutate(undefined, {
-        revalidate: true,
-        populateCache: true
-      });
-      toast.success('Dashboard data refreshed');
+      // Clear the cache first to ensure we get fresh data
+      const cacheKey = '/api/dashboard/summary';
+      await mutate(undefined, { revalidate: false });
+      
+      // Add cache-busting timestamp to URL
+      const freshUrl = `/api/dashboard/summary?_t=${Date.now()}`;
+      
+      // Make a direct fetch with authorization to bypass cache
+      if (session?.access_token) {
+        const response = await axios.get(freshUrl, {
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+            'Cache-Control': 'no-cache, no-store',
+            'Pragma': 'no-cache'
+          }
+        });
+        
+        // Update the data with the response
+        await mutate(response.data, { revalidate: false });
+        
+        // Update last refreshed timestamp
+        setLastRefreshed(new Date().toLocaleTimeString());
+        
+        toast.success('Dashboard data refreshed');
+      } else {
+        toast.error('Session expired, please log in again');
+      }
     } catch (error) {
       console.error('Manual refresh error:', error);
       toast.error('Failed to refresh data');
@@ -291,15 +314,20 @@ export default function Dashboard() {
                 </div>
                 <div className="mt-2">
                   <div className="text-2xl font-semibold text-green-600 dark:text-green-400">
-                    {data?.leaveBalance?.toFixed(2) || '0.00'} days
+                    {data?.leaveBalance !== null && data?.leaveBalance !== undefined
+                      ? (typeof data.leaveBalance === 'number' 
+                          ? data.leaveBalance.toFixed(2) 
+                          : '0.00')
+                      : '0.00'} days
                     <span className="text-sm text-apple-gray dark:text-dark-text-secondary ml-2">
                       (Base + In-Lieu - Taken)
                     </span>
                   </div>
                   <div className="mt-1 text-sm text-apple-gray dark:text-dark-text-secondary">
-                    Base: {data?.employee?.annual_leave_balance?.toFixed(2) || '0.00'} days
+                    <span className="font-medium">Calculation:</span> {data?.employee?.annual_leave_balance?.toFixed(2) || '0.00'} base days
                     {data?.inLieuSummary?.daysAdded ? ` + ${data.inLieuSummary.daysAdded} in-lieu days` : ''}
                     {data?.leaveTaken ? ` - ${data.leaveTaken} days taken` : ''}
+                    {` = ${data?.leaveBalance?.toFixed(2) || '0.00'} days`}
                   </div>
                 </div>
               </div>

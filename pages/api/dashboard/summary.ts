@@ -149,14 +149,24 @@ async function handler(
       // Update dashboard data with calculated values
       if (!leaveBalanceResult.error) {
         // Ensure we're using the FINAL balance (not base) which has taken into account days taken
-        dashboardData.leaveBalance = leaveBalanceResult.remainingBalance || 0;
-        dashboardData.leaveTaken = leaveBalanceResult.leaveTaken || 0;
+        // Double-check the calculation is correct
+        const baseLeave = leaveBalanceResult.baseLeaveBalance || 0;
+        const inLieuDays = leaveBalanceResult.inLieuBalance || 0;
+        const daysTaken = leaveBalanceResult.leaveTaken || 0;
+        
+        // Calculate explicitly to ensure correctness
+        const calculatedBalance = parseFloat((baseLeave + inLieuDays - daysTaken).toFixed(2));
+        
+        // Use the calculated value, fallback to service value, and finally fallback to 0
+        dashboardData.leaveBalance = calculatedBalance || leaveBalanceResult.remainingBalance || 0;
+        dashboardData.leaveTaken = daysTaken;
         dashboardData.inLieuSummary = {
           count: await getInLieuRecordsCount(userId),
-          daysAdded: leaveBalanceResult.inLieuBalance || 0,
+          daysAdded: inLieuDays,
         };
         
-        logger.info(`Leave service results: Balance=${leaveBalanceResult.remainingBalance}, Taken=${leaveBalanceResult.leaveTaken}, InLieu=${leaveBalanceResult.inLieuBalance}`);
+        logger.info(`Dashboard calculation: ${baseLeave} (base) + ${inLieuDays} (in-lieu) - ${daysTaken} (taken) = ${calculatedBalance}`);
+        logger.info(`Leave service result vs. dashboard calculation: ${leaveBalanceResult.remainingBalance} vs. ${calculatedBalance}`);
       } else {
         logger.error(`Error from leave service: ${leaveBalanceResult.error}`);
         // Still provide partial data if available

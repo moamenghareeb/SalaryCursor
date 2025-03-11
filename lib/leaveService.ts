@@ -157,13 +157,20 @@ export const leaveService = {
       }
       
       // Step 5: Calculate final remaining balance
-      const remainingBalance = parseFloat((baseLeaveBalance + inLieuBalance - leaveTaken).toFixed(2));
-      logger.info(`Final leave balance calculation: ${baseLeaveBalance} (base) + ${inLieuBalance} (in-lieu) - ${leaveTaken} (taken) = ${remainingBalance}`);
+      // Ensure we're working with numbers and rounding to 2 decimal places
+      const baseLeaveAsNumber = parseFloat(baseLeaveBalance.toString()) || 0;
+      const inLieuAsNumber = parseFloat(inLieuBalance.toString()) || 0;
+      const takenAsNumber = parseFloat(leaveTaken.toString()) || 0;
+      
+      // Do the math and round to 2 decimal places
+      const remainingBalance = parseFloat((baseLeaveAsNumber + inLieuAsNumber - takenAsNumber).toFixed(2));
+      
+      logger.info(`Final leave balance calculation: ${baseLeaveAsNumber} (base) + ${inLieuAsNumber} (in-lieu) - ${takenAsNumber} (taken) = ${remainingBalance}`);
 
       // Step 6: Update employee record to ensure consistency across the application
       try {
         const updates = { 
-          annual_leave_balance: baseLeaveBalance,
+          annual_leave_balance: baseLeaveAsNumber,
           leave_balance: remainingBalance
         };
         
