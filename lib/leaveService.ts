@@ -20,7 +20,7 @@ type DebugInfo = {
 
 /**
  * Centralized service for calculating leave balances
- * Formula: remaining leave balance = Annual leave balance + In Lieu - leave taken
+ * Formula: remaining leave balance = Base annual leave + In Lieu - leave taken
  */
 export const leaveService = {
   /**
@@ -105,8 +105,14 @@ export const leaveService = {
       if (!inLieuError && inLieuData) {
         // Sum up all in-lieu days (not filtering by status for now)
         inLieuBalance = inLieuData.reduce((total, record) => {
-          const daysAdded = typeof record.days_added === 'number' ? record.days_added : 
-                           (typeof record.leave_days_added === 'number' ? record.leave_days_added : 0);
+          // Check for both field names since schema may vary
+          // Prefer leave_days_added if both are present (this is more specific to leave)
+          const daysAdded = typeof record.leave_days_added === 'number' ? record.leave_days_added :
+                           (typeof record.days_added === 'number' ? record.days_added : 0);
+          
+          // Log detailed information for debugging
+          logger.debug(`In-lieu record ${record.id}: days_added=${record.days_added}, leave_days_added=${record.leave_days_added}, using ${daysAdded}`);
+          
           return total + daysAdded;
         }, 0);
         logger.info(`Calculated in-lieu days: ${inLieuBalance} from ${inLieuData.length} records`);
@@ -135,7 +141,12 @@ export const leaveService = {
         leaveTaken = takenLeaveData.reduce((total, leave) => {
           // Only count if it's Annual leave or if leave_type doesn't exist
           if (!leave.leave_type || leave.leave_type === 'Annual') {
-            const daysTaken = typeof leave.days_taken === 'number' ? leave.days_taken : 0;
+            const daysTaken = typeof leave.days_taken === 'number' ? leave.days_taken : 
+                             (typeof leave.days === 'number' ? leave.days : 0);
+                             
+            // Log detailed information for debugging
+            logger.debug(`Leave record ${leave.id}: type=${leave.leave_type}, days=${leave.days}, days_taken=${leave.days_taken}, using ${daysTaken}`);
+            
             return total + daysTaken;
           }
           return total;
@@ -152,8 +163,8 @@ export const leaveService = {
       // Step 6: Update employee record to ensure consistency across the application
       try {
         const updates = { 
-          annual_leave_balance: inLieuBalance, // Store only in-lieu balance in this field
-          leave_balance: remainingBalance      // Store total remaining balance in this field
+          annual_leave_balance: baseLeaveBalance, // Store base annual leave in this field
+          leave_balance: remainingBalance         // Store total remaining balance in this field
         };
         
         debug.queries.push('update-employee');
@@ -169,8 +180,8 @@ export const leaveService = {
         } else {
           logger.info(`Successfully updated employee record with latest leave balances`);
         }
-      } catch (updateError) {
-        logger.error(`Failed to update employee record: ${updateError}`);
+      } catch (updateError: any) {
+        logger.error(`Failed to update employee record: ${updateError.message}`);
       }
 
       return {

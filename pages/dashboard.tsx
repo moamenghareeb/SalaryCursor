@@ -301,7 +301,9 @@ export default function Dashboard() {
                     <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">(Base + In-Lieu - Taken)</span>
                   </div>
                   <p className="text-sm text-apple-gray dark:text-dark-text-secondary mt-1">
-                    {data?.leaveTaken || 0} days taken this year
+                    Base: {data?.debug?.leaveService?.baseLeaveBalance || data?.employee?.annual_leave_balance || 0} days
+                    {data?.inLieuSummary && data.inLieuSummary.daysAdded > 0 && ` + ${data.inLieuSummary.daysAdded} in-lieu`}
+                    {data?.leaveTaken && data.leaveTaken > 0 && ` - ${data.leaveTaken} taken`}
                   </p>
                   <Link href="/leave" className="mt-4 inline-block text-sm text-apple-blue hover:underline">
                     Request Leave →
