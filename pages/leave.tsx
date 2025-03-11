@@ -867,484 +867,582 @@ export default function Leave() {
       
       <div className="space-y-6 animate-fadeIn">
         <div className={`rounded-apple p-6 ${isDarkMode ? 'bg-dark-surface text-dark-text-primary' : 'bg-white'} shadow-apple-card dark:shadow-dark-card`}>
-          <h1 className="text-2xl font-semibold text-apple-gray-dark dark:text-dark-text-primary">Leave Management</h1>
-          <p className="mt-2 text-apple-gray dark:text-dark-text-secondary">
-            Manage your leave requests and balance
-          </p>
-        </div>
-        
-        {loading ? (
-          <div className="flex justify-center items-center min-h-[200px]">
-            <LoadingSpinner />
-          </div>
-        ) : error ? (
-          <div className="text-center text-red-500 dark:text-red-400">
-            {error}
-          </div>
-        ) : (
-          <>
-            <div className={`rounded-apple p-6 ${isDarkMode ? 'bg-dark-surface' : 'bg-white'} shadow-apple-card dark:shadow-dark-card`}>
-              {/* Summary Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className={`${isDarkMode ? 'bg-dark-surface text-dark-text-primary' : 'bg-white'} rounded-apple shadow-apple-card dark:shadow-dark-card p-6`}>
-                  <div className="flex flex-col h-full">
-                    <div className="flex justify-between items-center mb-4">
-                      <h2 className="text-lg font-medium text-apple-gray-dark dark:text-dark-text-primary">Leave Balance</h2>
-                      
-                      <div className="flex items-center space-x-2">
-                        {employee?.hire_date && (
-                          <div className="bg-apple-blue-lightest dark:bg-dark-accent-light text-apple-blue dark:text-dark-accent px-3 py-1 rounded-full text-xs font-medium">
-                            {isEditingYears ? (
-                              <div className="flex items-center space-x-2">
-                                <input
-                                  type="number"
-                                  value={yearsOfService}
-                                  onChange={(e) => setYearsOfService(parseInt(e.target.value) || 0)}
-                                  className="w-12 px-2 py-1 rounded-lg border border-gray-200 dark:border-dark-border focus:border-apple-blue focus:ring-1 focus:ring-apple-blue outline-none"
-                                />
-                                <button 
-                                  onClick={handleUpdateYears}
-                                  className="text-green-500 hover:text-green-600"
-                                >
-                                  <FiCheck size={16} />
-                                </button>
-                                <button 
-                                  onClick={() => setIsEditingYears(false)}
-                                  className="text-red-500 hover:text-red-600"
-                                >
-                                  <FiX size={16} />
-                                </button>
-                              </div>
-                            ) : (
-                              <div className="flex items-center space-x-1">
-                                <span>{yearsOfService} Years of Service</span>
-                                <button 
-                                  onClick={() => setIsEditingYears(true)}
-                                  className="text-apple-blue dark:text-dark-accent hover:text-apple-blue-hover"
-                                >
-                                  <FiEdit size={14} />
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
-                      <div className={`${isDarkMode ? 'bg-dark-bg' : 'bg-gray-50'} rounded-apple p-4`}>
-                        <h3 className="text-sm text-apple-gray dark:text-dark-text-secondary mb-1">Base Leave</h3>
-                        <div className="text-xl font-medium text-apple-gray-dark dark:text-dark-text-primary">
-                          {baseLeaveBalance !== null ? baseLeaveBalance.toFixed(2) : '-'} days
-                        </div>
-                        <div className="text-xs text-apple-gray dark:text-dark-text-tertiary mt-1">
-                          Annual allocation
-                        </div>
-                      </div>
-                      
-                      <div className={`${isDarkMode ? 'bg-dark-bg' : 'bg-gray-50'} rounded-apple p-4`}>
-                        <h3 className="text-sm text-apple-gray dark:text-dark-text-secondary mb-1">In-Lieu Days</h3>
-                        <div className="text-xl font-medium text-apple-gray-dark dark:text-dark-text-primary">
-                          {additionalLeaveBalance.toFixed(2)} days
-                        </div>
-                        <div className="text-xs text-apple-gray dark:text-dark-text-tertiary mt-1">
-                          From {inLieuRecords.length} records
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="mt-4">
-                      <div className={`${isDarkMode ? 'bg-dark-bg' : 'bg-gray-50'} rounded-apple p-4`}>
-                        <h3 className="text-sm text-apple-gray dark:text-dark-text-secondary mb-1">Leave Taken</h3>
-                        <div className="text-xl font-medium text-apple-gray-dark dark:text-dark-text-primary">
-                          {leaveTaken.toFixed(2)} days
-                        </div>
-                        <div className="text-xs text-apple-gray dark:text-dark-text-tertiary mt-1">
-                          From {leaves.length} leave requests
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="mt-4">
-                      <div className={`${isDarkMode ? 'bg-dark-accent-light' : 'bg-apple-blue-lightest'} rounded-apple p-4`}>
-                        <h3 className="text-sm text-apple-blue dark:text-dark-accent mb-1">Remaining Leave</h3>
-                        <div className="text-xl font-medium text-apple-blue dark:text-dark-accent">
-                          {remainingLeave !== null ? remainingLeave.toFixed(2) : '-'} days
-                        </div>
-                        <div className="text-xs text-apple-gray dark:text-dark-text-tertiary mt-1">
-                          As of {new Date().toLocaleDateString()}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Leave Request Card */}
-                <div className="md:col-span-2 bg-white dark:bg-dark-surface rounded-apple shadow-apple-card dark:shadow-dark-card p-6">
-                  <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-lg font-medium text-apple-gray-dark dark:text-dark-text-primary">Leave Request</h2>
-                    
-                    <div className="flex items-center space-x-2">
-                      <button
-                        type="button"
-                        onClick={() => setShowInLieuForm(!showInLieuForm)}
-                        className={`px-4 py-2 text-sm font-medium rounded-full transition-colors ${
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4">
+            <div>
+              <h1 className="text-2xl font-semibold text-apple-gray-dark dark:text-dark-text-primary">Leave Management</h1>
+              <p className="mt-1 text-apple-gray dark:text-dark-text-secondary">
+                Manage your leave requests and balance
+              </p>
+            </div>
+            
+            {/* Years of Service Edit */}
+            <div className="mt-3 md:mt-0 flex items-center">
+              <div className={`px-4 py-2 rounded-lg ${isDarkMode ? 'bg-dark-bg' : 'bg-gray-50'} flex items-center space-x-3`}>
+                <div className="flex flex-col">
+                  <span className="text-xs text-apple-gray dark:text-dark-text-secondary">Years of Service</span>
+                  {isEditingYears ? (
+                    <div className="flex items-center mt-1">
+                      <input
+                        type="number"
+                        value={yearsOfService}
+                        onChange={(e) => setYearsOfService(parseInt(e.target.value) || 0)}
+                        className={`w-16 px-2 py-1 rounded-md border text-sm ${
                           isDarkMode 
-                            ? 'bg-dark-bg text-dark-text-primary hover:bg-opacity-80' 
-                            : 'bg-apple-gray-light text-apple-gray-dark hover:bg-gray-200'
+                            ? 'bg-dark-surface border-dark-border text-dark-text-primary focus:border-apple-blue' 
+                            : 'border-gray-200 focus:border-apple-blue focus:ring-1 focus:ring-apple-blue'
                         }`}
+                      />
+                      <div className="flex ml-2">
+                        <button 
+                          onClick={handleUpdateYears}
+                          className="p-1 bg-green-100 dark:bg-green-800 text-green-600 dark:text-green-300 rounded-md hover:bg-green-200 dark:hover:bg-green-700"
+                        >
+                          <FiCheck size={14} />
+                        </button>
+                        <button 
+                          onClick={() => setIsEditingYears(false)}
+                          className="p-1 ml-1 bg-red-100 dark:bg-red-800 text-red-600 dark:text-red-300 rounded-md hover:bg-red-200 dark:hover:bg-red-700"
+                        >
+                          <FiX size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center mt-1">
+                      <span className="text-lg font-semibold text-apple-gray-dark dark:text-dark-text-primary">{yearsOfService}</span>
+                      <button 
+                        onClick={() => setIsEditingYears(true)}
+                        className="ml-2 text-apple-blue dark:text-blue-400 hover:text-apple-blue-hover"
                       >
-                        {showInLieuForm ? 'Cancel In-Lieu Entry' : 'Add In-Lieu Time'}
+                        <FiEdit size={14} />
                       </button>
                     </div>
-                  </div>
-                  
-                  {/* Only show regular leave form if not showing in-lieu form */}
-                  {!showInLieuForm && (
-                    <form onSubmit={handleSubmit} className="space-y-4">
-                      <div>
-                        <label className="block text-sm font-medium text-apple-gray-dark dark:text-dark-text-primary mb-1">Start Date</label>
-                        <input
-                          type="date"
-                          value={startDate}
-                          onChange={(e) => setStartDate(e.target.value)}
-                          className={`w-full px-4 py-3 rounded-lg border transition-colors ${
-                            isDarkMode
-                              ? 'bg-dark-bg border-dark-border text-dark-text-primary focus:border-apple-blue'
-                              : 'border-gray-200 focus:border-apple-blue focus:ring-1 focus:ring-apple-blue'
-                          }`}
-                          required
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-apple-gray-dark dark:text-dark-text-primary mb-1">End Date</label>
-                        <input
-                          type="date"
-                          value={endDate}
-                          onChange={(e) => setEndDate(e.target.value)}
-                          className={`w-full px-4 py-3 rounded-lg border transition-colors ${
-                            isDarkMode
-                              ? 'bg-dark-bg border-dark-border text-dark-text-primary focus:border-apple-blue'
-                              : 'border-gray-200 focus:border-apple-blue focus:ring-1 focus:ring-apple-blue'
-                          }`}
-                          required
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-apple-gray-dark dark:text-dark-text-primary mb-1">Leave Type</label>
-                        <select
-                          value={leaveType}
-                          onChange={(e) => setLeaveType(e.target.value)}
-                          className={`w-full px-4 py-3 rounded-lg border transition-colors ${
-                            isDarkMode
-                              ? 'bg-dark-bg border-dark-border text-dark-text-primary focus:border-apple-blue'
-                              : 'border-gray-200 focus:border-apple-blue focus:ring-1 focus:ring-apple-blue'
-                          }`}
-                          required
-                        >
-                          <option value="Annual">Annual Leave</option>
-                          <option value="Casual">Casual Leave</option>
-                          <option value="Sick">Sick Leave</option>
-                          <option value="Unpaid">Unpaid Leave</option>
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-apple-gray-dark dark:text-dark-text-primary mb-1">Reason</label>
-                        <textarea
-                          value={reason}
-                          onChange={(e) => setReason(e.target.value)}
-                          className={`w-full px-4 py-3 rounded-lg border transition-colors ${
-                            isDarkMode
-                              ? 'bg-dark-bg border-dark-border text-dark-text-primary focus:border-apple-blue'
-                              : 'border-gray-200 focus:border-apple-blue focus:ring-1 focus:ring-apple-blue'
-                          }`}
-                          rows={3}
-                          placeholder="Enter reason for leave request (optional)"
-                        />
-                      </div>
-
-                      <div className="flex justify-end">
-                        {editingLeave ? (
-                          <div className="flex space-x-2">
-                            <button
-                              type="button"
-                              onClick={handleCancelEdit}
-                              className={`px-4 py-2 rounded-md ${
-                                isDarkMode
-                                  ? 'bg-dark-bg text-dark-text-primary hover:bg-opacity-80'
-                                  : 'bg-gray-100 text-apple-gray-dark hover:bg-gray-200'
-                              }`}
-                            >
-                              Cancel
-                            </button>
-                            <button
-                              type="submit"
-                              className="px-4 py-2 bg-apple-blue hover:bg-apple-blue-hover text-white rounded-md"
-                            >
-                              Update Leave
-                            </button>
-                          </div>
-                        ) : (
-                          <button
-                            type="submit"
-                            className="px-4 py-2 bg-apple-blue hover:bg-apple-blue-hover text-white rounded-md"
-                          >
-                            Submit Leave
-                          </button>
-                        )}
-                      </div>
-                    </form>
-                  )}
-                  
-                  {/* In-Lieu Time form */}
-                  {showInLieuForm && (
-                    <form onSubmit={handleInLieuOf} className="space-y-4">
-                      <div className="mb-4">
-                        <h3 className="text-md font-medium text-apple-gray-dark dark:text-dark-text-primary">Add In-Lieu Time</h3>
-                        <p className="text-sm text-apple-gray dark:text-dark-text-secondary mt-1">
-                          Use this form to record days worked outside normal hours that can be taken as leave later.
-                        </p>
-                      </div>
-                      
-                      <div>
-                        <label className="block text-sm font-medium text-apple-gray-dark dark:text-dark-text-primary mb-1">Date Worked</label>
-                        <input
-                          type="date"
-                          value={startDate}
-                          onChange={(e) => setStartDate(e.target.value)}
-                          className={`w-full px-4 py-3 rounded-lg border transition-colors ${
-                            isDarkMode
-                              ? 'bg-dark-bg border-dark-border text-dark-text-primary focus:border-apple-blue'
-                              : 'border-gray-200 focus:border-apple-blue focus:ring-1 focus:ring-apple-blue'
-                          }`}
-                          required
-                        />
-                      </div>
-                      
-                      <div>
-                        <label className="block text-sm font-medium text-apple-gray-dark dark:text-dark-text-primary mb-1">Reason</label>
-                        <textarea
-                          value={reason}
-                          onChange={(e) => setReason(e.target.value)}
-                          className={`w-full px-4 py-3 rounded-lg border transition-colors ${
-                            isDarkMode
-                              ? 'bg-dark-bg border-dark-border text-dark-text-primary focus:border-apple-blue'
-                              : 'border-gray-200 focus:border-apple-blue focus:ring-1 focus:ring-apple-blue'
-                          }`}
-                          rows={3}
-                          placeholder="Why did you work on this day? (e.g. weekend emergency, public holiday coverage)"
-                        />
-                      </div>
-                      
-                      <div className="flex justify-end">
-                        <div className="flex space-x-2">
-                          <button
-                            type="button"
-                            onClick={() => setShowInLieuForm(false)}
-                            className={`px-4 py-2 rounded-md ${
-                              isDarkMode
-                                ? 'bg-dark-bg text-dark-text-primary hover:bg-opacity-80'
-                                : 'bg-gray-100 text-apple-gray-dark hover:bg-gray-200'
-                            }`}
-                          >
-                            Cancel
-                          </button>
-                          <button
-                            type="submit"
-                            className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md"
-                          >
-                            Submit In-Lieu
-                          </button>
-                        </div>
-                      </div>
-                    </form>
                   )}
                 </div>
-
-                {/* Leave History Section */}
-                <div className={`mt-6 ${isDarkMode ? 'bg-dark-surface' : 'bg-white'} rounded-apple shadow-apple-card dark:shadow-dark-card p-6`}>
-                  <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-lg font-medium text-apple-gray-dark dark:text-dark-text-primary">Leave History</h2>
-                    
-                    {leaves.length > 0 && (
-                      <div className="flex items-center">
-                        <BlobProvider
-                          document={
-                            <LeavePDF 
-                              employee={employee} 
-                              leaveData={leaves} 
-                              inLieuData={inLieuRecords} 
-                              totalLeaveBalance={leaveBalance} 
-                              leaveTaken={leaveTaken} 
-                              remainingLeave={remainingLeave} 
-                              year={new Date().getFullYear()} 
-                            />
-                          }
-                        >
-                          {({ blob, url, loading, error }: PDFRenderProps) => (
-                            <a
-                              href={url || '#'}
-                              download={`leave-report-${new Date().getFullYear()}.pdf`}
-                              className={`flex items-center space-x-2 px-4 py-2 text-sm font-medium rounded-apple ${
-                                isDarkMode
-                                  ? 'bg-dark-surface-light hover:bg-dark-surface-lighter text-dark-text-primary'
-                                  : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-                              }`}
-                              onClick={(e) => !url && e.preventDefault()}
-                            >
-                              <FiDownload className="w-4 h-4" />
-                              <span>{loading ? 'Generating...' : 'Download Report'}</span>
-                            </a>
-                          )}
-                        </BlobProvider>
-                      </div>
-                    )}
-                  </div>
-                  
-                  {/* Display success message if present */}
-                  {success && (
-                    <div className="mb-4 p-3 bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-300 rounded-md">
-                      {success}
-                    </div>
-                  )}
-                  
-                  {/* Leave table */}
-                  {leaves.length > 0 ? (
-                    <div className="overflow-x-auto">
-                      <table className="w-full">
-                        <thead className={`${isDarkMode ? 'bg-dark-bg' : 'bg-gray-50'} border-b dark:border-dark-border`}>
-                          <tr>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-apple-gray dark:text-dark-text-secondary uppercase tracking-wider">
-                              Date Range
-                            </th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-apple-gray dark:text-dark-text-secondary uppercase tracking-wider">
-                              Days
-                            </th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-apple-gray dark:text-dark-text-secondary uppercase tracking-wider">
-                              Type
-                            </th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-apple-gray dark:text-dark-text-secondary uppercase tracking-wider">
-                              Reason
-                            </th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-apple-gray dark:text-dark-text-secondary uppercase tracking-wider">
-                              Actions
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y dark:divide-dark-border">
-                          {leaves.map((leave) => (
-                            <tr key={leave.id} className={`${isDarkMode ? 'hover:bg-dark-bg' : 'hover:bg-gray-50'}`}>
-                              <td className="px-4 py-3 text-sm text-apple-gray-dark dark:text-dark-text-primary">
-                                {new Date(leave.start_date).toLocaleDateString()} to {new Date(leave.end_date).toLocaleDateString()}
-                              </td>
-                              <td className="px-4 py-3 whitespace-nowrap text-sm text-apple-gray-dark dark:text-dark-text-primary">
-                                {leave.days_taken}
-                              </td>
-                              <td className="px-4 py-3 whitespace-nowrap text-sm text-apple-gray-dark dark:text-dark-text-primary">
-                                {leave.leave_type || 'Annual'}
-                              </td>
-                              <td className="px-4 py-3 text-sm text-apple-gray-dark dark:text-dark-text-primary">
-                                {leave.reason || 'No reason provided'}
-                              </td>
-                              <td className="px-4 py-3 text-sm space-x-2 whitespace-nowrap">
-                                <button
-                                  onClick={() => handleEdit(leave)}
-                                  className="text-apple-blue dark:text-dark-accent hover:text-apple-blue-hover"
-                                  title="Edit"
-                                >
-                                  <FiEdit />
-                                </button>
-                                <button
-                                  onClick={() => handleDelete(leave)}
-                                  className="text-red-500 hover:text-red-600"
-                                  title="Delete"
-                                >
-                                  <FiTrash />
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    <div className={`text-center py-8 ${isDarkMode ? 'text-dark-text-secondary' : 'text-apple-gray'}`}>
-                      No leave records found for the current year.
-                    </div>
-                  )}
-                </div>
-                
-                {/* In-Lieu Records Section */}
-                <div className={`mt-6 ${isDarkMode ? 'bg-dark-surface' : 'bg-white'} rounded-apple shadow-apple-card dark:shadow-dark-card p-6`}>
-                  <h2 className="text-lg font-medium text-apple-gray-dark dark:text-dark-text-primary mb-4">In-Lieu Records</h2>
-                  
-                  {/* In-lieu table */}
-                  {inLieuRecords.length > 0 ? (
-                    <div className="overflow-x-auto">
-                      <table className="w-full">
-                        <thead className={`${isDarkMode ? 'bg-dark-bg' : 'bg-gray-50'} border-b dark:border-dark-border`}>
-                          <tr>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-apple-gray dark:text-dark-text-secondary uppercase tracking-wider">
-                              Date
-                            </th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-apple-gray dark:text-dark-text-secondary uppercase tracking-wider">
-                              Reason
-                            </th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-apple-gray dark:text-dark-text-secondary uppercase tracking-wider">
-                              Status
-                            </th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-apple-gray dark:text-dark-text-secondary uppercase tracking-wider">
-                              Actions
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y dark:divide-dark-border">
-                          {inLieuRecords.map((record) => (
-                            <tr key={record.id} className={`${isDarkMode ? 'hover:bg-dark-bg' : 'hover:bg-gray-50'}`}>
-                              <td className="px-4 py-3 text-sm text-apple-gray-dark dark:text-dark-text-primary">
-                                {new Date(record.start_date).toLocaleDateString()}
-                              </td>
-                              <td className="px-4 py-3 text-sm text-apple-gray-dark dark:text-dark-text-primary">
-                                {record.reason || 'No reason provided'}
-                              </td>
-                              <td className="px-4 py-3 text-sm">
-                                <span className={`px-2 py-1 text-xs rounded-full ${
-                                  record.status === 'approved' 
-                                    ? 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-300' 
-                                    : record.status === 'pending' 
-                                    ? 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-300' 
-                                    : 'bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-300'
-                                }`}>
-                                  {record.status || 'pending'}
-                                </span>
-                              </td>
-                              <td className="px-4 py-3 text-sm">
-                                <button
-                                  onClick={() => handleDeleteInLieu(record)}
-                                  className="text-red-500 hover:text-red-600"
-                                  title="Delete"
-                                >
-                                  <FiTrash />
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    <div className={`text-center py-8 ${isDarkMode ? 'text-dark-text-secondary' : 'text-apple-gray'}`}>
-                      No in-lieu records found.
-                    </div>
-                  )}
+                <div className="h-10 border-l border-gray-200 dark:border-gray-700"></div>
+                <div className="flex flex-col">
+                  <span className="text-xs text-apple-gray dark:text-dark-text-secondary">Affects Annual Entitlement</span>
+                  <span className="text-lg font-semibold text-apple-gray-dark dark:text-dark-text-primary mt-1">
+                    {yearsOfService >= 10 ? '24.67' : '18.67'} days
+                  </span>
                 </div>
               </div>
             </div>
-          </>
+          </div>
+          
+          {/* Stats Dashboard */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
+            <div className={`rounded-lg ${isDarkMode ? 'bg-dark-bg' : 'bg-apple-gray-lightest'} p-4`}>
+              <div className="flex justify-between items-start">
+                <div>
+                  <h3 className="text-sm font-medium text-apple-gray dark:text-dark-text-secondary">Base Leave</h3>
+                  <p className="text-2xl font-semibold text-apple-gray-dark dark:text-dark-text-primary mt-1">
+                    {baseLeaveBalance !== null ? baseLeaveBalance.toFixed(2) : '-'}
+                  </p>
+                </div>
+                <div className={`p-2 rounded-full ${isDarkMode ? 'bg-dark-surface' : 'bg-white'}`}>
+                  <FiCalendar className="w-5 h-5 text-apple-blue dark:text-blue-400" />
+                </div>
+              </div>
+              <p className="text-xs text-apple-gray dark:text-dark-text-tertiary mt-2">
+                Annual allocation based on your years of service
+              </p>
+            </div>
+            
+            <div className={`rounded-lg ${isDarkMode ? 'bg-dark-bg' : 'bg-apple-gray-lightest'} p-4`}>
+              <div className="flex justify-between items-start">
+                <div>
+                  <h3 className="text-sm font-medium text-apple-gray dark:text-dark-text-secondary">In-Lieu Days</h3>
+                  <p className="text-2xl font-semibold text-apple-gray-dark dark:text-dark-text-primary mt-1">
+                    {additionalLeaveBalance.toFixed(2)}
+                  </p>
+                </div>
+                <div className={`p-2 rounded-full ${isDarkMode ? 'bg-dark-surface' : 'bg-white'}`}>
+                  <FiCalendar className="w-5 h-5 text-indigo-500 dark:text-indigo-400" />
+                </div>
+              </div>
+              <p className="text-xs text-apple-gray dark:text-dark-text-tertiary mt-2">
+                Additional days from {inLieuRecords.length} in-lieu records
+              </p>
+            </div>
+            
+            <div className={`rounded-lg ${isDarkMode ? 'bg-dark-bg' : 'bg-apple-gray-lightest'} p-4`}>
+              <div className="flex justify-between items-start">
+                <div>
+                  <h3 className="text-sm font-medium text-apple-gray dark:text-dark-text-secondary">Leave Taken</h3>
+                  <p className="text-2xl font-semibold text-apple-gray-dark dark:text-dark-text-primary mt-1">
+                    {leaveTaken.toFixed(2)}
+                  </p>
+                </div>
+                <div className={`p-2 rounded-full ${isDarkMode ? 'bg-dark-surface' : 'bg-white'}`}>
+                  <FiCalendar className="w-5 h-5 text-orange-500 dark:text-orange-400" />
+                </div>
+              </div>
+              <p className="text-xs text-apple-gray dark:text-dark-text-tertiary mt-2">
+                Days used from {leaves.length} approved leave requests
+              </p>
+            </div>
+            
+            <div className={`rounded-lg ${isDarkMode ? 'bg-blue-900/20' : 'bg-blue-50'} p-4`}>
+              <div className="flex justify-between items-start">
+                <div>
+                  <h3 className="text-sm font-medium text-blue-700 dark:text-blue-400">Remaining Balance</h3>
+                  <p className="text-2xl font-semibold text-blue-800 dark:text-blue-300 mt-1">
+                    {remainingLeave !== null ? remainingLeave.toFixed(2) : '-'}
+                  </p>
+                </div>
+                <div className={`p-2 rounded-full ${isDarkMode ? 'bg-blue-800/30' : 'bg-white'}`}>
+                  <FiCalendar className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                </div>
+              </div>
+              <p className="text-xs text-blue-700 dark:text-blue-400 mt-2">
+                Available days as of {new Date().toLocaleDateString()}
+              </p>
+            </div>
+          </div>
+        </div>
+        
+        {/* Status messages */}
+        {error && (
+          <div className="p-4 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-apple">
+            {error}
+          </div>
         )}
+        
+        {success && (
+          <div className="p-4 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 rounded-apple">
+            {success}
+          </div>
+        )}
+        
+        {/* Leave Request and History Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Leave Request Form */}
+          <div className={`lg:col-span-1 ${isDarkMode ? 'bg-dark-surface' : 'bg-white'} rounded-apple shadow-apple-card dark:shadow-dark-card p-6`}>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-lg font-medium text-apple-gray-dark dark:text-dark-text-primary">
+                {showInLieuForm ? 'Add In-Lieu Time' : (editingLeave ? 'Edit Leave Request' : 'New Leave Request')}
+              </h2>
+              
+              <button
+                type="button"
+                onClick={() => {
+                  setShowInLieuForm(!showInLieuForm);
+                  setEditingLeave(null);
+                  setStartDate('');
+                  setEndDate('');
+                  setReason('');
+                  setLeaveType('Annual');
+                }}
+                className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${
+                  isDarkMode 
+                    ? 'bg-dark-bg text-dark-text-primary hover:bg-opacity-80' 
+                    : 'bg-apple-gray-light text-apple-gray-dark hover:bg-gray-200'
+                }`}
+              >
+                {showInLieuForm ? 'Back to Leave Form' : 'Add In-Lieu Time'}
+              </button>
+            </div>
+            
+            {/* Only show regular leave form if not showing in-lieu form */}
+            {!showInLieuForm && (
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-apple-gray-dark dark:text-dark-text-primary mb-1">Start Date</label>
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className={`w-full px-4 py-2 rounded-lg border transition-colors ${
+                      isDarkMode
+                        ? 'bg-dark-bg border-dark-border text-dark-text-primary focus:border-apple-blue'
+                        : 'border-gray-200 focus:border-apple-blue focus:ring-1 focus:ring-apple-blue'
+                    }`}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-apple-gray-dark dark:text-dark-text-primary mb-1">End Date</label>
+                  <input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className={`w-full px-4 py-2 rounded-lg border transition-colors ${
+                      isDarkMode
+                        ? 'bg-dark-bg border-dark-border text-dark-text-primary focus:border-apple-blue'
+                        : 'border-gray-200 focus:border-apple-blue focus:ring-1 focus:ring-apple-blue'
+                    }`}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-apple-gray-dark dark:text-dark-text-primary mb-1">Leave Type</label>
+                  <select
+                    value={leaveType}
+                    onChange={(e) => setLeaveType(e.target.value)}
+                    className={`w-full px-4 py-2 rounded-lg border transition-colors ${
+                      isDarkMode
+                        ? 'bg-dark-bg border-dark-border text-dark-text-primary focus:border-apple-blue'
+                        : 'border-gray-200 focus:border-apple-blue focus:ring-1 focus:ring-apple-blue'
+                    }`}
+                    required
+                  >
+                    <option value="Annual">Annual Leave</option>
+                    <option value="Casual">Casual Leave</option>
+                    <option value="Sick">Sick Leave</option>
+                    <option value="Unpaid">Unpaid Leave</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-apple-gray-dark dark:text-dark-text-primary mb-1">Reason</label>
+                  <textarea
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value)}
+                    className={`w-full px-4 py-2 rounded-lg border transition-colors ${
+                      isDarkMode
+                        ? 'bg-dark-bg border-dark-border text-dark-text-primary focus:border-apple-blue'
+                        : 'border-gray-200 focus:border-apple-blue focus:ring-1 focus:ring-apple-blue'
+                    }`}
+                    rows={3}
+                    placeholder="Enter reason for leave request (optional)"
+                  />
+                </div>
+
+                <div className="flex justify-end pt-2">
+                  {editingLeave ? (
+                    <div className="flex space-x-2">
+                      <button
+                        type="button"
+                        onClick={handleCancelEdit}
+                        className={`px-4 py-2 text-sm rounded-lg ${
+                          isDarkMode
+                            ? 'bg-dark-bg text-dark-text-primary hover:bg-opacity-80'
+                            : 'bg-gray-100 text-apple-gray-dark hover:bg-gray-200'
+                        }`}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        className="px-4 py-2 text-sm bg-apple-blue hover:bg-apple-blue-hover text-white rounded-lg"
+                      >
+                        Update Leave
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="submit"
+                      className="px-4 py-2 text-sm bg-apple-blue hover:bg-apple-blue-hover text-white rounded-lg"
+                    >
+                      Submit Leave Request
+                    </button>
+                  )}
+                </div>
+              </form>
+            )}
+            
+            {/* In-Lieu Time form */}
+            {showInLieuForm && (
+              <form onSubmit={handleInLieuOf} className="space-y-4">
+                <div className="mb-4">
+                  <p className="text-sm text-apple-gray dark:text-dark-text-secondary">
+                    Use this form to record days worked outside normal hours that can be taken as leave later.
+                  </p>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-apple-gray-dark dark:text-dark-text-primary mb-1">Start Date</label>
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className={`w-full px-4 py-2 rounded-lg border transition-colors ${
+                      isDarkMode
+                        ? 'bg-dark-bg border-dark-border text-dark-text-primary focus:border-apple-blue'
+                        : 'border-gray-200 focus:border-apple-blue focus:ring-1 focus:ring-apple-blue'
+                    }`}
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-apple-gray-dark dark:text-dark-text-primary mb-1">End Date</label>
+                  <input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className={`w-full px-4 py-2 rounded-lg border transition-colors ${
+                      isDarkMode
+                        ? 'bg-dark-bg border-dark-border text-dark-text-primary focus:border-apple-blue'
+                        : 'border-gray-200 focus:border-apple-blue focus:ring-1 focus:ring-apple-blue'
+                    }`}
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-apple-gray-dark dark:text-dark-text-primary mb-1">Reason</label>
+                  <textarea
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value)}
+                    className={`w-full px-4 py-2 rounded-lg border transition-colors ${
+                      isDarkMode
+                        ? 'bg-dark-bg border-dark-border text-dark-text-primary focus:border-apple-blue'
+                        : 'border-gray-200 focus:border-apple-blue focus:ring-1 focus:ring-apple-blue'
+                    }`}
+                    rows={3}
+                    placeholder="Why did you work on this day? (e.g. weekend emergency, public holiday coverage)"
+                  />
+                </div>
+                
+                {/* Calculated Days and Credit Preview */}
+                {startDate && endDate && new Date(endDate) >= new Date(startDate) && (
+                  <div className={`p-3 rounded-lg ${isDarkMode ? 'bg-dark-bg' : 'bg-gray-50'}`}>
+                    <h4 className="text-sm font-medium text-apple-gray-dark dark:text-dark-text-primary mb-2">Preview</h4>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <p className="text-xs text-apple-gray dark:text-dark-text-secondary">Days Worked</p>
+                        <p className="text-sm font-medium text-apple-gray-dark dark:text-dark-text-primary">
+                          {calculateDays(startDate, endDate)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-apple-gray dark:text-dark-text-secondary">Leave Credit</p>
+                        <p className="text-sm font-medium text-green-600 dark:text-green-400">
+                          {(calculateDays(startDate, endDate) * 0.667).toFixed(2)} days
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                <div className="flex justify-end pt-2">
+                  <div className="flex space-x-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowInLieuForm(false)}
+                      className={`px-4 py-2 text-sm rounded-lg ${
+                        isDarkMode
+                          ? 'bg-dark-bg text-dark-text-primary hover:bg-opacity-80'
+                          : 'bg-gray-100 text-apple-gray-dark hover:bg-gray-200'
+                      }`}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-4 py-2 text-sm bg-green-600 hover:bg-green-700 text-white rounded-lg"
+                    >
+                      Submit In-Lieu Time
+                    </button>
+                  </div>
+                </div>
+              </form>
+            )}
+          </div>
+          
+          {/* Leave History and In-Lieu Records */}
+          <div className={`lg:col-span-2 ${isDarkMode ? 'bg-dark-surface' : 'bg-white'} rounded-apple shadow-apple-card dark:shadow-dark-card p-6`}>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-lg font-medium text-apple-gray-dark dark:text-dark-text-primary">Leave Records</h2>
+              
+              {leaves.length > 0 && (
+                <BlobProvider
+                  document={
+                    <LeavePDF 
+                      employee={employee} 
+                      leaveData={leaves} 
+                      inLieuData={inLieuRecords} 
+                      totalLeaveBalance={leaveBalance} 
+                      leaveTaken={leaveTaken} 
+                      remainingLeave={remainingLeave} 
+                      year={new Date().getFullYear()} 
+                    />
+                  }
+                >
+                  {({ blob, url, loading, error }: PDFRenderProps) => (
+                    <a
+                      href={url || '#'}
+                      download={`leave-report-${new Date().getFullYear()}.pdf`}
+                      className={`flex items-center space-x-2 px-3 py-2 text-sm font-medium rounded-lg ${
+                        isDarkMode
+                          ? 'bg-dark-bg hover:bg-opacity-80 text-dark-text-primary'
+                          : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                      }`}
+                      onClick={(e) => !url && e.preventDefault()}
+                    >
+                      <FiDownload className="w-4 h-4" />
+                      <span>{loading ? 'Generating...' : 'Download Report'}</span>
+                    </a>
+                  )}
+                </BlobProvider>
+              )}
+            </div>
+            
+            {/* Tabs for Leave History and In-Lieu Records */}
+            <div className="border-b border-gray-200 dark:border-dark-border mb-4">
+              <div className="flex space-x-8">
+                <button
+                  className={`pb-2 px-1 text-sm font-medium border-b-2 transition-colors ${
+                    !showInLieuForm
+                      ? (isDarkMode 
+                          ? 'border-blue-400 text-blue-400'
+                          : 'border-apple-blue text-apple-blue')
+                      : (isDarkMode
+                          ? 'border-transparent text-dark-text-secondary hover:text-dark-text-primary'
+                          : 'border-transparent text-apple-gray hover:text-apple-gray-dark')
+                  }`}
+                  onClick={() => setShowInLieuForm(false)}
+                >
+                  Leave Requests
+                </button>
+                <button
+                  className={`pb-2 px-1 text-sm font-medium border-b-2 transition-colors ${
+                    showInLieuForm
+                      ? (isDarkMode 
+                          ? 'border-blue-400 text-blue-400'
+                          : 'border-apple-blue text-apple-blue')
+                      : (isDarkMode
+                          ? 'border-transparent text-dark-text-secondary hover:text-dark-text-primary'
+                          : 'border-transparent text-apple-gray hover:text-apple-gray-dark')
+                  }`}
+                  onClick={() => setShowInLieuForm(true)}
+                >
+                  In-Lieu Records
+                </button>
+              </div>
+            </div>
+            
+            {/* Leave History Table */}
+            {!showInLieuForm && (
+              <>
+                {leaves.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className={`${isDarkMode ? 'bg-dark-bg' : 'bg-gray-50'} text-xs uppercase`}>
+                        <tr>
+                          <th className="px-4 py-3 text-left font-medium text-apple-gray dark:text-dark-text-secondary">Date Range</th>
+                          <th className="px-4 py-3 text-left font-medium text-apple-gray dark:text-dark-text-secondary">Days</th>
+                          <th className="px-4 py-3 text-left font-medium text-apple-gray dark:text-dark-text-secondary">Type</th>
+                          <th className="px-4 py-3 text-left font-medium text-apple-gray dark:text-dark-text-secondary">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y dark:divide-dark-border">
+                        {leaves.map((leave) => (
+                          <tr key={leave.id} className={`${isDarkMode ? 'hover:bg-dark-bg' : 'hover:bg-gray-50'}`}>
+                            <td className="px-4 py-3 text-sm">
+                              <div className="text-apple-gray-dark dark:text-dark-text-primary">
+                                {new Date(leave.start_date).toLocaleDateString()} to {new Date(leave.end_date).toLocaleDateString()}
+                              </div>
+                              <div className="text-xs text-apple-gray dark:text-dark-text-tertiary mt-1">
+                                {leave.reason || 'No reason provided'}
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-apple-gray-dark dark:text-dark-text-primary">
+                              {leave.days_taken}
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm">
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                leave.leave_type === 'Annual' 
+                                  ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300' 
+                                  : leave.leave_type === 'Sick'
+                                    ? 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300'
+                                    : leave.leave_type === 'Casual'
+                                      ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300'
+                                      : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300'
+                              }`}>
+                                {leave.leave_type || 'Annual'}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm">
+                              <div className="flex space-x-2">
+                                <button
+                                  onClick={() => handleEdit(leave)}
+                                  className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
+                                >
+                                  <FiEdit size={16} />
+                                </button>
+                                <button
+                                  onClick={() => handleDelete(leave)}
+                                  className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300"
+                                >
+                                  <FiTrash size={16} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="py-10 text-center text-apple-gray dark:text-dark-text-secondary">
+                    <p>No leave records found.</p>
+                    <p className="text-sm mt-1">Submit a new leave request to get started.</p>
+                  </div>
+                )}
+              </>
+            )}
+            
+            {/* In-Lieu Records Table */}
+            {showInLieuForm && (
+              <>
+                {inLieuRecords.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className={`${isDarkMode ? 'bg-dark-bg' : 'bg-gray-50'} text-xs uppercase`}>
+                        <tr>
+                          <th className="px-4 py-3 text-left font-medium text-apple-gray dark:text-dark-text-secondary">Date Range</th>
+                          <th className="px-4 py-3 text-left font-medium text-apple-gray dark:text-dark-text-secondary">Days Worked</th>
+                          <th className="px-4 py-3 text-left font-medium text-apple-gray dark:text-dark-text-secondary">Leave Added</th>
+                          <th className="px-4 py-3 text-left font-medium text-apple-gray dark:text-dark-text-secondary">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y dark:divide-dark-border">
+                        {inLieuRecords.map((record) => (
+                          <tr key={record.id} className={`${isDarkMode ? 'hover:bg-dark-bg' : 'hover:bg-gray-50'}`}>
+                            <td className="px-4 py-3 text-sm">
+                              <div className="text-apple-gray-dark dark:text-dark-text-primary">
+                                {new Date(record.start_date).toLocaleDateString()} to {new Date(record.end_date).toLocaleDateString()}
+                              </div>
+                              <div className="text-xs text-apple-gray dark:text-dark-text-tertiary mt-1">
+                                {record.reason || 'No reason provided'}
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-apple-gray-dark dark:text-dark-text-primary">
+                              {record.days_count}
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm">
+                              <span className="px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 rounded-full text-xs font-medium">
+                                +{record.leave_days_added.toFixed(2)}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm">
+                              <button
+                                onClick={() => handleDeleteInLieu(record)}
+                                className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300"
+                              >
+                                <FiTrash size={16} />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="py-10 text-center text-apple-gray dark:text-dark-text-secondary">
+                    <p>No in-lieu records found.</p>
+                    <p className="text-sm mt-1">Add in-lieu time to increase your leave balance.</p>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
       </div>
     </Layout>
   );
