@@ -106,6 +106,14 @@ export default function Layout({ children }: LayoutProps) {
             {/* Desktop menu */}
             <div className="hidden sm:flex sm:items-center sm:space-x-6">
               <Link 
+                href="/dashboard" 
+                className={`px-3 py-1 rounded-full text-sm text-apple-gray-dark dark:text-dark-text-primary font-medium hover:bg-gray-100 dark:hover:bg-dark-surface transition-colors ${
+                  router.pathname === '/dashboard' ? 'bg-gray-100 dark:bg-dark-surface' : ''
+                }`}
+              >
+                Dashboard
+              </Link>
+              <Link 
                 href="/salary" 
                 className={`px-3 py-1 rounded-full text-sm text-apple-gray-dark dark:text-dark-text-primary font-medium hover:bg-gray-100 dark:hover:bg-dark-surface transition-colors ${
                   router.pathname === '/salary' ? 'bg-gray-100 dark:bg-dark-surface' : ''
@@ -140,6 +148,15 @@ export default function Layout({ children }: LayoutProps) {
         {/* Mobile menu */}
         <div className={`${isMenuOpen ? 'block' : 'hidden'} sm:hidden border-t border-gray-200 dark:border-dark-border bg-white dark:bg-dark-surface`}>
           <div className="px-2 pt-2 pb-3 space-y-1">
+            <Link
+              href="/dashboard"
+              className={`block px-3 py-2 rounded-md text-base font-medium text-apple-gray-dark dark:text-dark-text-primary ${
+                router.pathname === '/dashboard' ? 'bg-gray-100 dark:bg-dark-surface/70' : 'hover:bg-gray-50 dark:hover:bg-dark-surface/70'
+              }`}
+              onClick={() => setIsMenuOpen(false)}
+            >
+              Dashboard
+            </Link>
             <Link
               href="/salary"
               className={`block px-3 py-2 rounded-md text-base font-medium text-apple-gray-dark dark:text-dark-text-primary ${
