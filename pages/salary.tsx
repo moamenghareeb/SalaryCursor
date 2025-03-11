@@ -9,6 +9,7 @@ import { User } from '@supabase/supabase-js';
 import Head from 'next/head';
 import { useTheme } from '../lib/themeContext';
 import toast from 'react-hot-toast';
+import { FiRefreshCw } from 'react-icons/fi';
 
 // Register fonts - use direct font import
 Font.register({
@@ -701,6 +702,49 @@ to add the missing absences column to the salaries table.
     }
   };
 
+  // Add near the other functions in the component
+  const downloadPDF = (salary: any) => {
+    try {
+      const MyDocument = () => (
+        <Document>
+          <SalaryPDF 
+            salary={{
+              basicSalary: salary?.basic_salary || 0,
+              costOfLiving: salary?.cost_of_living || 0,
+              shiftAllowance: salary?.shift_allowance || 0,
+              overtimeHours: salary?.overtime_hours || 0,
+              overtimePay: salary?.overtime_pay || 0,
+              variablePay: salary?.variable_pay || 0,
+              deduction: salary?.deduction || 0,
+              totalSalary: salary?.total_salary || 0,
+              exchangeRate: salary?.exchange_rate || exchangeRate
+            }}
+            employee={employee as Employee}
+            month={salary.month}
+            exchangeRate={salary.exchange_rate || exchangeRate}
+          />
+        </Document>
+      );
+      
+      const pdfBlob = pdf(<MyDocument />).toBlob();
+      pdfBlob.then(blob => {
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${employee?.name}_salary_${new Date(salary.month).toISOString().substring(0, 7)}.pdf`;
+        link.click();
+        // Clean up the URL object after download
+        setTimeout(() => URL.revokeObjectURL(url), 100);
+      }).catch(error => {
+        console.error('PDF generation error:', error);
+        toast.error(`Error generating PDF: ${error.message || 'Unknown error'}`);
+      });
+    } catch (error) {
+      console.error('PDF generation error:', error);
+      toast.error(`Error generating PDF: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  };
+
   if (loading) {
     return (
       <Layout>
@@ -862,11 +906,14 @@ to add the missing absences column to the salaries table.
                   </span>
                   <button
                     onClick={manuallyUpdateRate}
-                    className="p-2 text-apple-blue dark:text-blue-400 hover:text-apple-blue-hover"
+                    className={`p-2 rounded-lg transition-colors ${
+                      isDarkMode 
+                        ? 'bg-blue-600 hover:bg-blue-700 text-white' 
+                        : 'bg-apple-blue hover:bg-apple-blue-hover text-white'
+                    }`}
+                    aria-label="Refresh exchange rate"
                   >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
+                    <FiRefreshCw className="w-5 h-5" />
                   </button>
                 </div>
               </div>
@@ -957,7 +1004,11 @@ to add the missing absences column to the salaries table.
             <h2 className="text-lg font-medium text-apple-gray-dark dark:text-dark-text-primary">Salary History</h2>
             <button
               onClick={fetchSalaryHistory}
-              className="px-4 py-2 text-sm text-apple-gray-dark dark:text-gray-300 bg-apple-gray-light dark:bg-gray-700 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                isDarkMode
+                  ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                  : 'bg-apple-blue hover:bg-apple-blue-hover text-white'
+              }`}
             >
               Refresh
             </button>
@@ -989,52 +1040,20 @@ to add the missing absences column to the salaries table.
                       EGP {salary.total_salary.toFixed(2)}
                     </td>
                     <td className="text-right py-3 px-4">
-                      <button
-                        onClick={() => {
-                          try {
-                            const MyDocument = () => (
-                              <Document>
-                                <SalaryPDF 
-                                  salary={{
-                                    basicSalary: salary?.basic_salary || 0,
-                                    costOfLiving: salary?.cost_of_living || 0,
-                                    shiftAllowance: salary?.shift_allowance || 0,
-                                    overtimeHours: salary?.overtime_hours || 0,
-                                    overtimePay: salary?.overtime_pay || 0,
-                                    variablePay: salary?.variable_pay || 0,
-                                    deduction: salary?.deduction || 0,
-                                    totalSalary: salary?.total_salary || 0,
-                                    exchangeRate: salary?.exchange_rate || exchangeRate
-                                  }}
-                                  employee={employee as Employee}
-                                  month={salary.month}
-                                  exchangeRate={salary.exchange_rate || exchangeRate}
-                                />
-                              </Document>
-                            );
-                            
-                            const pdfBlob = pdf(<MyDocument />).toBlob();
-                            pdfBlob.then(blob => {
-                              const url = URL.createObjectURL(blob);
-                              const link = document.createElement('a');
-                              link.href = url;
-                              link.download = `${employee?.name}_salary_${new Date(salary.month).toISOString().substring(0, 7)}.pdf`;
-                              link.click();
-                              // Clean up the URL object after download
-                              setTimeout(() => URL.revokeObjectURL(url), 100);
-                            }).catch(error => {
-                              console.error('PDF generation error:', error);
-                              alert(`Error generating PDF: ${error.message || 'Unknown error'}`);
-                            });
-                          } catch (error) {
-                            console.error('PDF generation error:', error);
-                            alert(`Error generating PDF: ${error instanceof Error ? error.message : 'Unknown error'}`);
-                          }
+                      <a
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          downloadPDF(salary);
                         }}
-                        className="text-apple-blue dark:text-blue-400 hover:text-apple-blue-hover"
+                        className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                          isDarkMode
+                            ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                            : 'bg-apple-blue hover:bg-apple-blue-hover text-white'
+                        }`}
                       >
                         View PDF
-                      </button>
+                      </a>
                     </td>
                   </tr>
                 ))}

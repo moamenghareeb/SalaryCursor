@@ -1253,6 +1253,7 @@ export default function Leave() {
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-lg font-medium text-apple-gray-dark dark:text-dark-text-primary">Leave Records</h2>
               
+              {/* Download Report Link */}
               {leaves.length > 0 && (
                 <BlobProvider
                   document={
@@ -1271,10 +1272,10 @@ export default function Leave() {
                     <a
                       href={url || '#'}
                       download={`leave-report-${new Date().getFullYear()}.pdf`}
-                      className={`flex items-center space-x-2 px-4 py-2 text-sm font-medium rounded-lg ${
+                      className={`flex items-center space-x-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
                         isDarkMode
-                          ? 'bg-dark-bg hover:bg-dark-surface-light text-dark-text-primary'
-                          : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                          ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                          : 'bg-apple-blue hover:bg-apple-blue-hover text-white'
                       }`}
                       onClick={(e) => !url && e.preventDefault()}
                     >
@@ -1290,7 +1291,7 @@ export default function Leave() {
             <div className="border-b border-gray-200 dark:border-dark-border mb-6">
               <div className="flex space-x-6">
                 <button
-                  className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors ${
+                  className={`pb-3 px-3 text-sm font-medium border-b-2 transition-colors ${
                     !showInLieuForm
                       ? (isDarkMode 
                           ? 'border-blue-500 text-blue-400'
@@ -1304,7 +1305,7 @@ export default function Leave() {
                   Leave Requests
                 </button>
                 <button
-                  className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors ${
+                  className={`pb-3 px-3 text-sm font-medium border-b-2 transition-colors ${
                     showInLieuForm
                       ? (isDarkMode 
                           ? 'border-blue-500 text-blue-400'
