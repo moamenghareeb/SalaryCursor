@@ -130,14 +130,6 @@ export default function Layout({ children }: LayoutProps) {
                 Leave
               </Link>
               <Link 
-                href="/leave-calendar" 
-                className={`px-3 py-1 rounded-full text-sm text-apple-gray-dark dark:text-dark-text-primary font-medium hover:bg-gray-100 dark:hover:bg-dark-surface transition-colors ${
-                  router.pathname === '/leave-calendar' ? 'bg-gray-100 dark:bg-dark-surface' : ''
-                }`}
-              >
-                Calendar
-              </Link>
-              <Link 
                 href="/profile" 
                 className={`px-3 py-1 rounded-full text-sm text-apple-gray-dark dark:text-dark-text-primary font-medium hover:bg-gray-100 dark:hover:bg-dark-surface transition-colors ${
                   router.pathname === '/profile' ? 'bg-gray-100 dark:bg-dark-surface' : ''
@@ -190,15 +182,6 @@ export default function Layout({ children }: LayoutProps) {
               onClick={() => setIsMenuOpen(false)}
             >
               Leave
-            </Link>
-            <Link
-              href="/leave-calendar"
-              className={`block px-3 py-2 rounded-md text-base font-medium text-apple-gray-dark dark:text-dark-text-primary ${
-                router.pathname === '/leave-calendar' ? 'bg-gray-100 dark:bg-dark-surface/70' : 'hover:bg-gray-50 dark:hover:bg-dark-surface/70'
-              }`}
-              onClick={() => setIsMenuOpen(false)}
-            >
-              Calendar
             </Link>
             <Link
               href="/profile"
