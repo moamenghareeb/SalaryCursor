@@ -143,6 +143,15 @@ async function handler(
       const forceFresh = true;
       const leaveBalanceResult = await leaveService.calculateLeaveBalance(userId, currentYear, forceFresh);
       
+      // Log the complete result from leave service
+      logger.info(`Leave service calculation complete. Result: ${JSON.stringify({
+        baseLeaveBalance: leaveBalanceResult.baseLeaveBalance,
+        inLieuBalance: leaveBalanceResult.inLieuBalance,
+        leaveTaken: leaveBalanceResult.leaveTaken,
+        remainingBalance: leaveBalanceResult.remainingBalance,
+        error: leaveBalanceResult.error || 'none'
+      })}`);
+      
       // Store full debug info
       dashboardData.debug.leaveService = leaveBalanceResult;
       
@@ -157,8 +166,15 @@ async function handler(
         // Calculate explicitly to ensure correctness
         const calculatedBalance = parseFloat((baseLeave + inLieuDays - daysTaken).toFixed(2));
         
-        // Use the calculated value, fallback to service value, and finally fallback to 0
-        dashboardData.leaveBalance = calculatedBalance || leaveBalanceResult.remainingBalance || 0;
+        // IMPORTANT: Ensure we're setting leaveBalance to a valid number
+        if (isNaN(calculatedBalance)) {
+          logger.error('Calculated balance is NaN, using fallback value 0');
+          dashboardData.leaveBalance = 0;
+        } else {
+          // Set leaveBalance only once with the calculated value
+          dashboardData.leaveBalance = calculatedBalance;
+        }
+        
         dashboardData.leaveTaken = daysTaken;
         dashboardData.inLieuSummary = {
           count: await getInLieuRecordsCount(userId),
@@ -167,11 +183,13 @@ async function handler(
         
         logger.info(`Dashboard calculation: ${baseLeave} (base) + ${inLieuDays} (in-lieu) - ${daysTaken} (taken) = ${calculatedBalance}`);
         logger.info(`Leave service result vs. dashboard calculation: ${leaveBalanceResult.remainingBalance} vs. ${calculatedBalance}`);
+        logger.info(`Final leaveBalance value in API response: ${dashboardData.leaveBalance}`);
       } else {
         logger.error(`Error from leave service: ${leaveBalanceResult.error}`);
         // Still provide partial data if available
         if (leaveBalanceResult.remainingBalance !== undefined) {
           dashboardData.leaveBalance = leaveBalanceResult.remainingBalance;
+          logger.info(`Using partial data: leaveBalance = ${dashboardData.leaveBalance}`);
         }
         if (leaveBalanceResult.leaveTaken !== undefined) {
           dashboardData.leaveTaken = leaveBalanceResult.leaveTaken;
@@ -185,6 +203,9 @@ async function handler(
       dashboardData.debug.leaveServiceError = leaveServiceError.message || leaveServiceError;
     }
 
+    // Verify final structure before returning
+    logger.info(`Final API response structure: employee=${!!dashboardData.employee}, leaveBalance=${dashboardData.leaveBalance}, leaveTaken=${dashboardData.leaveTaken}`);
+    
     // Set cache control headers to prevent caching at all levels
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.setHeader('Pragma', 'no-cache');

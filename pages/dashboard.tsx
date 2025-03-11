@@ -119,7 +119,12 @@ export default function Dashboard() {
         }
       });
       
-      console.log('API response received:', response.data);
+      // Add detailed logging to examine the exact response structure
+      console.log('API response received - Full structure:', JSON.stringify(response.data, null, 2));
+      console.log('Leave balance value:', response.data?.leaveBalance, 'Type:', typeof response.data?.leaveBalance);
+      console.log('Employee base leave:', response.data?.employee?.annual_leave_balance);
+      console.log('In lieu days added:', response.data?.inLieuSummary?.daysAdded);
+      console.log('Leave taken:', response.data?.leaveTaken);
       
       // Validate the data structure
       if (response.data && typeof response.data.leaveBalance === 'number') {
@@ -166,25 +171,41 @@ export default function Dashboard() {
   const processedData = useMemo(() => {
     if (!data) return null;
     
-    // Force calculation of correct leave balance based on component values
-    const baseLeave = data.employee?.annual_leave_balance || 18.67;
-    const inLieuDays = data.inLieuSummary?.daysAdded || 0;
-    const daysTaken = data.leaveTaken || 0;
-    
-    // Calculate the CORRECT balance
-    const correctBalance = parseFloat((baseLeave + inLieuDays - daysTaken).toFixed(2));
-    
-    console.log('Dashboard display correction:', {
-      originalBalance: data.leaveBalance,
-      correctedBalance: correctBalance,
-      calculation: `${baseLeave} + ${inLieuDays} - ${daysTaken} = ${correctBalance}`
+    // Instead of recalculating, log what we received from the API
+    console.log('Dashboard received data from API:', {
+      leaveBalance: data.leaveBalance,
+      employeeBaseLeave: data.employee?.annual_leave_balance,
+      inLieuDays: data.inLieuSummary?.daysAdded,
+      daysTaken: data.leaveTaken
     });
     
-    // Return a new object with the corrected balance
-    return {
-      ...data,
-      leaveBalance: correctBalance
-    };
+    // Trust the server calculation unless it's clearly invalid
+    if (data.leaveBalance === null || data.leaveBalance === undefined || isNaN(data.leaveBalance)) {
+      console.warn('Invalid leave balance received from API, falling back to manual calculation');
+      
+      // Only in this case, do a fallback calculation
+      const baseLeave = data.employee?.annual_leave_balance || 18.67;
+      const inLieuDays = data.inLieuSummary?.daysAdded || 0;
+      const daysTaken = data.leaveTaken || 0;
+      
+      // Calculate the CORRECT balance as a fallback only
+      const correctBalance = parseFloat((baseLeave + inLieuDays - daysTaken).toFixed(2));
+      
+      console.log('Fallback calculation performed:', {
+        originalBalance: data.leaveBalance,
+        fallbackBalance: correctBalance,
+        calculation: `${baseLeave} + ${inLieuDays} - ${daysTaken} = ${correctBalance}`
+      });
+      
+      // Return a new object with the corrected balance
+      return {
+        ...data,
+        leaveBalance: correctBalance
+      };
+    }
+    
+    // In the normal case, trust the server calculation
+    return data;
   }, [data]);
   
   // Use processedData instead of data from this point onwards
@@ -302,10 +323,25 @@ export default function Dashboard() {
                     </span>
                   </div>
                   <div className="mt-1 text-sm text-apple-gray dark:text-dark-text-secondary">
-                    <span className="font-medium">Calculation:</span> {displayData?.employee?.annual_leave_balance?.toFixed(2) || '0.00'} base days
-                    {displayData?.inLieuSummary?.daysAdded ? ` + ${displayData.inLieuSummary.daysAdded} in-lieu days` : ''}
-                    {displayData?.leaveTaken ? ` - ${displayData.leaveTaken} days taken` : ''}
-                    {` = ${displayData?.leaveBalance?.toFixed(2) || '0.00'} days`}
+                    <div className="font-medium mb-1">Calculation Details:</div>
+                    <div className="grid grid-cols-1 gap-1">
+                      <div className="flex justify-between">
+                        <span>Base Annual Leave:</span>
+                        <span className="font-mono">{displayData?.employee?.annual_leave_balance?.toFixed(2) || '0.00'} days</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>In-Lieu Time Added:</span>
+                        <span className="font-mono">{displayData?.inLieuSummary?.daysAdded?.toFixed(2) || '0.00'} days</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Leave Taken This Year:</span>
+                        <span className="font-mono">{displayData?.leaveTaken?.toFixed(2) || '0.00'} days</span>
+                      </div>
+                      <div className="flex justify-between border-t pt-1 font-medium">
+                        <span>Remaining Balance:</span>
+                        <span className="font-mono">{displayData?.leaveBalance?.toFixed(2) || '0.00'} days</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>

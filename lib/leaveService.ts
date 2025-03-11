@@ -45,8 +45,13 @@ export const leaveService = {
     
     const debug: DebugInfo = { queries: [], results: {} };
     
+    // Add initial logging
+    logger.info(`=== LEAVE BALANCE CALCULATION START ===`);
+    logger.info(`UserId: ${userId}, Year: ${year || 'current'}, ForceFresh: ${forceFresh}`);
+    
     try {
       if (!userId) {
+        logger.error('Leave calculation failed: User ID is required');
         return {
           baseLeaveBalance: 0,
           inLieuBalance: 0,
@@ -60,6 +65,7 @@ export const leaveService = {
       logger.info(`Calculating leave balance for user ${userId} for year ${currentYear}`);
 
       // Step 1: Fetch employee details for base leave calculation
+      logger.info(`STEP 1: Fetching employee details for user ${userId}`);
       debug.queries.push('employees');
       const { data: employeeData, error: employeeError } = await supabase
         .from('employees')
@@ -80,8 +86,11 @@ export const leaveService = {
           debug
         };
       }
+      
+      logger.info(`Employee data retrieved: annual_leave_balance=${employeeData?.annual_leave_balance}, leave_balance=${employeeData?.leave_balance}, years_of_service=${employeeData?.years_of_service}`);
 
       // Step 2: Check for specific yearly allocation or use years of service calculation
+      logger.info(`STEP 2: Checking leave allocations for year ${currentYear}`);
       debug.queries.push('leave_allocations');
       const { data: leaveAllocation, error: leaveAllocationError } = await supabase
         .from('leave_allocations')
@@ -103,8 +112,11 @@ export const leaveService = {
         baseLeaveBalance = employeeData?.years_of_service >= 10 ? 24.67 : 18.67;
         logger.info(`Using calculated leave days based on years of service: ${baseLeaveBalance}`);
       }
+      
+      logger.info(`Base leave balance determined: ${baseLeaveBalance}`);
 
       // Step 3: Get in-lieu records and calculate total additional days
+      logger.info(`STEP 3: Fetching in-lieu records for user ${userId}`);
       debug.queries.push('in_lieu_records');
       const { data: inLieuData, error: inLieuError } = await supabase
         .from('in_lieu_records')
@@ -116,6 +128,7 @@ export const leaveService = {
 
       let inLieuBalance = 0;
       if (!inLieuError && inLieuData) {
+        logger.info(`Found ${inLieuData.length} approved in-lieu records`);
         // Sum up all approved in-lieu days using leave_days_added field
         inLieuBalance = inLieuData.reduce((total, record) => {
           const daysAdded = record.leave_days_added || 0;
@@ -128,6 +141,7 @@ export const leaveService = {
       }
 
       // Step 4: Get leave taken for the current year
+      logger.info(`STEP 4: Fetching leave taken for year ${currentYear}`);
       const startOfYear = `${currentYear}-01-01`;
       const endOfYear = `${currentYear}-12-31`;
       
@@ -145,10 +159,11 @@ export const leaveService = {
 
       let leaveTaken = 0;
       if (!takenLeaveError && takenLeaveData) {
+        logger.info(`Found ${takenLeaveData.length} approved leave records for ${currentYear}`);
         // Sum up all approved Annual leave using days_taken field
         leaveTaken = takenLeaveData.reduce((total, leave) => {
           const daysTaken = leave.days_taken || 0;
-          logger.debug(`Leave record ${leave.id}: days_taken=${daysTaken}`);
+          logger.debug(`Leave record ${leave.id}: days_taken=${daysTaken}, from ${leave.start_date} to ${leave.end_date}`);
           return total + daysTaken;
         }, 0);
         logger.info(`Calculated leave taken: ${leaveTaken} from ${takenLeaveData.length} records`);
@@ -157,6 +172,7 @@ export const leaveService = {
       }
       
       // Step 5: Calculate final remaining balance
+      logger.info(`STEP 5: Calculating final balance`);
       // Ensure we're working with numbers and rounding to 2 decimal places
       const baseLeaveAsNumber = parseFloat(baseLeaveBalance.toString()) || 0;
       const inLieuAsNumber = parseFloat(inLieuBalance.toString()) || 0;
@@ -165,14 +181,17 @@ export const leaveService = {
       // Do the math and round to 2 decimal places
       const remainingBalance = parseFloat((baseLeaveAsNumber + inLieuAsNumber - takenAsNumber).toFixed(2));
       
-      logger.info(`Final leave balance calculation: ${baseLeaveAsNumber} (base) + ${inLieuAsNumber} (in-lieu) - ${takenAsNumber} (taken) = ${remainingBalance}`);
+      logger.info(`FINAL CALCULATION: ${baseLeaveAsNumber} (base) + ${inLieuAsNumber} (in-lieu) - ${takenAsNumber} (taken) = ${remainingBalance}`);
 
       // Step 6: Update employee record to ensure consistency across the application
+      logger.info(`STEP 6: Updating employee record in database`);
       try {
         const updates = { 
           annual_leave_balance: baseLeaveAsNumber,
           leave_balance: remainingBalance
         };
+        
+        logger.info(`Updating employee record with: annual_leave_balance=${baseLeaveAsNumber}, leave_balance=${remainingBalance}`);
         
         debug.queries.push('update-employee');
         const { error: updateError } = await supabase
@@ -184,13 +203,17 @@ export const leaveService = {
 
         if (updateError) {
           logger.error(`Error updating employee record: ${updateError.message}`);
+          logger.error(`Database update FAILED`);
         } else {
-          logger.info(`Successfully updated employee record with latest leave balances`);
+          logger.info(`Database update SUCCESSFUL`);
+          logger.info(`Employee record updated with latest leave balances`);
         }
       } catch (updateError: any) {
-        logger.error(`Failed to update employee record: ${updateError.message}`);
+        logger.error(`Exception during employee record update: ${updateError.message}`);
+        logger.error(`Database update FAILED due to exception`);
       }
 
+      logger.info(`=== LEAVE BALANCE CALCULATION COMPLETE ===`);
       return {
         baseLeaveBalance,
         inLieuBalance,
@@ -202,6 +225,7 @@ export const leaveService = {
       
     } catch (error: any) {
       logger.error(`Unexpected error in leave balance calculation: ${error.message}`);
+      logger.error(`=== LEAVE BALANCE CALCULATION FAILED ===`);
       return {
         baseLeaveBalance: 0,
         inLieuBalance: 0, 
