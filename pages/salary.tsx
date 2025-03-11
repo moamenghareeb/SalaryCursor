@@ -8,6 +8,7 @@ import SalaryPDF from '../components/SalaryPDF';
 import { User } from '@supabase/supabase-js';
 import Head from 'next/head';
 import { useTheme } from '../lib/themeContext';
+import toast from 'react-hot-toast';
 
 // Register fonts - use direct font import
 Font.register({
@@ -312,7 +313,7 @@ export default function Salary() {
       saveInputsToLocalStorage(salaryCalc);
       
       // Use the new unified API endpoint with explicit token
-      const response = await fetch('/api/salary', {
+      const response = await fetch('/api/salary/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -450,7 +451,7 @@ to add the missing absences column to the salaries table.
       }
       
       // Use the new unified API endpoint with explicit token
-      const response = await fetch(`/api/salary?employee_id=${employee.id}`, {
+      const response = await fetch(`/api/salary/?employee_id=${employee.id}`, {
         headers: {
           'Authorization': `Bearer ${session.access_token}`
         },
@@ -459,6 +460,7 @@ to add the missing absences column to the salaries table.
       
       if (!response.ok) {
         console.error('Error fetching salary history:', response.statusText);
+        toast.error(`Error fetching salary history: ${response.status} ${response.statusText}`);
         return;
       }
       
@@ -466,6 +468,12 @@ to add the missing absences column to the salaries table.
       setSalaryHistory(data || []);
     } catch (error) {
       console.error('Error fetching salary history:', error);
+      // More detailed error reporting
+      if (error instanceof Error) {
+        toast.error(`Error fetching salary history: ${error.message}`);
+      } else {
+        toast.error('Error fetching salary history: Unknown error');
+      }
     }
   };
 
