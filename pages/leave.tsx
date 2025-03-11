@@ -1034,10 +1034,14 @@ export default function Leave() {
                   setReason('');
                   setLeaveType('Annual');
                 }}
-                className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${
+                className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
                   isDarkMode 
-                    ? 'bg-dark-bg text-dark-text-primary hover:bg-opacity-80' 
-                    : 'bg-apple-gray-light text-apple-gray-dark hover:bg-gray-200'
+                    ? (showInLieuForm 
+                        ? 'bg-dark-surface-light text-dark-text-primary border border-gray-700'
+                        : 'bg-blue-600 text-white hover:bg-blue-700')
+                    : (showInLieuForm
+                        ? 'bg-gray-100 text-apple-gray-dark border border-gray-200'
+                        : 'bg-apple-blue text-white hover:bg-apple-blue-hover')
                 }`}
               >
                 {showInLieuForm ? 'Back to Leave Form' : 'Add In-Lieu Time'}
@@ -1111,23 +1115,23 @@ export default function Leave() {
                   />
                 </div>
 
-                <div className="flex justify-end pt-2">
+                <div className="flex justify-end pt-4">
                   {editingLeave ? (
-                    <div className="flex space-x-2">
+                    <div className="flex space-x-3">
                       <button
                         type="button"
                         onClick={handleCancelEdit}
-                        className={`px-4 py-2 text-sm rounded-lg ${
+                        className={`px-4 py-2 text-sm font-medium rounded-lg ${
                           isDarkMode
-                            ? 'bg-dark-bg text-dark-text-primary hover:bg-opacity-80'
-                            : 'bg-gray-100 text-apple-gray-dark hover:bg-gray-200'
+                            ? 'bg-dark-bg text-dark-text-primary hover:bg-dark-surface-light border border-gray-700'
+                            : 'bg-white text-apple-gray-dark hover:bg-gray-100 border border-gray-200'
                         }`}
                       >
                         Cancel
                       </button>
                       <button
                         type="submit"
-                        className="px-4 py-2 text-sm bg-apple-blue hover:bg-apple-blue-hover text-white rounded-lg"
+                        className="px-4 py-2 text-sm font-medium bg-apple-blue hover:bg-apple-blue-hover text-white rounded-lg"
                       >
                         Update Leave
                       </button>
@@ -1135,7 +1139,7 @@ export default function Leave() {
                   ) : (
                     <button
                       type="submit"
-                      className="px-4 py-2 text-sm bg-apple-blue hover:bg-apple-blue-hover text-white rounded-lg"
+                      className="px-4 py-2 text-sm font-medium bg-apple-blue hover:bg-apple-blue-hover text-white rounded-lg"
                     >
                       Submit Leave Request
                     </button>
@@ -1219,22 +1223,22 @@ export default function Leave() {
                   </div>
                 )}
                 
-                <div className="flex justify-end pt-2">
-                  <div className="flex space-x-2">
+                <div className="flex justify-end pt-4">
+                  <div className="flex space-x-3">
                     <button
                       type="button"
                       onClick={() => setShowInLieuForm(false)}
-                      className={`px-4 py-2 text-sm rounded-lg ${
+                      className={`px-4 py-2 text-sm font-medium rounded-lg ${
                         isDarkMode
-                          ? 'bg-dark-bg text-dark-text-primary hover:bg-opacity-80'
-                          : 'bg-gray-100 text-apple-gray-dark hover:bg-gray-200'
+                          ? 'bg-dark-bg text-dark-text-primary hover:bg-dark-surface-light border border-gray-700'
+                          : 'bg-white text-apple-gray-dark hover:bg-gray-100 border border-gray-200'
                       }`}
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
-                      className="px-4 py-2 text-sm bg-green-600 hover:bg-green-700 text-white rounded-lg"
+                      className="px-4 py-2 text-sm font-medium bg-apple-blue hover:bg-apple-blue-hover text-white rounded-lg"
                     >
                       Submit In-Lieu Time
                     </button>
@@ -1267,9 +1271,9 @@ export default function Leave() {
                     <a
                       href={url || '#'}
                       download={`leave-report-${new Date().getFullYear()}.pdf`}
-                      className={`flex items-center space-x-2 px-3 py-2 text-sm font-medium rounded-lg ${
+                      className={`flex items-center space-x-2 px-4 py-2 text-sm font-medium rounded-lg ${
                         isDarkMode
-                          ? 'bg-dark-bg hover:bg-opacity-80 text-dark-text-primary'
+                          ? 'bg-dark-bg hover:bg-dark-surface-light text-dark-text-primary'
                           : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
                       }`}
                       onClick={(e) => !url && e.preventDefault()}
@@ -1283,13 +1287,13 @@ export default function Leave() {
             </div>
             
             {/* Tabs for Leave History and In-Lieu Records */}
-            <div className="border-b border-gray-200 dark:border-dark-border mb-4">
-              <div className="flex space-x-8">
+            <div className="border-b border-gray-200 dark:border-dark-border mb-6">
+              <div className="flex space-x-6">
                 <button
-                  className={`pb-2 px-1 text-sm font-medium border-b-2 transition-colors ${
+                  className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors ${
                     !showInLieuForm
                       ? (isDarkMode 
-                          ? 'border-blue-400 text-blue-400'
+                          ? 'border-blue-500 text-blue-400'
                           : 'border-apple-blue text-apple-blue')
                       : (isDarkMode
                           ? 'border-transparent text-dark-text-secondary hover:text-dark-text-primary'
@@ -1300,10 +1304,10 @@ export default function Leave() {
                   Leave Requests
                 </button>
                 <button
-                  className={`pb-2 px-1 text-sm font-medium border-b-2 transition-colors ${
+                  className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors ${
                     showInLieuForm
                       ? (isDarkMode 
-                          ? 'border-blue-400 text-blue-400'
+                          ? 'border-blue-500 text-blue-400'
                           : 'border-apple-blue text-apple-blue')
                       : (isDarkMode
                           ? 'border-transparent text-dark-text-secondary hover:text-dark-text-primary'
@@ -1358,16 +1362,26 @@ export default function Leave() {
                               </span>
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm">
-                              <div className="flex space-x-2">
+                              <div className="flex space-x-3">
                                 <button
                                   onClick={() => handleEdit(leave)}
-                                  className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
+                                  className={`p-1.5 rounded-md ${
+                                    isDarkMode
+                                      ? 'bg-blue-900/30 text-blue-400 hover:bg-blue-800/40'
+                                      : 'bg-blue-50 text-blue-600 hover:bg-blue-100'
+                                  }`}
+                                  title="Edit"
                                 >
                                   <FiEdit size={16} />
                                 </button>
                                 <button
                                   onClick={() => handleDelete(leave)}
-                                  className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300"
+                                  className={`p-1.5 rounded-md ${
+                                    isDarkMode
+                                      ? 'bg-red-900/30 text-red-400 hover:bg-red-800/40'
+                                      : 'bg-red-50 text-red-600 hover:bg-red-100'
+                                  }`}
+                                  title="Delete"
                                 >
                                   <FiTrash size={16} />
                                 </button>
@@ -1423,7 +1437,12 @@ export default function Leave() {
                             <td className="px-4 py-3 whitespace-nowrap text-sm">
                               <button
                                 onClick={() => handleDeleteInLieu(record)}
-                                className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300"
+                                className={`p-1.5 rounded-md ${
+                                  isDarkMode
+                                    ? 'bg-red-900/30 text-red-400 hover:bg-red-800/40'
+                                    : 'bg-red-50 text-red-600 hover:bg-red-100'
+                                }`}
+                                title="Delete"
                               >
                                 <FiTrash size={16} />
                               </button>
