@@ -11,6 +11,7 @@ import { useAuth } from '../lib/authContext';
 import { useTheme } from '../lib/themeContext';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { leaveService } from '../lib/leaveService';
+import { format } from 'date-fns';
 
 // Extend the Employee type to include annual_leave_balance and hire_date
 interface Employee extends BaseEmployee {
@@ -451,6 +452,8 @@ export default function Leave() {
     }
 
     try {
+      let leaveId;
+      
       if (editingLeave) {
         // Update existing leave
         const { error: updateError } = await supabase
@@ -466,10 +469,11 @@ export default function Leave() {
           .eq('id', editingLeave.id);
 
         if (updateError) throw updateError;
+        leaveId = editingLeave.id;
         setSuccess('Leave request updated successfully');
       } else {
         // Submit new leave
-        const { error: insertError } = await supabase
+        const { data, error: insertError } = await supabase
           .from('leaves')
           .insert([{
             employee_id: employee.id,
@@ -479,10 +483,23 @@ export default function Leave() {
             reason,
             leave_type: leaveType,
             year,
-          }]);
+            status: 'Approved',
+          }])
+          .select();
 
         if (insertError) throw insertError;
+        
+        if (data && data.length > 0) {
+          leaveId = data[0].id;
+        }
+        
         setSuccess('Leave request submitted successfully');
+      }
+
+      // Also create shift overrides for each day in the leave period
+      // (only for Annual leave type that would appear in the calendar)
+      if (leaveType === 'Annual') {
+        await createShiftOverridesForLeave(startDate, endDate);
       }
 
       // Reset form
@@ -500,116 +517,193 @@ export default function Leave() {
     }
   };
 
-  // Function to handle In-Lieu Of submission
-  const handleInLieuOf = async () => {
-    if (!employee || !startDate || !endDate) {
-      setError('Please fill in all required fields');
-      return;
-    }
-
-    setError(null);
-    setSuccess(null);
-    setLoading(true);
-
+  // Helper function to create shift overrides for leave days
+  const createShiftOverridesForLeave = async (start: string, end: string) => {
     try {
-      // Calculate days between dates
-      const days = calculateDays(startDate, endDate);
-      
-      // Calculate additional leave balance (0.667 days per day)
-      const additionalBalance = Number((days * 0.667).toFixed(2));
-
-      // First get the current balance
-      const { data: currentEmployee, error: fetchError } = await supabase
-        .from('employees')
-        .select('annual_leave_balance')
-        .eq('id', employee.id)
-        .single();
-
-      if (fetchError) throw fetchError;
-
-      // Calculate new balance, ensuring we handle null values properly
-      const currentBalance = Number(currentEmployee.annual_leave_balance || 0);
-      const newBalance = currentBalance + additionalBalance;
-      
-      console.log('In-lieu calculation:', {
-        currentBalance,
-        additionalBalance,
-        newBalance,
-        days
-      });
-
-      // Update the leave balance in the database
-      const { data, error } = await supabase
-        .from('employees')
-        .update({ annual_leave_balance: newBalance })
-        .eq('id', employee.id)
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      // Record the in-lieu addition
-      const { error: recordError } = await supabase
-        .from('in_lieu_records')
-        .insert({
-          employee_id: employee.id,
-          start_date: startDate,
-          end_date: endDate,
-          days_count: days,
-          leave_days_added: additionalBalance
-        });
-
-      if (recordError) throw recordError;
-
-      // Reset form
-      setStartDate('');
-      setEndDate('');
-      setReason('');
-      setShowInLieuForm(false);
-      
-      // Properly refresh all data including leave balance
-      await fetchData();
-      
-      setSuccess(`Successfully added ${additionalBalance} days to your leave balance`);
-    } catch (error: any) {
-      console.error('Error adding in-lieu days:', error);
-      setError(error.message || 'Failed to add in-lieu days');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleEdit = (leave: Leave) => {
-    setEditingLeave(leave);
-    setStartDate(leave.start_date);
-    setEndDate(leave.end_date);
-    setReason(leave.reason);
-    setLeaveType(leave.leave_type || 'Annual');
-  };
-
-  const handleCancelEdit = () => {
-    setEditingLeave(null);
-    setStartDate('');
-    setEndDate('');
-    setReason('');
-    setLeaveType('Annual');
-  };
-
-  const handleUpdateYears = async () => {
-    if (!employee) return;
-
-    try {
-      const { error } = await supabase
-        .from('employees')
-        .update({ years_of_service: yearsOfService })
-        .eq('id', employee.id);
-
-      if (error) throw error;
-
-      setIsEditingYears(false);
-      await fetchData();
+      // First check if shift_overrides table exists
+      const { error: checkError } = await supabase
+        .from('shift_overrides')
+        .select('id')
+        .limit(1);
+        
+        // If table doesn't exist, try to create it
+        if (checkError && (checkError.code === '42P01' || checkError.message?.includes('does not exist'))) {
+          console.log('shift_overrides table does not exist, attempting to create it...');
+          
+          try {
+            // Note: This requires you have sufficient privileges in Supabase
+            // This is the SQL from the migration file
+            const { error: createError } = await supabase.rpc('execute_sql', { 
+              sql: `
+              CREATE TABLE IF NOT EXISTS public.shift_overrides (
+                id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+                employee_id UUID NOT NULL REFERENCES public.employees(id),
+                date DATE NOT NULL,
+                shift_type TEXT NOT NULL,
+                source TEXT,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('UTC', now()),
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('UTC', now()),
+                UNIQUE(employee_id, date)
+              );
+              
+              ALTER TABLE public.shift_overrides ENABLE ROW LEVEL SECURITY;
+              
+              -- Users can read their own records
+              CREATE POLICY "Users can read own shift_overrides"
+              ON public.shift_overrides
+              FOR SELECT
+              TO authenticated
+              USING (auth.uid() = employee_id);
+              
+              -- Users can insert their own records
+              CREATE POLICY "Users can insert own shift_overrides"
+              ON public.shift_overrides
+              FOR INSERT
+              TO authenticated
+              WITH CHECK (auth.uid() = employee_id);
+              
+              -- Users can update their own records
+              CREATE POLICY "Users can update own shift_overrides"
+              ON public.shift_overrides
+              FOR UPDATE
+              TO authenticated
+              USING (auth.uid() = employee_id)
+              WITH CHECK (auth.uid() = employee_id);
+              
+              -- Users can delete their own records
+              CREATE POLICY "Users can delete own shift_overrides"
+              ON public.shift_overrides
+              FOR DELETE
+              TO authenticated
+              USING (auth.uid() = employee_id);
+              `
+            });
+            
+            if (createError) {
+              console.error('Failed to create shift_overrides table:', createError);
+              return;
+            }
+            
+            console.log('Successfully created shift_overrides table');
+          } catch (createTableError) {
+            console.error('Error creating shift_overrides table:', createTableError);
+            console.log('Please run the SQL script from supabase/migrations/20240520_create_shift_overrides_table.sql in your Supabase project');
+            return;
+          }
+        }
+        
+        // Create array of all days in the leave period
+        const days = [];
+        const startDate = new Date(start);
+        const endDate = new Date(end);
+        const currentDay = new Date(startDate);
+        
+        // Helper function for date formatting
+        const formatDate = (date: Date): string => {
+          const year = date.getFullYear();
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const day = String(date.getDate()).padStart(2, '0');
+          return `${year}-${month}-${day}`;
+        };
+        
+        while (currentDay <= endDate) {
+          days.push(formatDate(currentDay));
+          currentDay.setDate(currentDay.getDate() + 1);
+        }
+        
+        // Check which days already have overrides
+        const { data: existingOverrides } = await supabase
+          .from('shift_overrides')
+          .select('date')
+          .eq('employee_id', employee?.id || '')
+          .in('date', days);
+          
+        const existingDates = (existingOverrides || []).map(o => o.date);
+        
+        // Create overrides for days that don't have them yet
+        const newOverrides = [];
+        
+        for (const day of days) {
+          // Skip if already has an override
+          if (existingDates.includes(day)) continue;
+          
+          newOverrides.push({
+            employee_id: employee?.id || '',
+            date: day,
+            shift_type: 'Leave',
+            source: 'leave_page'
+          });
+        }
+        
+        // Insert new overrides in batch if any
+        if (newOverrides.length > 0) {
+          const { error } = await supabase
+            .from('shift_overrides')
+            .insert(newOverrides);
+            
+          if (error) throw error;
+          
+          console.log(`Created ${newOverrides.length} shift overrides for leave period`);
+        }
     } catch (error) {
-      console.error('Error updating years of service:', error);
+      console.error('Error creating shift overrides for leave:', error);
+      // Don't block the main process if this fails
+    }
+  };
+
+  // Add a helper function for date formatting (used in createShiftOverridesForLeave)
+  const format = (date: Date, formatStr: string): string => {
+    if (formatStr === 'yyyy-MM-dd') {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+    // Add more format options if needed
+    return date.toISOString();
+  };
+
+  // Helper function to remove shift overrides for deleted leave
+  const removeShiftOverridesForLeave = async (start: string, end: string) => {
+    try {
+      // First check if shift_overrides table exists
+      const { error: checkError } = await supabase
+        .from('shift_overrides')
+        .select('id')
+        .limit(1);
+        
+      // If table doesn't exist, skip this step
+      if (checkError && (checkError.code === '42P01' || checkError.message.includes('does not exist'))) {
+        console.log('shift_overrides table does not exist, skipping removal');
+        return;
+      }
+      
+      // Create array of all days in the leave period
+      const days = [];
+      const startDate = new Date(start);
+      const endDate = new Date(end);
+      const currentDay = new Date(startDate);
+      
+      while (currentDay <= endDate) {
+        days.push(format(currentDay, 'yyyy-MM-dd'));
+        currentDay.setDate(currentDay.getDate() + 1);
+      }
+      
+      // Delete shift overrides that were created for this leave period
+      // Only delete those with shift_type = 'Leave' to avoid removing other types of overrides
+      const { error } = await supabase
+        .from('shift_overrides')
+        .delete()
+        .eq('employee_id', employee?.id || '')
+        .in('date', days)
+        .eq('shift_type', 'Leave');
+        
+      if (error) throw error;
+      
+      console.log(`Removed shift overrides for leave period ${start} to ${end}`);
+    } catch (error) {
+      console.error('Error removing shift overrides for leave:', error);
+      // Don't block the main process if this fails
     }
   };
 
@@ -660,6 +754,9 @@ export default function Leave() {
         });
       }
       
+      // Also remove any shift overrides for this leave period
+      await removeShiftOverridesForLeave(leave.start_date, leave.end_date);
+      
       // Attempt to delete the record with detailed logging
       console.log('Executing Supabase delete for leave ID:', leave.id);
       const deleteResponse = await supabase
@@ -706,8 +803,105 @@ export default function Leave() {
     }
   };
 
+  const handleUpdateYears = async () => {
+    if (!employee) return;
+    
+    setLoading(true);
+    setError(null);
+    setSuccess(null);
+    
+    try {
+      // Update employee record with new years of service
+      const { error: updateError } = await supabase
+        .from('employees')
+        .update({ years_of_service: yearsOfService })
+        .eq('id', employee.id);
+        
+      if (updateError) throw updateError;
+      
+      setSuccess('Years of service updated successfully');
+      setIsEditingYears(false);
+      
+      // Refresh data to update entitlements
+      await fetchData(true);
+    } catch (error: any) {
+      console.error('Error updating years of service:', error);
+      setError(error.message || 'Failed to update years of service');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEdit = (leave: Leave) => {
+    setEditingLeave(leave);
+    setStartDate(leave.start_date);
+    setEndDate(leave.end_date);
+    setReason(leave.reason || '');
+    setLeaveType(leave.leave_type || 'Annual');
+    setShowInLieuForm(false);
+    
+    // Scroll to form
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingLeave(null);
+    setStartDate('');
+    setEndDate('');
+    setReason('');
+    setLeaveType('Annual');
+  };
+
+  const handleInLieuOf = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!employee || !startDate || !endDate) return;
+
+    setError(null);
+    setSuccess(null);
+
+    // Validate dates
+    if (new Date(endDate) < new Date(startDate)) {
+      setError('End date cannot be before start date');
+      return;
+    }
+
+    const days = calculateDays(startDate, endDate);
+    const leaveAdded = parseFloat((days * 0.667).toFixed(2)); // 2/3 day credit per day worked
+
+    try {
+      // Create in-lieu record
+      const { data, error: insertError } = await supabase
+        .from('in_lieu_records')
+        .insert([{
+          employee_id: employee.id,
+          start_date: startDate,
+          end_date: endDate,
+          days_count: days,
+          leave_days_added: leaveAdded,
+          reason,
+          status: 'approved', // Auto-approve in-lieu records
+        }])
+        .select();
+
+      if (insertError) throw insertError;
+      
+      setSuccess('In-lieu time added successfully');
+      
+      // Reset form
+      setStartDate('');
+      setEndDate('');
+      setReason('');
+      
+      // Refresh data
+      await fetchData(true);
+    } catch (error: any) {
+      console.error('Error adding in-lieu time:', error);
+      setError(error.message || 'Failed to add in-lieu time');
+    }
+  };
+
   const handleDeleteInLieu = async (record: InLieuRecord) => {
-    if (!confirm(`Are you sure you want to delete this in-lieu record? This will reduce your leave balance by ${record.leave_days_added} days.`)) {
+    if (!confirm('Are you sure you want to delete this in-lieu record?')) {
       return;
     }
 
@@ -716,120 +910,32 @@ export default function Leave() {
     setSuccess(null);
 
     try {
-      const { data: user } = await supabase.auth.getUser();
-      
-      if (!user.user) {
-        setError('User not authenticated');
-        setLoading(false);
-        return;
-      }
-
-      console.log('Attempting to delete in-lieu record:', record.id);
-      console.log('In-lieu record details:', record);
-      
-      // Check if this is the last in-lieu record
-      const isLastRecord = inLieuRecords.length === 1;
-      
-      // Immediately remove from UI for instant feedback
-      setInLieuRecords(prevRecords => prevRecords.filter(r => r.id !== record.id));
-      
-      // Use an API endpoint to handle this as a transaction
-      // If you don't have an API endpoint, we'll do it directly but risks inconsistency
-      
-      // Step 1: Get current balance
-      const { data: currentEmployee, error: fetchError } = await supabase
-        .from('employees')
-        .select('annual_leave_balance')
-        .eq('id', user.user.id)
-        .single();
-
-      if (fetchError) {
-        console.error('Error fetching employee record:', fetchError);
-        setError(`Cannot fetch employee record: ${fetchError.message}`);
-        
-        // Revert UI if update process failed
-        fetchData();
-        setLoading(false);
-        return;
-      }
-
-      // Step 2: Calculate new balance, ensuring it doesn't go below 0
-      const currentBalance = Number(currentEmployee.annual_leave_balance || 0);
-      const newBalance = Math.max(0, currentBalance - record.leave_days_added);
-      
-      console.log('In-lieu deletion calculation:', {
-        currentBalance, 
-        daysToRemove: record.leave_days_added,
-        newBalance,
-        isLastRecord
-      });
-
-      // If this is the last record, force new balance to be exactly 0
-      const finalBalance = isLastRecord ? 0 : newBalance;
-
-      // Immediately update the leave balance in the UI for instant feedback
-      setAdditionalLeaveBalance(finalBalance);
-      setLeaveBalance((baseLeaveBalance || 0) + finalBalance);
-
-      // Step 3: Delete the in-lieu record FIRST with detailed logging
-      console.log('Executing Supabase delete for in-lieu ID:', record.id);
-      const deleteResponse = await supabase
+      // Delete the record
+      const { error: deleteError } = await supabase
         .from('in_lieu_records')
         .delete()
         .eq('id', record.id);
 
-      console.log('Delete response:', deleteResponse);
-
-      if (deleteResponse.error) {
-        console.error('Error deleting in-lieu record:', deleteResponse.error);
-        setError(`Failed to delete in-lieu record: ${deleteResponse.error.message || 'Unknown error'}`);
-        
-        // Revert UI if deletion failed
-        fetchData();
-        setLoading(false);
-        return;
-      }
+      if (deleteError) throw deleteError;
       
-      // Log the count of affected rows to verify deletion worked
-      console.log(`Deleted ${deleteResponse.count || 0} in-lieu records`);
+      // Update UI immediately for better UX
+      setInLieuRecords(prevRecords => prevRecords.filter(r => r.id !== record.id));
       
-      if (!deleteResponse.count || deleteResponse.count === 0) {
-        setError('Delete operation completed but no records were affected. The record may no longer exist or you may not have permission to delete it.');
-        fetchData();
-        setLoading(false);
-        return;
-      }
-
-      // Step 4: Update the leave balance
-      console.log('Updating employee leave balance to:', finalBalance);
-      const updateResponse = await supabase
-        .from('employees')
-        .update({ annual_leave_balance: finalBalance })
-        .eq('id', user.user.id);
-
-      console.log('Update response:', updateResponse);
-
-      if (updateResponse.error) {
-        console.error('Error updating balance:', updateResponse.error);
-        // Critical error: Record deleted but balance not updated
-        setError(`CRITICAL ERROR: Record was deleted but leave balance could not be updated: ${updateResponse.error.message || 'Unknown error'}. Please contact an administrator.`);
-        
-        // Even in critical error, refresh data to show current state
-        fetchData();
-        setLoading(false);
-        return;
-      }
-
-      // Set success message
+      // Update additional leave balance
+      setAdditionalLeaveBalance(prev => {
+        const newBalance = Math.max(0, prev - (record.leave_days_added || 0));
+        return parseFloat(newBalance.toFixed(2));
+      });
+      
       setSuccess('In-lieu record deleted successfully');
       
-      // Do a complete data refresh in the background to ensure consistency
-      fetchData(true);
+      // Full refresh in background
+      await fetchData(true);
     } catch (error: any) {
       console.error('Error deleting in-lieu record:', error);
       setError(error.message || 'Failed to delete in-lieu record');
       
-      // Revert UI if deletion failed
+      // Revert UI state on error
       fetchData();
     } finally {
       setLoading(false);

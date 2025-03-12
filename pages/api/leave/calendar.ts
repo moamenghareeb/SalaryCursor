@@ -115,7 +115,7 @@ async function handler(
 
     // Query to get leave data for the calendar view
     const { data: leaveData, error: leaveError } = await supabase
-      .from('leave_requests')
+      .from('leaves')
       .select(`
         id,
         start_date,
@@ -123,7 +123,7 @@ async function handler(
         leave_type,
         status,
         reason,
-        duration
+        days_taken as duration
       `)
       .eq('employee_id', userId)
       .gte('start_date', startDate)
@@ -137,7 +137,7 @@ async function handler(
 
     // Also get team leave data (for visibility of colleagues' leaves)
     const { data: teamLeaveData, error: teamLeaveError } = await supabase
-      .from('leave_requests')
+      .from('leaves')
       .select(`
         id,
         employee_id,

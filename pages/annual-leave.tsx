@@ -138,13 +138,18 @@ export default function AnnualLeave() {
           
           // Fetch leave requests
           const { data: leaveData, error: leaveError } = await supabase
-            .from('leave_requests')
+            .from('leaves')
             .select('*')
             .eq('employee_id', user.id)
             .order('start_date', { ascending: false });
             
           if (!leaveError && leaveData) {
-            setLeaveRequests(leaveData);
+            // Ensure compatibility with existing code by mapping days_taken to days if needed
+            const formattedLeaveData = leaveData.map(leave => ({
+              ...leave,
+              days: leave.days_taken || leave.days || 0,
+            }));
+            setLeaveRequests(formattedLeaveData);
           }
         }
       } catch (error) {

@@ -148,14 +148,15 @@ export const leaveService = {
       debug.queries.push('leaves-annual');
       
       // Log the query we're about to execute for debugging
-      logger.info(`Executing query: SELECT * FROM leaves WHERE employee_id = '${userId}' AND leave_type = 'Annual' AND status = 'approved' AND start_date >= '${startOfYear}' AND end_date <= '${endOfYear}'`);
+      logger.info(`Executing query: leaves for status 'Approved' or 'approved'`);
       
+      // Modified to check for both 'Approved' and 'approved' - case variations
       const { data: takenLeaveData, error: takenLeaveError } = await supabase
         .from('leaves')
         .select('*')
         .eq('employee_id', userId)
         .eq('leave_type', 'Annual')
-        .eq('status', 'approved')
+        .or('status.eq.Approved,status.eq.approved')  // Check both status variations
         .gte('start_date', startOfYear)
         .lte('end_date', endOfYear);
 

@@ -15,6 +15,18 @@ const defaultRateLimit: RateLimitConfig = {
   message: 'Too many requests, please try again later.',
 };
 
+// Create rate_limits table if it doesn't exist
+type RateLimitRecord = {
+  id: string;
+  key: string;
+  counter: number;
+  expires_at: string;
+  created_at: string;
+  endpoint?: string;
+  user_id?: string;
+  ip?: string;
+};
+
 // Rate limit store using Supabase
 export async function rateLimit(
   req: NextApiRequest,
@@ -55,19 +67,30 @@ export async function rateLimit(
     
     // Query rate limit records
     try {
+      // First, clean up expired records (optional but helps maintain the table)
+      try {
+        await supabase
+          .from('rate_limits')
+          .delete()
+          .lt('expires_at', new Date(now).toISOString());
+      } catch (cleanupError) {
+        console.error('Error cleaning up rate limits:', cleanupError);
+        // Continue even if cleanup fails
+      }
+      
       const { data, error } = await supabase
         .from('rate_limits')
-        .select('timestamp')
+        .select('counter')
         .eq('key', key)
-        .gte('timestamp', windowStart);
+        .gte('expires_at', new Date(now).toISOString());
       
       if (error) {
         console.error('Rate limit db query error:', error);
         return true; // Allow request on error
       }
       
-      // Count requests in the current window
-      const requestCount = data?.length || 0;
+      // Sum the counters for all records
+      const requestCount = data?.reduce((sum, record) => sum + (record.counter || 0), 0) || 0;
       
       // Check if rate limit exceeded
       if (requestCount >= rateLimitConfig.maxRequests) {
@@ -80,16 +103,39 @@ export async function rateLimit(
       
       // Record this request (don't wait for it to complete)
       try {
-        // Fire and forget - don't await this
-        supabase
+        // Check if a record already exists
+        const { data: existingRecord, error: lookupError } = await supabase
           .from('rate_limits')
-          .insert({
-            key,
-            timestamp: now,
-            endpoint,
-            user_id: userId,
-            ip: clientIp
-          });
+          .select('id, counter')
+          .eq('key', key)
+          .gte('expires_at', new Date(now).toISOString())
+          .maybeSingle();
+          
+        if (lookupError) {
+          console.error('Error looking up rate limit record:', lookupError);
+        }
+        
+        if (existingRecord) {
+          // Update existing record
+          supabase
+            .from('rate_limits')
+            .update({
+              counter: (existingRecord.counter || 0) + 1,
+            })
+            .eq('id', existingRecord.id);
+        } else {
+          // Create new record
+          supabase
+            .from('rate_limits')
+            .insert({
+              key,
+              counter: 1,
+              expires_at: new Date(now + rateLimitConfig.windowMs).toISOString(),
+              endpoint: endpoint,
+              user_id: userId,
+              ip: clientIp
+            });
+        }
       } catch (insertError: any) {
         console.error('Error inserting rate limit record:', insertError);
         // Continue processing the request even if we fail to record it
