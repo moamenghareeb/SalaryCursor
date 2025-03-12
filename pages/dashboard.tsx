@@ -49,8 +49,7 @@ export default function Dashboard() {
   const [stats, setStats] = useState<StatsData>({
     totalShifts: 0,
     monthlyEarnings: 0,
-    overtimeHours: 0,
-    shiftChanges: 0
+    overtimeHours: 0
   });
   
   // Upcoming shifts
@@ -268,21 +267,19 @@ export default function Dashboard() {
       if (shiftsError) throw shiftsError;
       
       // Calculate stats
+      // Total Shifts: This represents the number of scheduled working days for the current month,
+      // based on entries in the shift_overrides table. It's used to calculate monthly earnings.
       const totalShifts = shiftsData?.length || 0;
       let overtimeHours = 0;
-      let shiftChanges = 0;
       
       shiftsData?.forEach(shift => {
         if (shift.shift_type === 'Overtime') {
           overtimeHours += 4; // Assuming 4 hours per overtime shift
         }
-        if (shift.source === 'manual') {
-          shiftChanges++;
-        }
       });
       
-      // Estimate monthly earnings (simplified calculation)
-      const baseRate = employee?.hourly_rate || 20; // Default to $20/hr if not set
+      // Estimate monthly earnings (simplified calculation) - Keep in EGP
+      const baseRate = employee?.hourly_rate || 20; // Default to 20 EGP/hr if not set
       const regularHours = totalShifts * 8; // 8 hours per regular shift
       const overtimeRate = baseRate * 1.5;
       
@@ -291,8 +288,7 @@ export default function Dashboard() {
       setStats({
         totalShifts,
         monthlyEarnings,
-        overtimeHours,
-        shiftChanges
+        overtimeHours
       });
       
       // Generate upcoming shifts (next 5 days)
@@ -540,7 +536,7 @@ export default function Dashboard() {
                 <div className="mt-4 pt-3 border-t border-gray-700 flex justify-between">
                   <div>
                     <p className="text-sm text-gray-400">Yearly Total</p>
-                    <p className="text-xl font-bold text-white">${yearlyTotal?.toLocaleString() || '0'}</p>
+                    <p className="text-xl font-bold text-white">EGP {yearlyTotal?.toLocaleString() || '0'}</p>
                   </div>
                   <Link href="/salary" className="text-blue-400 hover:text-blue-300 text-sm flex items-center">
                     View Details <FiArrowRight className="ml-1" />

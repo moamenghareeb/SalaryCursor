@@ -840,10 +840,10 @@ const SchedulePage: React.FC = () => {
         <div className="mt-6">
           <h2 className="text-xl font-semibold text-white mb-2">Shift Legend</h2>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3 p-3 bg-gray-800 rounded-md">
-            {Object.entries(shiftsData.shifts).map(([key, value]) => (
-              <div key={`legend-${value}`} className="flex items-center">
-                <div className={`w-5 h-5 rounded mr-2 ${shiftColors[value]}`}></div>
-                <span className="text-white">{value}</span>
+            {Object.entries(shiftColors).map(([type, color]) => (
+              <div key={`legend-${type}`} className="flex items-center">
+                <div className={`w-5 h-5 rounded mr-2 ${color}`}></div>
+                <span className="text-white">{type}</span>
               </div>
             ))}
           </div>

@@ -1,11 +1,11 @@
 import React from 'react';
-import { FaCalendarAlt, FaDollarSign, FaUserClock, FaExchangeAlt } from 'react-icons/fa';
+import { FaCalendarAlt, FaDollarSign, FaUserClock } from 'react-icons/fa';
 
 export interface StatsData {
   totalShifts: number;
   monthlyEarnings: number;
   overtimeHours: number;
-  shiftChanges: number;
+  shiftChanges?: number;
 }
 
 interface StatsPanelProps {
@@ -16,8 +16,8 @@ interface StatsPanelProps {
 const StatsPanel: React.FC<StatsPanelProps> = ({ stats, isLoading }) => {
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        {[1, 2, 3, 4].map((i) => (
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        {[1, 2, 3].map((i) => (
           <div key={i} className="bg-gray-800 p-4 rounded-lg shadow-md animate-pulse">
             <div className="flex items-center mb-2">
               <div className="w-8 h-8 bg-gray-700 rounded-full mr-2"></div>
@@ -36,7 +36,7 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ stats, isLoading }) => {
       title: 'Total Shifts',
       value: stats.totalShifts,
       icon: <FaCalendarAlt className="text-blue-500" />,
-      description: 'Shifts this month',
+      description: 'Scheduled work days this month',
       formatter: (v: number) => v.toString(),
       color: 'text-blue-400'
     },
@@ -45,7 +45,7 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ stats, isLoading }) => {
       value: stats.monthlyEarnings,
       icon: <FaDollarSign className="text-green-500" />,
       description: 'Estimated before tax',
-      formatter: (v: number) => `$${v.toLocaleString()}`,
+      formatter: (v: number) => `EGP ${v.toLocaleString()}`,
       color: 'text-green-400'
     },
     {
@@ -55,19 +55,11 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ stats, isLoading }) => {
       description: 'Extra hours this month',
       formatter: (v: number) => `${v} hrs`,
       color: 'text-yellow-400'
-    },
-    {
-      title: 'Shift Changes',
-      value: stats.shiftChanges,
-      icon: <FaExchangeAlt className="text-purple-500" />,
-      description: 'Overrides this month',
-      formatter: (v: number) => v.toString(),
-      color: 'text-purple-400'
     }
   ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
       {statItems.map((item, index) => (
         <div key={index} className="bg-gray-800 p-4 rounded-lg shadow-md transition-transform hover:scale-105">
           <div className="flex items-center mb-2">
