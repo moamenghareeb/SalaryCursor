@@ -9,7 +9,7 @@ import { useTheme } from '../lib/themeContext';
 
 export default function Login() {
   const router = useRouter();
-  const [email, setEmail] = useState('');
+  const [employeeId, setEmployeeId] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -40,9 +40,15 @@ export default function Login() {
     setLoading(true);
 
     try {
-      console.log('Attempting login with:', email);
+      // Check if input is an email or employee ID
+      const isEmail = employeeId.includes('@');
+      const loginEmail = isEmail 
+        ? employeeId 
+        : `${employeeId}@company.local`;
+
+      console.log('Attempting login with:', loginEmail);
       const { data, error } = await supabase.auth.signInWithPassword({
-        email,
+        email: loginEmail,
         password,
       });
 
@@ -66,7 +72,13 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      // Check if input is an email or employee ID
+      const isEmail = employeeId.includes('@');
+      const resetEmail = isEmail 
+        ? employeeId 
+        : `${employeeId}@company.local`;
+
+      const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
         redirectTo: `${window.location.origin}/reset-password`,
       });
 
@@ -126,19 +138,19 @@ export default function Login() {
           <form className="mt-8 space-y-6" onSubmit={isResetMode ? handlePasswordReset : handleLogin}>
             <div className="rounded-md shadow-sm -space-y-px">
               <div>
-                <label htmlFor="email-address" className="sr-only">
-                  Email address
+                <label htmlFor="employee-id" className="sr-only">
+                  Employee ID
                 </label>
                 <input
-                  id="email-address"
-                  name="email"
-                  type="email"
-                  autoComplete="email"
+                  id="employee-id"
+                  name="employeeId"
+                  type="text"
+                  autoComplete="username"
                   required
                   className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 dark:border-dark-border placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-dark-text-primary dark:bg-dark-surface rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                  placeholder="Email address"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Employee ID"
+                  value={employeeId}
+                  onChange={(e) => setEmployeeId(e.target.value)}
                 />
               </div>
               {!isResetMode && (

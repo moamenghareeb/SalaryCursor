@@ -1,98 +1,135 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabase';
-import Link from 'next/link';
 import Head from 'next/head';
+import Link from 'next/link';
+import { captureAuthError } from '../lib/errorTracking';
+import { useAuth } from '../lib/authContext';
 import { useTheme } from '../lib/themeContext';
+import toast from 'react-hot-toast';
 
-export default function SignUp() {
+// Define positions as a constant array
+const POSITIONS = [
+  'Junior DCS Engineer', 
+  'DCS Engineer', 
+  'Senior DCS Engineer', 
+  'Shift Engineer', 
+  'Shift Superintendent', 
+  'Operator', 
+  'Operator I', 
+  'Senior Operator', 
+  'Field Supervisor'
+];
+
+export default function Signup() {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
-  const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [employeeId, setEmployeeId] = useState('');
-  const [position, setPosition] = useState('Junior DCS Engineer');
+  const [position, setPosition] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
+  const { user, session } = useAuth();
   const { isDarkMode } = useTheme();
 
-  // Define available positions
-  const positionOptions = [
-    'Junior DCS Engineer',
-    'DCS Engineer',
-    'Senior DCS Engineer',
-    'Shift Engineer',
-    'Shift Superintendent',
-    'Operator',
-    'Operator I',
-    'Senior Operator',
-    'Field Supervisor'
-  ];
+  // Redirect if already logged in
+  useEffect(() => {
+    if (user && session) {
+      router.push('/dashboard');
+    }
+  }, [user, session, router]);
 
-  const handleSignUp = async (e: React.FormEvent) => {
+  const validateInputs = () => {
+    // Validate name
+    if (!name || name.trim().length < 2) {
+      setError('Please enter a valid full name');
+      return false;
+    }
+
+    // Validate employee ID (assuming it should be alphanumeric and at least 4 characters)
+    const employeeIdRegex = /^[a-zA-Z0-9]{4,20}$/;
+    if (!employeeIdRegex.test(employeeId)) {
+      setError('Employee ID must be 4-20 alphanumeric characters');
+      return false;
+    }
+
+    // Validate position
+    if (!POSITIONS.includes(position)) {
+      setError('Please select a valid position');
+      return false;
+    }
+
+    // Validate password
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters long');
+      return false;
+    }
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    setMessage(null);
     setLoading(true);
 
-    if (parseInt(employeeId) < 1 || parseInt(employeeId) > 700) {
-      setError('Employee ID must be between 1 and 700');
+    // Validate inputs
+    if (!validateInputs()) {
       setLoading(false);
       return;
     }
 
     try {
-      // Check if employee ID already exists
-      const { data: existingEmployee, error: lookupError } = await supabase
-        .from('employees')
-        .select('employee_id')
-        .eq('employee_id', parseInt(employeeId))
-        .single();
-
-      if (lookupError && lookupError.code !== 'PGRST116') {
-        throw lookupError;
-      }
-
-      if (existingEmployee) {
-        setError('Employee ID already exists');
-        setLoading(false);
-        return;
-      }
-
-      // Generate email from employee ID for auth
-      const email = `employee${employeeId}@salarycursor.com`;
-
-      // Create auth user
-      const { data, error: signUpError } = await supabase.auth.signUp({
+      // Create user with a company-specific email format
+      const email = `${employeeId}@company.local`;
+      
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          data: {
+            name,
+            employee_id: employeeId,
+            position
+          }
+        }
       });
 
-      if (signUpError) throw signUpError;
+      if (error) throw error;
+      
+      // If signup is successful
+      if (data.user) {
+        // Store additional employee information
+        const { error: profileError } = await supabase
+          .from('employees')
+          .insert({
+            name,
+            employee_id: employeeId,
+            position,
+            email: email,
+            created_at: new Date()
+          });
 
-      if (data?.user) {
-        console.log('User created:', data.user.id);
-        
-        // Add user to employees table
-        const { error: insertError } = await supabase.from('employees').insert({
-          id: data.user.id,
-          employee_id: parseInt(employeeId),
-          name,
-          email,
-          position,
-          years_of_service: 0, // Default to 0
-        });
-
-        if (insertError) throw insertError;
-
-        setMessage('Sign up successful! Check your email for verification link.');
-        setTimeout(() => {
+        if (profileError) {
+          console.error('Error creating employee profile:', profileError);
+          toast.error('Failed to create employee profile');
+        } else {
+          toast.success('Account created successfully');
+          // Redirect to login
           router.push('/login');
-        }, 2000);
+        }
       }
     } catch (error: any) {
       console.error('Signup error:', error);
-      setError(error.message || 'An error occurred during signup');
+      setError(error.message || 'Signup failed. Please try again.');
+      captureAuthError(error);
+      toast.error(error.message || 'Signup failed');
     } finally {
       setLoading(false);
     }
@@ -101,21 +138,15 @@ export default function SignUp() {
   return (
     <>
       <Head>
-        <title>Create Account | SalaryCursor</title>
+        <title>Sign Up | SalaryCursor</title>
       </Head>
-      
+
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-dark-bg py-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-md w-full space-y-8">
           <div>
             <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900 dark:text-white">
               Create your account
             </h2>
-            <p className="mt-2 text-center text-sm text-gray-600 dark:text-gray-300">
-              Or{' '}
-              <Link href="/login" className="font-medium text-blue-600 dark:text-blue-400 hover:text-blue-500 dark:hover:text-blue-300">
-                sign in to your existing account
-              </Link>
-            </p>
           </div>
 
           {error && (
@@ -128,83 +159,103 @@ export default function SignUp() {
             </div>
           )}
 
-          {message && (
-            <div className="rounded-md bg-green-50 dark:bg-green-900/20 p-4">
-              <div className="flex">
-                <div className="ml-3">
-                  <h3 className="text-sm font-medium text-green-800 dark:text-green-300">{message}</h3>
-                </div>
-              </div>
-            </div>
-          )}
-            
-          <form onSubmit={handleSignUp} className="mt-8 space-y-6">
-            <div className="rounded-md shadow-sm space-y-4">
+          <form className="mt-8 space-y-6" onSubmit={handleSignup}>
+            <div className="rounded-md shadow-sm -space-y-px">
+              {/* Name Input */}
               <div>
-                <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-200">
-                  Name
+                <label htmlFor="name" className="sr-only">
+                  Full Name
                 </label>
                 <input
                   id="name"
+                  name="name"
                   type="text"
+                  autoComplete="name"
+                  required
+                  className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 dark:border-dark-border placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-dark-text-primary dark:bg-dark-surface rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
+                  placeholder="Full Name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  required
-                  className="appearance-none relative block w-full px-3 py-2 border border-gray-300 dark:border-dark-border placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-dark-text-primary dark:bg-dark-surface rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                  placeholder="John Doe"
                 />
               </div>
-              
+
+              {/* Employee ID Input */}
               <div>
-                <label htmlFor="employeeId" className="block text-sm font-medium text-gray-700 dark:text-gray-200">
+                <label htmlFor="employee-id" className="sr-only">
                   Employee ID
                 </label>
                 <input
-                  id="employeeId"
-                  type="number"
+                  id="employee-id"
+                  name="employeeId"
+                  type="text"
+                  autoComplete="username"
+                  required
+                  className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 dark:border-dark-border placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-dark-text-primary dark:bg-dark-surface focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
+                  placeholder="Employee ID"
                   value={employeeId}
                   onChange={(e) => setEmployeeId(e.target.value)}
-                  required
-                  min="1"
-                  max="700"
-                  className="appearance-none relative block w-full px-3 py-2 border border-gray-300 dark:border-dark-border placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-dark-text-primary dark:bg-dark-surface rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                  placeholder="123"
                 />
               </div>
-              
+
+              {/* Position Dropdown */}
               <div>
-                <label htmlFor="position" className="block text-sm font-medium text-gray-700 dark:text-gray-200">
+                <label htmlFor="position" className="sr-only">
                   Position
                 </label>
                 <select
                   id="position"
+                  name="position"
+                  required
+                  className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 dark:border-dark-border text-gray-900 dark:text-dark-text-primary dark:bg-dark-surface focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
                   value={position}
                   onChange={(e) => setPosition(e.target.value)}
-                  required
-                  className="appearance-none relative block w-full px-3 py-2 border border-gray-300 dark:border-dark-border placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-dark-text-primary dark:bg-dark-surface rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
                 >
-                  {positionOptions.map((option) => (
-                    <option key={option} value={option}>{option}</option>
+                  <option value="">Select Position</option>
+                  {POSITIONS.map((pos) => (
+                    <option key={pos} value={pos}>
+                      {pos}
+                    </option>
                   ))}
                 </select>
               </div>
-              
+
+              {/* Password Input */}
               <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-200">
+                <label htmlFor="password" className="sr-only">
                   Password
                 </label>
                 <input
                   id="password"
+                  name="password"
                   type="password"
+                  autoComplete="new-password"
+                  required
+                  className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 dark:border-dark-border placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-dark-text-primary dark:bg-dark-surface focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
+                  placeholder="Password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
+
+              {/* Confirm Password Input */}
+              <div>
+                <label htmlFor="confirm-password" className="sr-only">
+                  Confirm Password
+                </label>
+                <input
+                  id="confirm-password"
+                  name="confirmPassword"
+                  type="password"
+                  autoComplete="new-password"
                   required
-                  className="appearance-none relative block w-full px-3 py-2 border border-gray-300 dark:border-dark-border placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-dark-text-primary dark:bg-dark-surface rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                  placeholder="Create a secure password"
+                  className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 dark:border-dark-border placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-dark-text-primary dark:bg-dark-surface rounded-b-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
+                  placeholder="Confirm Password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
                 />
               </div>
             </div>
-              
+
             <div>
               <button
                 type="submit"
@@ -218,8 +269,17 @@ export default function SignUp() {
                     <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></div>
                   </span>
                 ) : null}
-                Create Account
+                Sign Up
               </button>
+            </div>
+
+            <div className="flex items-center justify-center">
+              <span className="text-sm text-gray-500 dark:text-gray-400">
+                Already have an account?{' '}
+                <Link href="/login" className="text-blue-600 dark:text-blue-400 hover:text-blue-500 dark:hover:text-blue-300 font-medium">
+                  Log in
+                </Link>
+              </span>
             </div>
           </form>
         </div>
