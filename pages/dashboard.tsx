@@ -102,141 +102,129 @@ export default function Dashboard() {
       const currentYear = currentDate.getFullYear();
       const currentMonth = currentDate.getMonth() + 1; // 1-12 format
       
-      // Fetch salary data for the current month more directly
-      const { data: currentMonthSalary, error: currentMonthError } = await supabase
+      // First get ALL salary records to understand what we're working with
+      const { data: allSalaryRecords, error: allSalaryError } = await supabase
         .from('salaries')
         .select('*')
         .eq('employee_id', userId)
-        .eq('year', currentYear)
-        .eq('month', currentMonth)
-        .order('created_at', { ascending: false })
-        .limit(1);
-
-      if (currentMonthError) {
-        console.error('Error fetching current month salary:', currentMonthError);
-      } else if (currentMonthSalary && currentMonthSalary.length > 0) {
-        // We found the current month's salary record directly
-        setCurrentSalary(currentMonthSalary[0].total_salary);
-        console.log('Found current month salary record:', currentMonthSalary[0]);
-      } else {
-        // Fallback to the old approach if we can't find the direct match
-        console.log('No direct match for current month salary, trying alternative approaches');
+        .order('created_at', { ascending: false });
         
-        // First get ALL salary records to understand what we're working with
-        const { data: allSalaryRecords, error: allSalaryError } = await supabase
-          .from('salaries')
-          .select('*')
-          .eq('employee_id', userId)
-          .order('created_at', { ascending: false });
-          
-        if (allSalaryError) {
-          console.error('Error fetching all salary records:', allSalaryError);
-        } else {
-          console.log('All salary records:', allSalaryRecords);
-          
-          if (allSalaryRecords && allSalaryRecords.length > 0) {
-            // Find all available years in the salary data
-            const years = new Set<number>();
-            allSalaryRecords.forEach(record => {
-              if (record.month) {
-                const yearMatch = String(record.month).match(/\b(20\d{2})\b/);
-                if (yearMatch && yearMatch[1]) {
-                  years.add(parseInt(yearMatch[1]));
-                }
+      if (allSalaryError) {
+        console.error('Error fetching all salary records:', allSalaryError);
+      } else {
+        console.log('All salary records:', allSalaryRecords);
+        
+        if (allSalaryRecords && allSalaryRecords.length > 0) {
+          // Find all available years in the salary data
+          const years = new Set<number>();
+          allSalaryRecords.forEach(record => {
+            if (record.month) {
+              const yearMatch = String(record.month).match(/\b(20\d{2})\b/);
+              if (yearMatch && yearMatch[1]) {
+                years.add(parseInt(yearMatch[1]));
               }
-            });
-            
-            // Add current year if it doesn't exist in records
-            years.add(currentYear);
-            
-            // Set available years in descending order (newest first)
-            setAvailableYears(Array.from(years).sort((a, b) => b - a));
-            
-            // Store debug info
-            setDebugInfo(`Found ${allSalaryRecords.length} total salary records. 
-              Most recent: ${JSON.stringify(allSalaryRecords[0])}
-              Available years: ${Array.from(years).join(', ')}`);
-            
-            // Define possible month formats we're looking for
-            const targetFormats = [
-              `${currentYear}-${String(currentMonth).padStart(2, '0')}`, // 2025-03
-              `${currentYear}-${currentMonth}`,                         // 2025-3
-              `${currentMonth}/${currentYear}`,                         // 3/2025
-              `${String(currentMonth).padStart(2, '0')}/${currentYear}`, // 03/2025
-              `${currentMonth}-${currentYear}`,                         // 3-2025
-              `${String(currentMonth).padStart(2, '0')}-${currentYear}` // 03-2025
-            ];
-            
-            // Find a record that matches any of these formats
-            const currentMonthRecord = allSalaryRecords.find(record => {
-              if (!record.month) return false;
-              const monthStr = String(record.month).trim();
-              return targetFormats.some(format => 
-                monthStr === format || monthStr.startsWith(format + '-') || monthStr.includes(format)
-              );
-            });
-            
-            if (currentMonthRecord) {
-              console.log('Found current month record:', currentMonthRecord);
-              setCurrentSalary(currentMonthRecord.total_salary);
-            } else {
-              console.log('No current month record found. Formats searched:', targetFormats);
-              // Default to the most recent record if we can't find the current month
-              const mostRecent = allSalaryRecords[0];
-              console.log('Using most recent record instead:', mostRecent);
-              setCurrentSalary(mostRecent.total_salary);
             }
-
-            // Calculate yearly total by filtering and summing records for the selected year
-            const yearRecords = allSalaryRecords.filter(record => {
-              if (!record.month) return false;
-              const monthStr = String(record.month).trim();
-              // Check if the record's month string contains the selected year
-              return monthStr.includes(String(selectedYear));
-            });
-            
-            if (yearRecords.length > 0) {
-              // Calculate total and organize monthly data
-              const yearlySum = yearRecords.reduce((sum, record) => sum + (record.total_salary || 0), 0);
-              setYearlyTotal(yearlySum);
-              
-              // Prepare monthly breakdown for display
-              const monthlyData = [];
-              for (let m = 1; m <= 12; m++) {
-                const monthRecords = yearRecords.filter(record => {
-                  const monthStr = String(record.month).trim();
-                  const monthFormats = [
-                    `${selectedYear}-${String(m).padStart(2, '0')}`,
-                    `${selectedYear}-${m}`,
-                    `${m}/${selectedYear}`,
-                    `${String(m).padStart(2, '0')}/${selectedYear}`,
-                    `${m}-${selectedYear}`,
-                    `${String(m).padStart(2, '0')}-${selectedYear}`
-                  ];
-                  return monthFormats.some(format => 
-                    monthStr === format || monthStr.startsWith(format + '-') || monthStr.includes(format)
-                  );
-                });
-                
-                if (monthRecords.length > 0) {
-                  const monthTotal = monthRecords.reduce((sum, record) => sum + (record.total_salary || 0), 0);
-                  const monthName = new Date(selectedYear, m-1, 1).toLocaleString('default', { month: 'long' });
-                  monthlyData.push({
-                    month: m,
-                    name: monthName,
-                    total: monthTotal
-                  });
-                }
-              }
-              
-              setMonthlySalaries(monthlyData);
-              console.log('Monthly breakdown:', monthlyData);
-            } else {
-              console.log('No records found for selected year:', selectedYear);
-              setYearlyTotal(null);
-              setMonthlySalaries([]);
-            }
+          });
+          
+          // Add current year if it doesn't exist in records
+          years.add(currentYear);
+          
+          // Set available years in descending order (newest first)
+          setAvailableYears(Array.from(years).sort((a, b) => b - a));
+          
+          // Store debug info
+          setDebugInfo(`Found ${allSalaryRecords.length} total salary records. 
+            Most recent: ${JSON.stringify(allSalaryRecords[0])}
+            Available years: ${Array.from(years).join(', ')}`);
+          
+          // Check if we have the current month data in ANY format
+          const year = currentYear;
+          const month = currentMonth;
+          
+          // Define possible month formats we're looking for
+          const targetFormats = [
+            `${year}-${String(month).padStart(2, '0')}`, // 2025-03
+            `${year}-${month}`,                         // 2025-3
+            `${month}/${year}`,                         // 3/2025
+            `${String(month).padStart(2, '0')}/${year}`, // 03/2025
+            `${month}-${year}`,                         // 3-2025
+            `${String(month).padStart(2, '0')}-${year}` // 03-2025
+          ];
+          
+          // Find a record that matches any of these formats
+          const currentMonthRecord = allSalaryRecords.find(record => {
+            if (!record.month) return false;
+            const monthStr = String(record.month).trim();
+            return targetFormats.some(format => 
+              monthStr === format || monthStr.startsWith(format + '-') || monthStr.includes(format)
+            );
+          });
+          
+          if (currentMonthRecord) {
+            console.log('Found current month record:', currentMonthRecord);
+            setCurrentSalary(currentMonthRecord.total_salary);
+          } else {
+            console.log('No current month record found. Formats searched:', targetFormats);
+            // Default to the most recent record if we can't find the current month
+            const mostRecent = allSalaryRecords[0];
+            console.log('Using most recent record instead:', mostRecent);
+            setCurrentSalary(mostRecent.total_salary);
           }
+          
+          // Calculate yearly total by filtering and summing records for the selected year
+          const yearRecords = allSalaryRecords.filter(record => {
+            if (!record.month) return false;
+            const monthStr = String(record.month).trim();
+            // Check if the record's month string contains the selected year
+            return monthStr.includes(String(selectedYear));
+          });
+          
+          if (yearRecords.length > 0) {
+            // Calculate total and organize monthly data
+            const yearlySum = yearRecords.reduce((sum, record) => sum + (record.total_salary || 0), 0);
+            setYearlyTotal(yearlySum);
+            
+            // Prepare monthly breakdown for display
+            const monthlyData = [];
+            for (let m = 1; m <= 12; m++) {
+              const monthRecords = yearRecords.filter(record => {
+                const monthStr = String(record.month).trim();
+                const monthFormats = [
+                  `${selectedYear}-${String(m).padStart(2, '0')}`,
+                  `${selectedYear}-${m}`,
+                  `${m}/${selectedYear}`,
+                  `${String(m).padStart(2, '0')}/${selectedYear}`,
+                  `${m}-${selectedYear}`,
+                  `${String(m).padStart(2, '0')}-${selectedYear}`
+                ];
+                return monthFormats.some(format => 
+                  monthStr === format || monthStr.startsWith(format + '-') || monthStr.includes(format)
+                );
+              });
+              
+              if (monthRecords.length > 0) {
+                const monthTotal = monthRecords.reduce((sum, record) => sum + (record.total_salary || 0), 0);
+                const monthName = new Date(selectedYear, m-1, 1).toLocaleString('default', { month: 'long' });
+                monthlyData.push({
+                  month: m,
+                  name: monthName,
+                  total: monthTotal
+                });
+              }
+            }
+            
+            setMonthlySalaries(monthlyData);
+            console.log('Monthly breakdown:', monthlyData);
+          } else {
+            console.log('No records found for selected year:', selectedYear);
+            setYearlyTotal(null);
+            setMonthlySalaries([]);
+          }
+        } else {
+          console.log('No salary records found at all');
+          setCurrentSalary(null);
+          setYearlyTotal(null);
+          setMonthlySalaries([]);
         }
       }
       
@@ -286,15 +274,10 @@ export default function Dashboard() {
         }
       });
       
-      // Estimate monthly earnings (simplified calculation) - Keep in EGP
-      const baseRate = employee?.hourly_rate || 20; // Default to 20 EGP/hr if not set
-      const regularHours = (shiftsData?.length || 0) * 8; // 8 hours per regular shift
-      const overtimeRate = baseRate * 1.5;
-      
-      const monthlyEarnings = (regularHours * baseRate) + (overtimeHours * overtimeRate);
-      
+      // Use the actual monthly salary from the database instead of calculating
+      // The current salary is already set in fetchDashboardData
       setStats({
-        monthlyEarnings,
+        monthlyEarnings: currentSalary || 0,
         overtimeHours
       });
       
