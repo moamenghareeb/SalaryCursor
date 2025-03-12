@@ -2,7 +2,6 @@ import React from 'react';
 import { FaCalendarAlt, FaDollarSign, FaUserClock } from 'react-icons/fa';
 
 export interface StatsData {
-  totalShifts: number;
   monthlyEarnings: number;
   overtimeHours: number;
   shiftChanges?: number;
@@ -16,8 +15,8 @@ interface StatsPanelProps {
 const StatsPanel: React.FC<StatsPanelProps> = ({ stats, isLoading }) => {
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        {[1, 2, 3].map((i) => (
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        {[1, 2].map((i) => (
           <div key={i} className="bg-gray-800 p-4 rounded-lg shadow-md animate-pulse">
             <div className="flex items-center mb-2">
               <div className="w-8 h-8 bg-gray-700 rounded-full mr-2"></div>
@@ -32,14 +31,6 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ stats, isLoading }) => {
   }
 
   const statItems = [
-    {
-      title: 'Total Shifts',
-      value: stats.totalShifts,
-      icon: <FaCalendarAlt className="text-blue-500" />,
-      description: 'Scheduled work days this month',
-      formatter: (v: number) => v.toString(),
-      color: 'text-blue-400'
-    },
     {
       title: 'Monthly Earnings',
       value: stats.monthlyEarnings,
@@ -59,7 +50,7 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ stats, isLoading }) => {
   ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
       {statItems.map((item, index) => (
         <div key={index} className="bg-gray-800 p-4 rounded-lg shadow-md transition-transform hover:scale-105">
           <div className="flex items-center mb-2">

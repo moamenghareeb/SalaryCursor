@@ -15,11 +15,11 @@ import ShiftModal from './ShiftModal';
 
 interface CalendarProps {
   shifts: Record<string, ShiftType>;
-  notes: Record<string, string>;
+  notes?: Record<string, string>;
   onUpdateShift: (date: string, type: ShiftType, notes?: string) => void;
 }
 
-const Calendar: React.FC<CalendarProps> = ({ shifts, notes, onUpdateShift }) => {
+const Calendar: React.FC<CalendarProps> = ({ shifts, notes = {}, onUpdateShift }) => {
   const [currentDate, setCurrentDate] = React.useState(new Date());
   const [selectedDay, setSelectedDay] = React.useState<ScheduleDay | null>(null);
   const [isModalOpen, setIsModalOpen] = React.useState(false);

@@ -666,9 +666,6 @@ const SchedulePage: React.FC = () => {
     shiftOverrides.forEach(override => {
       const dateStr = override.date;
       result[dateStr] = override.shift_type;
-      if (override.notes) {
-        notesData[dateStr] = override.notes;
-      }
     });
     
     return { shifts: result, notes: notesData };
@@ -689,7 +686,6 @@ const SchedulePage: React.FC = () => {
         employee_id: user.id,
         date: dateStr,
         shift_type: type,
-        notes: notes || null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         is_pending: isOffline, // Mark as pending if offline
@@ -720,13 +716,13 @@ const SchedulePage: React.FC = () => {
         toast.success('Shift updated (offline mode)');
       } else {
         // Online mode - send directly to Supabase
+        // Note: We ignore notes as it's not in our schema
         const { error } = await supabase
           .from('shift_overrides')
           .upsert({
             employee_id: user.id,
             date: dateStr,
             shift_type: type,
-            notes: notes || null,
             source: 'manual'
           }, { onConflict: 'employee_id,date' });
           
