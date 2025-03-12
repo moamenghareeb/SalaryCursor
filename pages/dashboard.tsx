@@ -160,16 +160,26 @@ export default function Dashboard() {
             );
           });
           
+          let currentMonthSalaryValue = 0;
+          
           if (currentMonthRecord) {
             console.log('Found current month record:', currentMonthRecord);
-            setCurrentSalary(currentMonthRecord.total_salary);
+            currentMonthSalaryValue = currentMonthRecord.total_salary || 0;
+            setCurrentSalary(currentMonthSalaryValue);
           } else {
             console.log('No current month record found. Formats searched:', targetFormats);
             // Default to the most recent record if we can't find the current month
             const mostRecent = allSalaryRecords[0];
             console.log('Using most recent record instead:', mostRecent);
-            setCurrentSalary(mostRecent.total_salary);
+            currentMonthSalaryValue = mostRecent?.total_salary || 0;
+            setCurrentSalary(currentMonthSalaryValue);
           }
+          
+          // Update stats with the current salary immediately
+          setStats(prevStats => ({
+            ...prevStats,
+            monthlyEarnings: currentMonthSalaryValue
+          }));
           
           // Calculate yearly total by filtering and summing records for the selected year
           const yearRecords = allSalaryRecords.filter(record => {
@@ -274,12 +284,11 @@ export default function Dashboard() {
         }
       });
       
-      // Use the actual monthly salary from the database instead of calculating
-      // The current salary is already set in fetchDashboardData
-      setStats({
-        monthlyEarnings: currentSalary || 0,
+      // Update only the overtime hours, keeping the current salary value
+      setStats(prevStats => ({
+        ...prevStats,
         overtimeHours
-      });
+      }));
       
       // Generate upcoming shifts (next 5 days)
       const upcoming: UpcomingShift[] = [];
@@ -518,9 +527,32 @@ export default function Dashboard() {
                   </div>
                 </div>
                 
-                {/* Salary chart component would go here */}
-                <div className="h-64 w-full">
-                  {/* Existing chart code */}
+                {/* Monthly Salary Breakdown */}
+                <div className="h-64 w-full overflow-auto">
+                  {monthlySalaries.length > 0 ? (
+                    <div className="space-y-3">
+                      {monthlySalaries.map((month, index) => (
+                        <div key={index} className="bg-gray-700 p-3 rounded-md">
+                          <div className="flex justify-between mb-1">
+                            <span className="text-gray-300">{month.name}</span>
+                            <span className="text-white font-semibold">EGP {month.total.toLocaleString()}</span>
+                          </div>
+                          <div className="w-full bg-gray-800 rounded-full h-2">
+                            <div 
+                              className="bg-blue-500 h-2 rounded-full"
+                              style={{ 
+                                width: `${Math.min(100, (month.total / (yearlyTotal || 1)) * 100)}%` 
+                              }}
+                            ></div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center h-full">
+                      <p className="text-gray-400">No salary data available for {selectedYear}</p>
+                    </div>
+                  )}
                 </div>
                 
                 <div className="mt-4 pt-3 border-t border-gray-700 flex justify-between">
