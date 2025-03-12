@@ -56,5 +56,19 @@ BEFORE UPDATE ON public.shift_overrides
 FOR EACH ROW
 EXECUTE FUNCTION update_shift_overrides_updated_at_column();
 
+-- Add source column if it doesn't exist (for existing tables)
+DO $$ 
+BEGIN
+  -- Check if the column exists and add it if it doesn't
+  IF NOT EXISTS (
+    SELECT FROM information_schema.columns 
+    WHERE table_schema = 'public' 
+    AND table_name = 'shift_overrides' 
+    AND column_name = 'source'
+  ) THEN
+    ALTER TABLE public.shift_overrides ADD COLUMN source TEXT;
+  END IF;
+END $$;
+
 -- Force a schema cache refresh
 SELECT pg_notify('pgrst', 'reload schema'); 

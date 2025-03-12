@@ -4,7 +4,9 @@ CREATE TABLE IF NOT EXISTS public.shift_overrides (
   employee_id UUID REFERENCES public.employees(id) ON DELETE CASCADE,
   date DATE NOT NULL,
   shift_type TEXT NOT NULL,
+  source TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   UNIQUE(employee_id, date)
 );
 
@@ -34,4 +36,28 @@ CREATE POLICY "Users can update their own shift overrides"
 CREATE POLICY "Users can delete their own shift overrides"
   ON public.shift_overrides
   FOR DELETE
-  USING (auth.uid() = employee_id); 
+  USING (auth.uid() = employee_id);
+
+-- Add source column if it doesn't exist (for existing tables)
+DO $$ 
+BEGIN
+  -- Check if the column exists and add it if it doesn't
+  IF NOT EXISTS (
+    SELECT FROM information_schema.columns 
+    WHERE table_schema = 'public' 
+    AND table_name = 'shift_overrides' 
+    AND column_name = 'source'
+  ) THEN
+    ALTER TABLE public.shift_overrides ADD COLUMN source TEXT;
+  END IF;
+  
+  -- Check if updated_at column exists and add it if it doesn't
+  IF NOT EXISTS (
+    SELECT FROM information_schema.columns 
+    WHERE table_schema = 'public' 
+    AND table_name = 'shift_overrides' 
+    AND column_name = 'updated_at'
+  ) THEN
+    ALTER TABLE public.shift_overrides ADD COLUMN updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
+  END IF;
+END $$; 
