@@ -189,4 +189,62 @@ export function applyRateLimit(
   }
   
   return false;
+}
+
+// New withRateLimit higher-order function for API routes
+type ApiHandler = (req: NextApiRequest, res: NextApiResponse) => Promise<void> | void;
+
+interface RateLimitOptions {
+  windowMs: number;
+  maxRequests: number;
+  message?: string;
+  type?: RateLimitType;
+}
+
+/**
+ * Higher-order function that wraps an API handler with rate limiting
+ * @param handler The API route handler function
+ * @param options Rate limiting options
+ * @returns A new handler function with rate limiting applied
+ */
+export function withRateLimit(
+  handler: ApiHandler,
+  options: RateLimitOptions
+): ApiHandler {
+  const type = options.type || RateLimitType.GENERAL;
+  
+  return async function rateLimited(req: NextApiRequest, res: NextApiResponse) {
+    if (isRateLimited(req, type)) {
+      const store = getStore(type);
+      const clientIp = (req.headers['x-forwarded-for'] as string) || 
+                      req.socket.remoteAddress || 
+                      'unknown-ip';
+      const userId = (req as any).user?.id;
+      const identifier = type === RateLimitType.AUTH 
+        ? `${clientIp}:${type}` 
+        : userId 
+          ? `${clientIp}:${userId}:${type}` 
+          : `${clientIp}:${type}`;
+      
+      const resetTime = store[identifier]?.resetTime || Date.now() + RATE_LIMITS[type].windowMs;
+      const secondsToReset = Math.ceil((resetTime - Date.now()) / 1000);
+      
+      // Set appropriate headers
+      res.setHeader('Retry-After', secondsToReset.toString());
+      res.setHeader('X-RateLimit-Limit', options.maxRequests.toString());
+      res.setHeader('X-RateLimit-Remaining', '0');
+      res.setHeader('X-RateLimit-Reset', resetTime.toString());
+      
+      logger.warn(`Rate limit applied to ${req.url} for IP: ${clientIp}`);
+      
+      // Return rate limit exceeded error
+      return res.status(429).json({
+        error: 'Too many requests',
+        message: options.message || `Rate limit exceeded. Please try again in ${secondsToReset} seconds.`
+      });
+    }
+    
+    // If not rate limited, proceed to the handler
+    return handler(req, res);
+  };
 } 
