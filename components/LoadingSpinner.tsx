@@ -3,9 +3,10 @@ import { useTheme } from '../lib/themeContext';
 
 interface LoadingSpinnerProps {
   size?: 'small' | 'medium' | 'large';
+  className?: string;
 }
 
-const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({ size = 'medium' }) => {
+const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({ size = 'medium', className = '' }) => {
   const { isDarkMode } = useTheme();
   
   // Size mapping
@@ -16,7 +17,7 @@ const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({ size = 'medium' }) => {
   };
   
   return (
-    <div className={`animate-spin rounded-full ${sizeClasses[size]} border-2 border-b-transparent ${isDarkMode ? 'border-dark-accent' : 'border-apple-blue'}`} />
+    <div className={`animate-spin rounded-full ${sizeClasses[size]} border-2 border-b-transparent ${isDarkMode ? 'border-dark-accent' : 'border-apple-blue'} ${className}`} />
   );
 };
 

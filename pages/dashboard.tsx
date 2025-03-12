@@ -6,8 +6,11 @@ import { useTheme } from '../lib/themeContext';
 import { useRouter } from 'next/router';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Link from 'next/link';
-import { FiCalendar, FiDollarSign, FiArrowRight, FiPieChart, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
+import { FiCalendar, FiDollarSign, FiArrowRight, FiPieChart, FiChevronLeft, FiChevronRight, FiDownload } from 'react-icons/fi';
 import { leaveService } from '../lib/leaveService';
+import { pdf } from '@react-pdf/renderer';
+import YearlySalaryPDF from '../components/YearlySalaryPDF';
+import toast from 'react-hot-toast';
 
 export default function Dashboard() {
   const { isDarkMode } = useTheme();
@@ -22,6 +25,7 @@ export default function Dashboard() {
   const [monthlySalaries, setMonthlySalaries] = useState<any[]>([]);
   const [remainingLeave, setRemainingLeave] = useState<number | null>(null);
   const [debugInfo, setDebugInfo] = useState<string | null>(null);
+  const [pdfLoading, setPdfLoading] = useState(false);
   
   // Year selection states
   const currentYear = new Date().getFullYear();
@@ -235,6 +239,69 @@ export default function Dashboard() {
     }
   };
   
+  // Add new function to download yearly PDF
+  const downloadYearlyPDF = async () => {
+    try {
+      if (!employee) {
+        toast.error('Employee data not found');
+        return;
+      }
+      
+      setPdfLoading(true);
+      
+      // Get the session token
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      
+      if (!token) {
+        toast.error('Authentication error. Please sign in again.');
+        setPdfLoading(false);
+        return;
+      }
+      
+      // Fetch yearly data from API
+      const response = await fetch(`/api/salary-yearly?employee_id=${employee.id}&year=${selectedYear}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch yearly salary data');
+      }
+      
+      const yearlyData = await response.json();
+      
+      // Generate PDF
+      const pdfDocument = (
+        <YearlySalaryPDF
+          employee={employee}
+          year={yearlyData.year}
+          totalSalary={yearlyData.totalSalary}
+          averageSalary={yearlyData.averageSalary}
+          monthlyBreakdown={yearlyData.monthlyBreakdown}
+        />
+      );
+      
+      const pdfBlob = await pdf(pdfDocument).toBlob();
+      const url = URL.createObjectURL(pdfBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${employee.name}_yearly_salary_${selectedYear}.pdf`;
+      link.click();
+      
+      // Clean up
+      setTimeout(() => URL.revokeObjectURL(url), 100);
+      toast.success('Yearly salary report downloaded successfully');
+    } catch (error) {
+      console.error('Error generating yearly PDF:', error);
+      toast.error(`Error generating PDF: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setPdfLoading(false);
+    }
+  };
+  
   if (loading) {
     return (
       <Layout>
@@ -409,6 +476,26 @@ export default function Dashboard() {
                   }`}
                 >
                   <FiChevronRight className="w-4 h-4 text-apple-gray-dark dark:text-dark-text-secondary" />
+                </button>
+                
+                {/* Download PDF Button */}
+                <button 
+                  onClick={downloadYearlyPDF}
+                  disabled={pdfLoading || !yearlyTotal}
+                  className={`ml-2 flex items-center px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                    isDarkMode
+                      ? 'bg-purple-600 hover:bg-purple-700 text-white'
+                      : 'bg-purple-100 text-purple-800 hover:bg-purple-200'
+                  } ${
+                    (pdfLoading || !yearlyTotal) ? 'opacity-50 cursor-not-allowed' : ''
+                  }`}
+                >
+                  {pdfLoading ? (
+                    <LoadingSpinner size="small" className="mr-1" />
+                  ) : (
+                    <FiDownload className="mr-1 w-3 h-3" />
+                  )}
+                  <span>PDF</span>
                 </button>
               </div>
             </div>
