@@ -50,6 +50,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
         onClose={closeModal}
       >
         <div className="min-h-screen px-4 text-center">
+          {/* Background overlay */}
           <Transition.Child
             as={React.Fragment}
             enter="ease-out duration-300"
@@ -59,7 +60,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
             leaveFrom="opacity-100"
             leaveTo="opacity-0"
           >
-            <Dialog.Overlay className="fixed inset-0 bg-black opacity-30" />
+            <div className="fixed inset-0 bg-black opacity-30" />
           </Transition.Child>
 
           {/* This element is to trick the browser into centering the modal contents. */}
