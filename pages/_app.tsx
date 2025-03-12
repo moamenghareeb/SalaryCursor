@@ -13,6 +13,8 @@ import { getUserFriendlyErrorMessage } from '../lib/errorHandler';
 // React Query imports
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
+import { getPersistedOptions } from '../lib/queryPersistence';
 
 // Simple error boundary component since react-error-boundary might not be installed
 interface ErrorBoundaryProps {
@@ -233,7 +235,10 @@ function MyApp({ Component, pageProps }: AppProps) {
   
   return (
     <ErrorBoundary FallbackComponent={ErrorFallback}>
-      <QueryClientProvider client={queryClient}>
+      <PersistQueryClientProvider
+        client={queryClient}
+        persistOptions={getPersistedOptions()}
+      >
         <AuthProvider>
           <ThemeProvider>
             {OfflineBanner}
@@ -242,7 +247,7 @@ function MyApp({ Component, pageProps }: AppProps) {
           </ThemeProvider>
         </AuthProvider>
         {process.env.NODE_ENV !== 'production' && <ReactQueryDevtools />}
-      </QueryClientProvider>
+      </PersistQueryClientProvider>
     </ErrorBoundary>
   );
 }
