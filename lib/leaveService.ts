@@ -92,13 +92,27 @@ export const leaveService = {
       // Step 2: Check for specific yearly allocation or use years of service calculation
       logger.info(`STEP 2: Checking leave allocations for year ${currentYear}`);
       debug.queries.push('leave_allocations');
-      const { data: leaveAllocation, error: leaveAllocationError } = await supabase
-        .from('leave_allocations')
-        .select('allocated_days')
-        .eq('employee_id', userId)
-        .eq('year', currentYear)
-        .eq('type', 'annual')
-        .single();
+      
+      let leaveAllocation = null;
+      let leaveAllocationError = null;
+      
+      try {
+        // Try to fetch leave allocation from the database
+        const result = await supabase
+          .from('leave_allocations')
+          .select('allocated_days')
+          .eq('employee_id', userId)
+          .eq('year', currentYear)
+          .eq('type', 'annual')
+          .single();
+          
+        leaveAllocation = result.data;
+        leaveAllocationError = result.error;
+      } catch (error: any) {
+        // Handle errors (like 406 Not Acceptable or other API errors)
+        logger.error(`Exception fetching leave allocations: ${error.message || 'Unknown error'}`);
+        leaveAllocationError = error;
+      }
 
       debug.results.allocation = { data: leaveAllocation, error: leaveAllocationError };
 
@@ -110,7 +124,7 @@ export const leaveService = {
       } else {
         // Fall back to calculation based on years of service
         baseLeaveBalance = employeeData?.years_of_service >= 10 ? 24.67 : 18.67;
-        logger.info(`Using calculated leave days based on years of service: ${baseLeaveBalance}`);
+        logger.info(`Using calculated leave days based on years of service: ${baseLeaveBalance} - Leave allocation error: ${leaveAllocationError ? 'Yes' : 'No'}`);
       }
       
       logger.info(`Base leave balance determined: ${baseLeaveBalance}`);
