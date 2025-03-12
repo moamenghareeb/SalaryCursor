@@ -8,15 +8,26 @@ import { useTheme } from '../lib/themeContext';
 export default function SignUp() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [employeeId, setEmployeeId] = useState('');
-  const [position, setPosition] = useState('');
-  const [yearsOfService, setYearsOfService] = useState(0);
+  const [position, setPosition] = useState('Junior DCS Engineer');
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const { isDarkMode } = useTheme();
+
+  // Define available positions
+  const positionOptions = [
+    'Junior DCS Engineer',
+    'DCS Engineer',
+    'Senior DCS Engineer',
+    'Shift Engineer',
+    'Shift Superintendent',
+    'Operator',
+    'Operator I',
+    'Senior Operator',
+    'Field Supervisor'
+  ];
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,6 +59,9 @@ export default function SignUp() {
         return;
       }
 
+      // Generate email from employee ID for auth
+      const email = `employee${employeeId}@salarycursor.com`;
+
       // Create auth user
       const { data, error: signUpError } = await supabase.auth.signUp({
         email,
@@ -66,7 +80,7 @@ export default function SignUp() {
           name,
           email,
           position,
-          years_of_service: yearsOfService,
+          years_of_service: 0, // Default to 0
         });
 
         if (insertError) throw insertError;
@@ -128,7 +142,7 @@ export default function SignUp() {
             <div className="rounded-md shadow-sm space-y-4">
               <div>
                 <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-200">
-                  Full Name
+                  Name
                 </label>
                 <input
                   id="name"
@@ -143,7 +157,7 @@ export default function SignUp() {
               
               <div>
                 <label htmlFor="employeeId" className="block text-sm font-medium text-gray-700 dark:text-gray-200">
-                  Employee ID (1-700)
+                  Employee ID
                 </label>
                 <input
                   id="employeeId"
@@ -162,46 +176,17 @@ export default function SignUp() {
                 <label htmlFor="position" className="block text-sm font-medium text-gray-700 dark:text-gray-200">
                   Position
                 </label>
-                <input
+                <select
                   id="position"
-                  type="text"
                   value={position}
                   onChange={(e) => setPosition(e.target.value)}
                   required
                   className="appearance-none relative block w-full px-3 py-2 border border-gray-300 dark:border-dark-border placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-dark-text-primary dark:bg-dark-surface rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                  placeholder="Software Engineer"
-                />
-              </div>
-              
-              <div>
-                <label htmlFor="yearsOfService" className="block text-sm font-medium text-gray-700 dark:text-gray-200">
-                  Years in Social Insurance
-                </label>
-                <input
-                  id="yearsOfService"
-                  type="number"
-                  value={yearsOfService}
-                  onChange={(e) => setYearsOfService(parseInt(e.target.value) || 0)}
-                  min="0"
-                  required
-                  className="appearance-none relative block w-full px-3 py-2 border border-gray-300 dark:border-dark-border placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-dark-text-primary dark:bg-dark-surface rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                  placeholder="0"
-                />
-              </div>
-              
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-200">
-                  Email Address
-                </label>
-                <input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  className="appearance-none relative block w-full px-3 py-2 border border-gray-300 dark:border-dark-border placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-dark-text-primary dark:bg-dark-surface rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                  placeholder="you@example.com"
-                />
+                >
+                  {positionOptions.map((option) => (
+                    <option key={option} value={option}>{option}</option>
+                  ))}
+                </select>
               </div>
               
               <div>

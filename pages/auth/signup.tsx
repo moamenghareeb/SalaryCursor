@@ -7,13 +7,24 @@ import Head from 'next/head';
 export default function SignUp() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [employeeId, setEmployeeId] = useState('');
-  const [position, setPosition] = useState('');
-  const [yearsOfService, setYearsOfService] = useState(0);
+  const [position, setPosition] = useState('Junior DCS Engineer');
   const [error, setError] = useState<string | null>(null);
+
+  // Define available positions
+  const positionOptions = [
+    'Junior DCS Engineer',
+    'DCS Engineer',
+    'Senior DCS Engineer',
+    'Shift Engineer',
+    'Shift Superintendent',
+    'Operator',
+    'Operator I',
+    'Senior Operator',
+    'Field Supervisor'
+  ];
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,6 +51,9 @@ export default function SignUp() {
         return;
       }
 
+      // Generate email from employee ID for auth
+      const email = `employee${employeeId}@salarycursor.com`;
+
       // Create auth user
       const { data, error: signUpError } = await supabase.auth.signUp({
         email,
@@ -56,7 +70,7 @@ export default function SignUp() {
           name,
           email,
           position,
-          years_of_service: yearsOfService,
+          years_of_service: 0, // Default to 0
         });
 
         if (insertError) throw insertError;
@@ -97,7 +111,7 @@ export default function SignUp() {
             <form onSubmit={handleSignUp} className="space-y-5">
               <div>
                 <label className="block text-sm font-medium text-apple-gray-dark mb-2">
-                  Full Name
+                  Name
                 </label>
                 <input
                   type="text"
@@ -105,13 +119,13 @@ export default function SignUp() {
                   onChange={(e) => setName(e.target.value)}
                   required
                   className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-apple-blue focus:ring-1 focus:ring-apple-blue outline-none transition-colors duration-200"
-                  placeholder="Enter your full name"
+                  placeholder="Enter your name"
                 />
               </div>
               
               <div>
                 <label className="block text-sm font-medium text-apple-gray-dark mb-2">
-                  Employee ID (1-700)
+                  Employee ID
                 </label>
                 <input
                   type="number"
@@ -129,43 +143,16 @@ export default function SignUp() {
                 <label className="block text-sm font-medium text-apple-gray-dark mb-2">
                   Position
                 </label>
-                <input
-                  type="text"
+                <select
                   value={position}
                   onChange={(e) => setPosition(e.target.value)}
                   required
                   className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-apple-blue focus:ring-1 focus:ring-apple-blue outline-none transition-colors duration-200"
-                  placeholder="Enter your position"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-apple-gray-dark mb-2">
-                  Years in Social Insurance
-                </label>
-                <input
-                  type="number"
-                  value={yearsOfService}
-                  onChange={(e) => setYearsOfService(parseInt(e.target.value))}
-                  min="0"
-                  required
-                  className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-apple-blue focus:ring-1 focus:ring-apple-blue outline-none transition-colors duration-200"
-                  placeholder="Enter years of service"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-apple-gray-dark mb-2">
-                  Email Address
-                </label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-apple-blue focus:ring-1 focus:ring-apple-blue outline-none transition-colors duration-200"
-                  placeholder="you@example.com"
-                />
+                >
+                  {positionOptions.map((option) => (
+                    <option key={option} value={option}>{option}</option>
+                  ))}
+                </select>
               </div>
               
               <div>
