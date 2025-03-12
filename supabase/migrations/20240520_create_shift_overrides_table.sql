@@ -70,5 +70,24 @@ BEGIN
   END IF;
 END $$;
 
--- Force a schema cache refresh
-SELECT pg_notify('pgrst', 'reload schema'); 
+-- Force a schema cache refresh - Multiple approaches for different Supabase versions
+SELECT pg_notify('pgrst', 'reload schema');
+
+-- Additional refresh method (for newer Supabase versions)
+NOTIFY pgrst, 'reload schema';
+
+-- Apply privileges to ensure the schema cache is refreshed
+GRANT ALL ON TABLE public.shift_overrides TO postgres;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.shift_overrides TO authenticated;
+GRANT SELECT ON TABLE public.shift_overrides TO anon;
+
+-- Ensure sequence privileges are granted (if using serial columns)
+DO $$
+DECLARE
+    seq_name text;
+BEGIN
+    FOR seq_name IN SELECT quote_ident(sequencename) FROM pg_sequences WHERE schemaname = 'public'
+    LOOP
+        EXECUTE 'GRANT USAGE, SELECT ON SEQUENCE ' || seq_name || ' TO authenticated, anon';
+    END LOOP;
+END $$; 

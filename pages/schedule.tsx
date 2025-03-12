@@ -21,6 +21,8 @@ import {
 import { FaPencilAlt, FaShareAlt } from 'react-icons/fa';
 import { FiMenu } from 'react-icons/fi';
 import { toast } from 'react-hot-toast';
+import Calendar from '../components/calendar/Calendar';
+import { ShiftType, shiftColors } from '../components/calendar/DayCell';
 
 // Add cache helpers
 const CACHE_KEYS = {
@@ -52,8 +54,8 @@ const setCachedData = (key: string, value: any) => {
   }
 };
 
-// Schedule types
-type ShiftType = 'Day' | 'Night' | 'Off' | 'Leave' | 'Public' | 'Overtime';
+// Schedule types - Remove this section completely
+// type ShiftType = 'Day' | 'Night' | 'Off' | 'Leave' | 'Public' | 'Overtime';
 
 interface ScheduleDay {
   date: Date;
@@ -61,16 +63,6 @@ interface ScheduleDay {
   notes?: string;
   inCurrentMonth: boolean;
 }
-
-// Shift colors
-const shiftColors = {
-  'Day': 'bg-blue-500',
-  'Night': 'bg-green-500',
-  'Off': 'bg-red-500',
-  'Leave': 'bg-yellow-400',
-  'Public': 'bg-orange-400',
-  'Overtime': 'bg-pink-500',
-};
 
 // Function to calculate shift for a specific date based on group and anchor dates
 const calculateShift = (date: Date, group: 'A' | 'B' | 'C' | 'D'): ShiftType => {
@@ -615,854 +607,247 @@ const SchedulePage: React.FC = () => {
     }
   };
   
-  // Generate calendar data for the current month view
-  const calendarData = React.useMemo(() => {
-    if (isLoading) return { days: [], weeks: [] };
+  // Generate shift data for Calendar component
+  const shiftsData = React.useMemo(() => {
+    const result: Record<string, ShiftType> = {};
+    const notesData: Record<string, string> = {};
     
-    // Calculate the date range
-    const monthStart = startOfMonth(currentDate);
-    const monthEnd = endOfMonth(currentDate);
-    
-    // Get previous month padding
-    const startDayOfWeek = getDay(monthStart);
-    const calendarStart = new Date(monthStart);
-    if (startDayOfWeek > 0) {
-      calendarStart.setDate(calendarStart.getDate() - startDayOfWeek);
-    }
-    
-    // Get next month padding
-    const endDayOfWeek = getDay(monthEnd);
-    const calendarEnd = new Date(monthEnd);
-    if (endDayOfWeek < 6) {
-      calendarEnd.setDate(calendarEnd.getDate() + (6 - endDayOfWeek));
-    }
-    
-    // Get all days to display
-    const calendarDays = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
-    
-    // Process each day
-    const days = calendarDays.map(date => {
-      // Format date for comparisons
-      const formattedDate = format(date, 'yyyy-MM-dd');
+    // Add calculated shifts for current month based on employee group
+    if (scheduleType === 'shift') {
+      // Get current date to determine month/year we're showing
+      const currentMonth = new Date().getMonth();
+      const currentYear = new Date().getFullYear();
       
-      // Check if date has an override (only if table exists)
-      const override = dbTablesStatus.shift_overrides ? shiftOverrides.find(o => 
-        format(parseISO(o.date), 'yyyy-MM-dd') === formattedDate
-      ) : null;
-      
-      // Check if date is within approved leave (only if table exists)
-      const isLeave = dbTablesStatus.leave_requests ? leaveRecords.some(leave => {
-        const leaveStart = parseISO(leave.start_date);
-        const leaveEnd = parseISO(leave.end_date);
+      // Generate dates for the whole month
+      for (let day = 1; day <= 31; day++) {
+        const date = new Date(currentYear, currentMonth, day);
         
-        return isWithinInterval(date, {
-          start: leaveStart,
-          end: leaveEnd
-        });
-      }) : false;
-      
-      // Check if date is a holiday
-      const holiday = holidays.find(h => h.date === formattedDate);
-      
-      // Determine shift type
-      let shiftType: ShiftType;
-      
-      if (isLeave) {
-        shiftType = 'Leave';
-      } else if (override) {
-        shiftType = override.shift_type as ShiftType;
-      } else if (scheduleType === 'regular') {
-        // Regular work hours (Sunday-Thursday)
-        const dayOfWeek = getDay(date);
-        const isWeekend = dayOfWeek === 5 || dayOfWeek === 6; // Friday or Saturday
+        // Skip if not a valid date (e.g., Feb 30)
+        if (date.getMonth() !== currentMonth) continue;
         
-        if (isWeekend) {
-          shiftType = 'Off';
-        } else {
-          shiftType = 'Day';
-        }
-      } else {
-        // Shift work hours based on group
-        shiftType = calculateShift(date, employeeGroup);
+        const dateStr = format(date, 'yyyy-MM-dd');
+        result[dateStr] = calculateShift(date, employeeGroup);
       }
-      
-      return {
-        date,
-        type: shiftType,
-        notes: holiday?.name,
-        inCurrentMonth: isSameMonth(date, currentDate),
-      };
+    }
+    
+    // Apply holidays
+    holidays.forEach(holiday => {
+      const dateStr = holiday.date;
+      result[dateStr] = 'Public';
+      notesData[dateStr] = holiday.name;
     });
     
-    // Group days into weeks
-    const weeks = [];
-    for (let i = 0; i < days.length; i += 7) {
-      weeks.push(days.slice(i, i + 7));
-    }
-    
-    return { days, weeks };
-  }, [currentDate, leaveRecords, shiftOverrides, scheduleType, employeeGroup, isLoading, dbTablesStatus]);
-  
-  // Navigation handlers
-  const handlePreviousMonth = () => {
-    setCurrentDate(subMonths(currentDate, 1));
-  };
-  
-  const handleNextMonth = () => {
-    setCurrentDate(addMonths(currentDate, 1));
-  };
-  
-  const handleToday = () => {
-    setCurrentDate(new Date());
-  };
-  
-  // Day click handler
-  const handleDayClick = (day: ScheduleDay) => {
-    setSelectedDay(day.date);
-    setShowEditModal(true);
-  };
-  
-  // Shift update handler
-  const handleEditShift = async (type: ShiftType) => {
-    if (!selectedDay) return;
-    
-    // Get current user session
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      toast.error('You must be logged in to update shifts');
-      return;
-    }
-    
-    // If type is Leave, we need to handle it specially by creating a leave request
-    if (type === 'Leave') {
-      return await handleLeaveRequest();
-    }
-    
-    // Check if shift_overrides table exists
-    if (!dbTablesStatus.shift_overrides) {
-      toast.error('Shift overrides feature is not available. Database table missing.');
-      setShowEditModal(false);
-      setSelectedDay(null);
-      return;
-    }
-    
-    // If we're offline, store changes locally
-    if (isOffline) {
+    // Apply leave records
+    leaveRecords.forEach(leave => {
       try {
-        const formattedDate = format(selectedDay, 'yyyy-MM-dd');
+        const startDate = parseISO(leave.start_date);
+        const endDate = parseISO(leave.end_date);
+        const dates = [];
         
-        // Get current cached overrides
-        let cachedOverrides = getCachedData(CACHE_KEYS.SHIFT_OVERRIDES, []);
+        // Create array of all dates in the leave period
+        let currentDate = new Date(startDate);
+        while (currentDate <= endDate) {
+          dates.push(new Date(currentDate));
+          currentDate.setDate(currentDate.getDate() + 1);
+        }
         
-        // Check if an override already exists
-        const existingIndex = cachedOverrides.findIndex(
-          (o: any) => o.employee_id === session.user.id && format(new Date(o.date), 'yyyy-MM-dd') === formattedDate
+        // Mark each date as leave
+        dates.forEach(date => {
+          const dateStr = format(date, 'yyyy-MM-dd');
+          result[dateStr] = 'Leave';
+          notesData[dateStr] = leave.reason || 'Leave';
+        });
+      } catch (e) {
+        console.error('Error processing leave record', e);
+      }
+    });
+    
+    // Apply shift overrides (these take highest priority)
+    shiftOverrides.forEach(override => {
+      const dateStr = override.date;
+      result[dateStr] = override.shift_type;
+      if (override.notes) {
+        notesData[dateStr] = override.notes;
+      }
+    });
+    
+    return { shifts: result, notes: notesData };
+  }, [employeeGroup, scheduleType, leaveRecords, shiftOverrides]);
+
+  const handleUpdateShift = async (dateStr: string, type: ShiftType, notes?: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        toast.error('You must be logged in to update shifts');
+        return;
+      }
+      
+      // Create a new override object
+      const newOverride = {
+        id: `local-${Date.now()}`, // Temporary ID for offline mode
+        employee_id: user.id,
+        date: dateStr,
+        shift_type: type,
+        notes: notes || null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        is_pending: isOffline, // Mark as pending if offline
+        source: 'manual' // Track that this was manually created
+      };
+      
+      if (isOffline) {
+        // In offline mode, save to local storage
+        const existingOverrides = getCachedData(CACHE_KEYS.SHIFT_OVERRIDES, []);
+        
+        // Find if we already have an override for this date
+        const existingIndex = existingOverrides.findIndex((o: any) => 
+          o.employee_id === user.id && o.date === dateStr
         );
         
         if (existingIndex >= 0) {
           // Update existing override
-          cachedOverrides[existingIndex].shift_type = type;
+          existingOverrides[existingIndex] = newOverride;
         } else {
-          // Create new override
-          cachedOverrides.push({
-            id: `local-${Date.now()}`,
-            employee_id: session.user.id,
-            date: formattedDate,
-            shift_type: type,
-            is_pending: true // Flag to indicate it needs to be synced
-          });
+          // Add new override
+          existingOverrides.push(newOverride);
         }
         
-        // Save to local storage
-        setCachedData(CACHE_KEYS.SHIFT_OVERRIDES, cachedOverrides);
+        // Save back to cache
+        setCachedData(CACHE_KEYS.SHIFT_OVERRIDES, existingOverrides);
+        setShiftOverrides(existingOverrides);
         
-        // Update state
-        setShiftOverrides(cachedOverrides);
-        toast.success(`Shift updated to ${type} (Offline Mode)`);
-        setShowEditModal(false);
-        setSelectedDay(null);
-        return;
-      } catch (error) {
-        console.error('Error updating shift in offline mode:', error);
-        toast.error('Failed to update shift in offline mode');
-        setShowEditModal(false);
-        setSelectedDay(null);
-        return;
-      }
-    }
-    
-    // Online mode - proceed as before
-    try {
-      const formattedDate = format(selectedDay, 'yyyy-MM-dd');
-      
-      // Check if an override already exists
-      const { data: existingOverride, error: overrideError } = await supabase
-        .from('shift_overrides')
-        .select('*')
-        .eq('employee_id', session.user.id)
-        .eq('date', formattedDate)
-        .single();
-        
-      if (overrideError && overrideError.code !== 'PGRST116') {
-        throw overrideError;
-      }
-      
-      if (existingOverride) {
-        // Update existing override
-        const { error } = await supabase
-          .from('shift_overrides')
-          .update({ shift_type: type })
-          .eq('id', existingOverride.id);
-          
-        if (error) throw error;
+        toast.success('Shift updated (offline mode)');
       } else {
-        // Create new override
+        // Online mode - send directly to Supabase
         const { error } = await supabase
           .from('shift_overrides')
-          .insert({
-            employee_id: session.user.id,
-            date: formattedDate,
+          .upsert({
+            employee_id: user.id,
+            date: dateStr,
             shift_type: type,
-          });
+            notes: notes || null,
+            source: 'manual'
+          }, { onConflict: 'employee_id,date' });
           
-        if (error) throw error;
-      }
-      
-      // Refresh shift overrides
-      await fetchShiftOverrides();
-      toast.success(`Shift updated to ${type}`);
-    } catch (error) {
-      console.error('Error updating shift:', error);
-      toast.error('Failed to update shift');
-    }
-    
-    setShowEditModal(false);
-    setSelectedDay(null);
-  };
-  
-  // New function to handle leave requests
-  const handleLeaveRequest = async () => {
-    if (!selectedDay) return;
-    
-    // Get current user session
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      toast.error('You must be logged in to request leave');
-      return;
-    }
-    
-    try {
-      const formattedDate = format(selectedDay, 'yyyy-MM-dd');
-      const year = selectedDay.getFullYear();
-      
-      // Show loading toast
-      const loadingToast = toast.loading('Submitting leave request...');
-      
-      // Check if this is an existing leave period using the leaves table
-      let existingLeaveRequest = null;
-      const { data: leaves, error } = await supabase
-        .from('leaves')
-        .select('*')
-        .eq('employee_id', session.user.id)
-        .lte('start_date', formattedDate)
-        .gte('end_date', formattedDate);
-        
-      if (!error && leaves && leaves.length > 0) {
-        existingLeaveRequest = leaves[0];
-      }
-      
-      if (existingLeaveRequest) {
-        // Existing leave period found, update the shift_override
-        await handleUpdateShiftOverride(formattedDate, 'Leave');
-        toast.dismiss(loadingToast);
-        toast.success('Day marked as Leave (matched existing leave period)');
-        setShowEditModal(false);
-        setSelectedDay(null);
-        return;
-      }
-      
-      // Create a new leave request
-      // Always use the leaves table
-      const { error: insertError } = await supabase
-        .from('leaves')
-        .insert({
-          employee_id: session.user.id,
-          year: year,
-          start_date: formattedDate,
-          end_date: formattedDate,
-          days_taken: 1,
-          reason: 'Requested from schedule page',
-          status: 'Approved',
-          leave_type: 'Annual'
-        });
-        
-      if (insertError) throw insertError;
-      
-      // Also update the shift_override for consistency
-      await handleUpdateShiftOverride(formattedDate, 'Leave');
-      
-      toast.dismiss(loadingToast);
-      toast.success('Leave request submitted successfully');
-      
-      // Refresh data
-      await fetchLeaveRecords();
-      await fetchShiftOverrides();
-    } catch (error: any) {
-      console.error('Error submitting leave request:', error);
-      toast.error('Failed to submit leave request: ' + error.message);
-    }
-    
-    setShowEditModal(false);
-    setSelectedDay(null);
-  };
-  
-  // Helper function to update shift override
-  const handleUpdateShiftOverride = async (date: string, type: ShiftType) => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return false;
-    
-    if (!dbTablesStatus.shift_overrides) {
-      console.log('Shift overrides table does not exist, skipping update');
-      return false;
-    }
-    
-    try {
-      // Check if an override already exists
-      const { data: existingOverride, error: overrideError } = await supabase
-        .from('shift_overrides')
-        .select('*')
-        .eq('employee_id', session.user.id)
-        .eq('date', date)
-        .single();
-        
-      if (overrideError && overrideError.code !== 'PGRST116') {
-        throw overrideError;
-      }
-      
-      if (existingOverride) {
-        // Update existing override
-        const { error } = await supabase
-          .from('shift_overrides')
-          .update({ shift_type: type })
-          .eq('id', existingOverride.id);
-          
-        if (error) throw error;
-      } else {
-        // Create new override
-        const { error } = await supabase
-          .from('shift_overrides')
-          .insert({
-            employee_id: session.user.id,
-            date: date,
-            shift_type: type,
-          });
-          
-        if (error) throw error;
-      }
-      
-      return true;
-    } catch (error) {
-      console.error('Error updating shift override:', error);
-      return false;
-    }
-  };
-  
-  // Reset shift override handler
-  const handleRemoveOverride = async () => {
-    if (!selectedDay) return;
-    
-    // Check if this day is part of a leave request and confirm if the user wants to cancel their leave
-    const formattedDate = format(selectedDay, 'yyyy-MM-dd');
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      toast.error('You must be logged in');
-      return;
-    }
-    
-    let isPartOfLeave = false;
-    let leaveRecord = null;
-    
-    // Check if this is part of a leave period
-    if (dbTablesStatus.leave_requests) {
-      // Use leave_requests table
-      const { data, error } = await supabase
-        .from('leave_requests')
-        .select('*')
-        .eq('employee_id', session.user.id)
-        .lte('start_date', formattedDate)
-        .gte('end_date', formattedDate);
-        
-      if (!error && data && data.length > 0) {
-        isPartOfLeave = true;
-        leaveRecord = data[0];
-      }
-    } else {
-      // Try leaves table if it exists
-      const { data, error } = await supabase
-        .from('leaves')
-        .select('*')
-        .eq('employee_id', session.user.id)
-        .lte('start_date', formattedDate)
-        .gte('end_date', formattedDate);
-        
-      if (!error && data && data.length > 0) {
-        isPartOfLeave = true;
-        leaveRecord = data[0];
-      }
-    }
-    
-    if (isPartOfLeave && leaveRecord) {
-      // This is part of a leave period, ask if they want to cancel it
-      if (confirm(`This day is part of a leave request from ${format(new Date(leaveRecord.start_date), 'PP')} to ${format(new Date(leaveRecord.end_date), 'PP')}. Do you want to cancel this leave request?`)) {
-        try {
-          // Handle leave cancellation based on whether it's a single day or multi-day leave
-          const isSingleDayLeave = format(new Date(leaveRecord.start_date), 'yyyy-MM-dd') === format(new Date(leaveRecord.end_date), 'yyyy-MM-dd');
-          
-          if (isSingleDayLeave) {
-            // Delete the leave record if it's just for this day
-            const table = dbTablesStatus.leave_requests ? 'leave_requests' : 'leaves';
-            const { error } = await supabase
-              .from(table)
-              .delete()
-              .eq('id', leaveRecord.id);
-              
-            if (error) throw error;
-            
-            toast.success('Leave request cancelled successfully');
-          } else {
-            // For multi-day leave, we would need more complex logic to split the leave period
-            // This is a simplification - in a real app, you might want to allow splitting the leave
-            toast.error('Cannot remove a single day from a multi-day leave period. Please modify your leave from the Leave page.');
-            setShowEditModal(false);
-            setSelectedDay(null);
-            return;
-          }
-        } catch (error: any) {
-          console.error('Error cancelling leave:', error);
-          toast.error('Failed to cancel leave: ' + error.message);
-          setShowEditModal(false);
-          setSelectedDay(null);
+        if (error) {
+          console.error('Error updating shift:', error);
+          toast.error('Failed to update shift');
           return;
         }
-      } else {
-        // User canceled the confirmation dialog
-        setShowEditModal(false);
-        setSelectedDay(null);
-        return;
+        
+        // Refresh shift overrides
+        fetchShiftOverrides();
+        toast.success('Shift updated');
       }
-    }
-    
-    // Continue with normal shift override removal
-    
-    // Check if shift_overrides table exists
-    if (!dbTablesStatus.shift_overrides) {
-      toast.error('Shift overrides feature is not available. Database table missing.');
-      setShowEditModal(false);
-      setSelectedDay(null);
-      return;
-    }
-    
-    // If we're offline, handle locally
-    if (isOffline) {
-      try {
-        // Get current cached overrides
-        let cachedOverrides = getCachedData(CACHE_KEYS.SHIFT_OVERRIDES, []);
-        
-        // Filter out the override for this date
-        cachedOverrides = cachedOverrides.filter(
-          (o: any) => !(o.employee_id === session.user.id && format(new Date(o.date), 'yyyy-MM-dd') === formattedDate)
-        );
-        
-        // Save to local storage
-        setCachedData(CACHE_KEYS.SHIFT_OVERRIDES, cachedOverrides);
-        
-        // Update state
-        setShiftOverrides(cachedOverrides);
-        toast.success('Shift reset to default (Offline Mode)');
-        setShowEditModal(false);
-        setSelectedDay(null);
-        return;
-      } catch (error) {
-        console.error('Error resetting shift in offline mode:', error);
-        toast.error('Failed to reset shift in offline mode');
-        setShowEditModal(false);
-        setSelectedDay(null);
-        return;
-      }
-    }
-    
-    // Online mode - proceed as before
-    try {
-      // Delete the override
-      const { error } = await supabase
-        .from('shift_overrides')
-        .delete()
-        .eq('employee_id', session.user.id)
-        .eq('date', formattedDate);
-        
-      if (error) throw error;
-      
-      // Refresh shift overrides
-      await fetchShiftOverrides();
-      await fetchLeaveRecords(); // Also refresh leave records in case we cancelled a leave
-      toast.success('Shift reset to default');
     } catch (error) {
-      console.error('Error removing shift override:', error);
-      toast.error('Failed to reset shift');
+      console.error('Error in handleUpdateShift:', error);
+      toast.error('An error occurred updating the shift');
     }
-    
-    setShowEditModal(false);
-    setSelectedDay(null);
   };
   
-  // Group change handler
   const handleChangeGroup = async (event: React.ChangeEvent<HTMLSelectElement>) => {
-    const group = event.target.value as 'A' | 'B' | 'C' | 'D';
+    const newGroup = event.target.value as 'A' | 'B' | 'C' | 'D';
+    setEmployeeGroup(newGroup);
+    setCachedData(CACHE_KEYS.EMPLOYEE_GROUP, newGroup);
     
-    // Update state immediately for better UX
-    setEmployeeGroup(group);
-    
-    // Skip database update if employees table doesn't exist
-    if (!dbTablesStatus.employees) {
-      return;
-    }
-    
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      toast.error('You must be logged in to change groups');
-      return;
-    }
-    
-    try {
-      // Update database
-      const { error } = await supabase
-        .from('employees')
-        .update({ shift_group: group })
-        .eq('id', session.user.id);
-        
-      if (error) throw error;
-      
-      toast.success(`Group changed to ${group}`);
-    } catch (error) {
-      console.error('Error changing group:', error);
-      toast.error('Failed to save group change');
+    // Update employee record if online
+    if (!isOffline) {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await supabase
+            .from('employees')
+            .update({ shift_group: newGroup })
+            .eq('id', user.id);
+        }
+      } catch (error) {
+        console.error('Error updating shift group:', error);
+      }
     }
   };
   
-  // Schedule type change handler
   const handleChangeScheduleType = async (event: React.ChangeEvent<HTMLSelectElement>) => {
-    const type = event.target.value as 'regular' | 'shift';
-    
-    // Update state immediately for better UX
-    setScheduleType(type);
-    
-    // Skip database update if employees table doesn't exist
-    if (!dbTablesStatus.employees) {
-      return;
-    }
-    
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      toast.error('You must be logged in to change schedule type');
-      return;
-    }
-    
-    try {
-      // Update database
-      const { error } = await supabase
-        .from('employees')
-        .update({ schedule_type: type })
-        .eq('id', session.user.id);
-        
-      if (error) throw error;
-      
-      toast.success(`Schedule type changed to ${type}`);
-    } catch (error) {
-      console.error('Error changing schedule type:', error);
-      toast.error('Failed to save schedule type change');
-    }
+    const newType = event.target.value as 'regular' | 'shift';
+    setScheduleType(newType);
+    setCachedData(CACHE_KEYS.SCHEDULE_TYPE, newType);
   };
-  
-  // Function to render day cell with shift information
-  const renderDayCell = (day: ScheduleDay) => {
-    const { date, type, notes, inCurrentMonth } = day;
-    
-    return (
-      <div 
-        key={date.toString()} 
-        className={`p-1 border-t border-gray-700 ${inCurrentMonth ? '' : 'opacity-40'}`}
-        onClick={() => handleDayClick(day)}
-      >
-        <div className="flex justify-center items-center mb-1">
-          <span className={`text-lg font-semibold ${
-            date.getDate() === new Date().getDate() && isSameMonth(date, new Date()) 
-              ? 'text-white bg-gray-600 rounded-full w-8 h-8 flex items-center justify-center' 
-              : ''
-          }`}>
-            {date.getDate()}
-          </span>
-        </div>
-        <div className="flex flex-col gap-1">
-          <div className={`text-center p-1 rounded text-white ${shiftColors[type]}`}>
-            {type}
-          </div>
-          {notes && (
-            <div className="text-xs text-gray-300 flex items-center mt-1">
-              <span className="w-2 h-2 bg-green-500 rounded-full mr-1"></span>
-              {notes}
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  };
-  
+
   return (
     <Layout>
-      <div className="min-h-screen bg-black text-white px-4 py-6 pb-20">
-        {/* Header */}
+      <div className="container mx-auto px-4 py-8">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-5xl font-bold">
-            {format(currentDate, 'MMMM')}
-          </h1>
-          <div className="flex gap-4">
-            <button 
-              className="text-white text-2xl"
-              aria-label="Share"
+          <h1 className="text-2xl font-bold text-white">Schedule</h1>
+          
+          <div className="flex space-x-2">
+            <select
+              value={employeeGroup}
+              onChange={handleChangeGroup}
+              className="bg-gray-700 text-white p-2 rounded-md"
+              aria-label="Select shift group"
             >
-              <FaShareAlt />
-            </button>
-            <button 
-              className="text-white text-2xl"
+              <option value="A">Group A</option>
+              <option value="B">Group B</option>
+              <option value="C">Group C</option>
+              <option value="D">Group D</option>
+            </select>
+            
+            <select
+              value={scheduleType}
+              onChange={handleChangeScheduleType}
+              className="bg-gray-700 text-white p-2 rounded-md"
+              aria-label="Select schedule type"
+            >
+              <option value="shift">Shift Schedule</option>
+              <option value="regular">Regular Schedule</option>
+            </select>
+            
+            <button
+              className="p-2 bg-gray-700 rounded-md"
               aria-label="Menu"
             >
-              <FiMenu />
+              <FiMenu className="text-white" />
             </button>
-          </div>
-        </div>
-        
-        {/* Internet Connection Warning */}
-        {isOffline && (
-          <div className="bg-red-500 bg-opacity-20 text-red-300 p-3 rounded-lg mb-4 text-sm">
-            <p className="font-semibold mb-1">⚠️ Offline Mode</p>
-            <p>
-              Your device appears to be offline. Some features may not work correctly.
-              <button 
-                onClick={fetchData}
-                className="ml-2 bg-red-500 bg-opacity-30 hover:bg-opacity-50 px-2 py-1 rounded text-white"
-              >
-                Retry Connection
-              </button>
-            </p>
-          </div>
-        )}
-        
-        {/* Navigation Controls */}
-        <div className="flex justify-center gap-2 mb-4">
-          <button 
-            onClick={handlePreviousMonth}
-            className="bg-blue-500 text-white px-4 py-1 rounded font-medium"
-          >
-            Prev
-          </button>
-          <button 
-            onClick={handleToday}
-            className="bg-gray-600 text-white px-4 py-1 rounded font-medium"
-          >
-            Today
-          </button>
-          <button 
-            onClick={handleNextMonth}
-            className="bg-blue-500 text-white px-4 py-1 rounded font-medium"
-          >
-            Next
-          </button>
-        </div>
-        
-        {/* Settings Controls */}
-        <div className="flex justify-between items-center mb-4">
-          <div className="flex items-center gap-2">
-            <div className="flex items-center">
-              <span className="mr-2">Group:</span>
-              <select 
-                value={employeeGroup} 
-                onChange={handleChangeGroup}
-                className="bg-gray-800 text-white px-2 py-1 rounded text-sm"
-                disabled={scheduleType === 'regular'}
-              >
-                <option value="A">Group A</option>
-                <option value="B">Group B</option>
-                <option value="C">Group C</option>
-                <option value="D">Group D</option>
-              </select>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-2">
-            <span>Type:</span>
-            <select 
-              value={scheduleType} 
-              onChange={handleChangeScheduleType}
-              className="bg-gray-800 text-white px-2 py-1 rounded text-sm"
+            
+            <button
+              className="p-2 bg-blue-600 rounded-md"
+              aria-label="Share schedule"
             >
-              <option value="regular">Regular Hours</option>
-              <option value="shift">Shift Hours</option>
-            </select>
+              <FaShareAlt className="text-white" />
+            </button>
           </div>
         </div>
         
-        {/* Missing Tables Warning */}
-        {(!dbTablesStatus.employees || !dbTablesStatus.leave_requests || !dbTablesStatus.shift_overrides) && (
-          <div className="bg-yellow-500 bg-opacity-20 text-yellow-300 p-3 rounded-lg mb-4 text-sm">
-            <p className="font-semibold mb-1">⚠️ Development Mode</p>
-            <p>
-              Some database tables are missing. {' '}
-              {!dbTablesStatus.employees && 'Employee settings'}
-              {!dbTablesStatus.employees && !dbTablesStatus.leave_requests && ', '}
-              {!dbTablesStatus.leave_requests && 'Leave records'}
-              {(!dbTablesStatus.employees || !dbTablesStatus.leave_requests) && !dbTablesStatus.shift_overrides && ', '}
-              {!dbTablesStatus.shift_overrides && 'Shift overrides'}
-              {' '}will not be saved.
-            </p>
+        {isLoading ? (
+          <div className="flex justify-center items-center h-64">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+          </div>
+        ) : (
+          <Calendar 
+            shifts={shiftsData.shifts}
+            notes={shiftsData.notes}
+            onUpdateShift={handleUpdateShift}
+          />
+        )}
+
+        {isOffline && (
+          <div className="mt-4 p-3 bg-yellow-800 text-yellow-100 rounded-md">
+            <p className="font-semibold">You're in offline mode</p>
+            <p className="text-sm">Your changes will be synced when you reconnect.</p>
           </div>
         )}
         
-        {/* Calendar */}
-        <div className="bg-gray-900 rounded-xl overflow-hidden">
-          {/* Days of week header */}
-          <div className="grid grid-cols-7 text-center border-b border-gray-700">
-            <div className="py-2">S</div>
-            <div className="py-2">S</div>
-            <div className="py-2">M</div>
-            <div className="py-2">T</div>
-            <div className="py-2">W</div>
-            <div className="py-2">T</div>
-            <div className="py-2">F</div>
-          </div>
-          
-          {/* Calendar grid */}
-          {isLoading ? (
-            <div className="py-20 text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
-              <p>Loading schedule...</p>
-            </div>
-          ) : (
-            <div>
-              {calendarData.weeks.map((week, weekIndex) => (
-                <div key={weekIndex} className="grid grid-cols-7 divide-x divide-gray-700">
-                  {week.map((day) => (
-                    <div 
-                      key={day.date.toString()} 
-                      className="min-h-20 cursor-pointer" 
-                    >
-                      {renderDayCell(day)}
-                    </div>
-                  ))}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-        
-        {/* Bottom navigation */}
-        <div className="fixed bottom-0 left-0 right-0 bg-black border-t border-gray-800 py-2">
-          <div className="flex justify-around items-center px-4">
-            <button className="flex flex-col items-center text-white">
-              <div className="text-2xl mb-1">📅</div>
-              <span className="text-xs">Calendar</span>
-            </button>
-            <button className="flex flex-col items-center text-gray-500">
-              <div className="text-2xl mb-1">📊</div>
-              <span className="text-xs">Reports</span>
-            </button>
-            <button className="flex flex-col items-center text-gray-500">
-              <div className="text-2xl mb-1">📝</div>
-              <span className="text-xs">Templates</span>
-            </button>
-            <button className="flex flex-col items-center text-gray-500">
-              <div className="text-2xl mb-1">⚙️</div>
-              <span className="text-xs">More</span>
-            </button>
-          </div>
-        </div>
-        
-        {/* Floating action button */}
-        <button 
-          className="fixed bottom-20 right-6 bg-white rounded-full w-14 h-14 flex items-center justify-center shadow-lg"
-          onClick={() => {
-            setSelectedDay(new Date());
-            setShowEditModal(true);
-          }}
-        >
-          <FaPencilAlt className="text-black text-xl" />
-        </button>
-        
-        {/* Edit modal */}
-        {showEditModal && selectedDay && (
-          <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
-            <div className="bg-gray-800 rounded-lg p-4 w-11/12 max-w-md">
-              <h2 className="text-xl font-bold mb-4">
-                Edit Shift: {format(selectedDay, 'MMMM d, yyyy')}
-              </h2>
-              
-              {!dbTablesStatus.shift_overrides ? (
-                <div className="mb-4 text-yellow-300 bg-yellow-900 bg-opacity-30 p-3 rounded">
-                  <p>⚠️ Shift overrides are not available. Database table is missing.</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 gap-2 mb-4">
-                  <button 
-                    className={`${shiftColors['Day']} p-2 rounded text-white font-medium`}
-                    onClick={() => handleEditShift('Day')}
-                  >
-                    Day Shift
-                  </button>
-                  <button 
-                    className={`${shiftColors['Night']} p-2 rounded text-white font-medium`}
-                    onClick={() => handleEditShift('Night')}
-                  >
-                    Night Shift
-                  </button>
-                  <button 
-                    className={`${shiftColors['Off']} p-2 rounded text-white font-medium`}
-                    onClick={() => handleEditShift('Off')}
-                  >
-                    Off Day
-                  </button>
-                  <button 
-                    className={`${shiftColors['Overtime']} p-2 rounded text-white font-medium`}
-                    onClick={() => handleEditShift('Overtime')}
-                  >
-                    Overtime
-                  </button>
-                  <button 
-                    className={`${shiftColors['Leave']} p-2 rounded text-white font-medium col-span-2`}
-                    onClick={() => handleEditShift('Leave')}
-                  >
-                    Leave
-                  </button>
-                </div>
-              )}
-              
-              <div className="flex justify-between">
-                {dbTablesStatus.shift_overrides && (
-                  <button 
-                    className="bg-gray-600 text-white px-4 py-2 rounded font-medium"
-                    onClick={handleRemoveOverride}
-                  >
-                    Reset to Default
-                  </button>
-                )}
-                <button 
-                  className="bg-gray-600 text-white px-4 py-2 rounded font-medium ml-auto"
-                  onClick={() => setShowEditModal(false)}
-                >
-                  Close
-                </button>
+        <div className="mt-6">
+          <h2 className="text-xl font-semibold text-white mb-2">Shift Legend</h2>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 p-3 bg-gray-800 rounded-md">
+            {Object.entries(shiftsData.shifts).map(([key, value]) => (
+              <div key={`legend-${value}`} className="flex items-center">
+                <div className={`w-5 h-5 rounded mr-2 ${shiftColors[value]}`}></div>
+                <span className="text-white">{value}</span>
               </div>
-            </div>
+            ))}
           </div>
-        )}
+        </div>
       </div>
     </Layout>
   );

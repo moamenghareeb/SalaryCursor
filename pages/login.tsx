@@ -47,14 +47,32 @@ export default function Login() {
         : `${employeeId}@company.local`;
 
       console.log('Attempting login with:', loginEmail);
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: loginEmail,
-        password,
-      });
-
-      if (error) throw error;
       
-      if (data.session) {
+      // Use the new API endpoint instead of direct Supabase call
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          employeeId: employeeId,
+          password,
+        }),
+      });
+      
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(result.error || 'Login failed');
+      }
+      
+      // Update session via Supabase to ensure client state is synced
+      if (result.session) {
+        await supabase.auth.setSession({
+          access_token: result.session.access_token,
+          refresh_token: result.session.refresh_token,
+        });
+        
         setMessage('Login successful! Redirecting...');
       }
     } catch (error: any) {

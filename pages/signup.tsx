@@ -79,52 +79,44 @@ export default function Signup() {
     setError(null);
     setLoading(true);
 
-    // Validate inputs
+    // Use client-side validation as first check
     if (!validateInputs()) {
       setLoading(false);
       return;
     }
 
     try {
-      // Create user with a company-specific email format
-      const email = `${employeeId}@company.local`;
-      
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            name,
-            employee_id: employeeId,
-            position
-          }
-        }
+      // Use the new API endpoint
+      const response = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name,
+          employeeId,
+          position,
+          password
+        }),
       });
-
-      if (error) throw error;
       
-      // If signup is successful
-      if (data.user) {
-        // Store additional employee information
-        const { error: profileError } = await supabase
-          .from('employees')
-          .insert({
-            name,
-            employee_id: employeeId,
-            position,
-            email: email,
-            created_at: new Date()
-          });
-
-        if (profileError) {
-          console.error('Error creating employee profile:', profileError);
-          toast.error('Failed to create employee profile');
+      const result = await response.json();
+      
+      if (!response.ok) {
+        // Show validation errors if sent from server
+        if (result.details && Array.isArray(result.details)) {
+          setError(result.details.join('\n'));
         } else {
-          toast.success('Account created successfully');
-          // Redirect to login
-          router.push('/login');
+          throw new Error(result.error || 'Registration failed');
         }
+        
+        setLoading(false);
+        return;
       }
+      
+      toast.success('Account created successfully');
+      // Redirect to login
+      router.push('/login');
     } catch (error: any) {
       console.error('Signup error:', error);
       setError(error.message || 'Signup failed. Please try again.');
