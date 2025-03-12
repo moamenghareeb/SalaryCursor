@@ -10,6 +10,9 @@ import axios from 'axios';
 import { supabase } from '../lib/supabase';
 import { logger } from '../lib/logger';
 import { getUserFriendlyErrorMessage } from '../lib/errorHandler';
+// React Query imports
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 
 // Simple error boundary component since react-error-boundary might not be installed
 interface ErrorBoundaryProps {
@@ -103,6 +106,19 @@ function ToastWrapper() {
 
 function MyApp({ Component, pageProps }: AppProps) {
   const [offlineMode, setOfflineMode] = useState(false);
+  // Create a client
+  const [queryClient] = useState(() => new QueryClient({
+    defaultOptions: {
+      queries: {
+        staleTime: 60 * 1000, // 1 minute
+        gcTime: 5 * 60 * 1000, // 5 minutes (previously cacheTime)
+        retry: 1,
+        refetchOnWindowFocus: false,
+        // For better offline experience
+        refetchOnReconnect: true,
+      },
+    },
+  }));
 
   // Monitor network status
   useEffect(() => {
@@ -217,13 +233,16 @@ function MyApp({ Component, pageProps }: AppProps) {
   
   return (
     <ErrorBoundary FallbackComponent={ErrorFallback}>
-      <AuthProvider>
-        <ThemeProvider>
-          {OfflineBanner}
-          <ToastWrapper />
-          <Component {...pageProps} />
-        </ThemeProvider>
-      </AuthProvider>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <ThemeProvider>
+            {OfflineBanner}
+            <ToastWrapper />
+            <Component {...pageProps} />
+          </ThemeProvider>
+        </AuthProvider>
+        {process.env.NODE_ENV !== 'production' && <ReactQueryDevtools />}
+      </QueryClientProvider>
     </ErrorBoundary>
   );
 }
