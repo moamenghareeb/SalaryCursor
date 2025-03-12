@@ -23,6 +23,8 @@ import { FiMenu } from 'react-icons/fi';
 import { toast } from 'react-hot-toast';
 import Calendar from '../components/calendar/Calendar';
 import { ShiftType, shiftColors } from '../components/calendar/DayCell';
+import { useScheduleData } from '../lib/hooks/useScheduleData';
+import { getHolidaysForRange } from '../lib/holidaysStore';
 
 // Add cache helpers
 const CACHE_KEYS = {
@@ -101,21 +103,6 @@ function getDayOfYear(date: Date): number {
   return Math.floor(diff / oneDay);
 }
 
-// Egyptian holidays for 2025
-const holidays = [
-  { date: '2025-01-07', name: 'Copti' },
-  { date: '2025-01-25', name: 'Revol' },
-  { date: '2025-03-31', name: 'Eid el' },
-  { date: '2025-04-01', name: 'Eid el' },
-  { date: '2025-04-02', name: 'Eid el' },
-  { date: '2025-04-03', name: 'Eid el' },
-  { date: '2025-04-19', name: 'Copti' },
-  { date: '2025-04-20', name: 'Copti' },
-  { date: '2025-04-21', name: 'Sprin' },
-  { date: '2025-04-25', name: 'Sinai' },
-  { date: '2025-05-01', name: 'Labor' },
-];
-
 const SchedulePage: React.FC = () => {
   const router = useRouter();
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
@@ -132,6 +119,16 @@ const SchedulePage: React.FC = () => {
     leave_requests: true,
     shift_overrides: false  // Default to false until confirmed to exist
   });
+  
+  // Get the current user ID
+  const [userId, setUserId] = useState<string | null>(null);
+  
+  // Use our enhanced hook to fetch and process schedule data
+  const { data: scheduleData, isLoading: scheduleLoading } = useScheduleData(
+    userId || undefined,
+    currentDate,
+    employeeGroup
+  );
   
   // Network status monitoring
   useEffect(() => {
@@ -607,69 +604,101 @@ const SchedulePage: React.FC = () => {
     }
   };
   
-  // Generate shift data for Calendar component
+  // Get current user on mount
+  useEffect(() => {
+    const getCurrentUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user?.id) {
+        setUserId(session.user.id);
+        
+        // Fetch the employee's shift group if available
+        try {
+          const { data: employee } = await supabase
+            .from('employees')
+            .select('shift_group')
+            .eq('id', session.user.id)
+            .single();
+            
+          if (employee?.shift_group) {
+            setEmployeeGroup(employee.shift_group as 'A' | 'B' | 'C' | 'D');
+          }
+        } catch (error) {
+          console.error('Error fetching employee shift group:', error);
+        }
+      }
+    };
+    
+    getCurrentUser();
+  }, []);
+  
+  // Memoize the shift data
   const shiftsData = React.useMemo(() => {
     const result: Record<string, ShiftType> = {};
     const notesData: Record<string, string> = {};
     
-    // Add calculated shifts for current month based on employee group
-    if (scheduleType === 'shift') {
-      // Get current date to determine month/year we're showing
-      const currentMonth = new Date().getMonth();
-      const currentYear = new Date().getFullYear();
-      
-      // Generate dates for the whole month
-      for (let day = 1; day <= 31; day++) {
-        const date = new Date(currentYear, currentMonth, day);
+    // If we have schedule data from our hook, use it
+    if (scheduleData?.days) {
+      scheduleData.days.forEach(day => {
+        result[day.date] = day.shiftType as ShiftType;
+        if (day.notes) {
+          notesData[day.date] = day.notes;
+        }
+      });
+    } else {
+      // Fallback to the old calculation method
+      // Add calculated shifts for current month based on employee group
+      if (scheduleType === 'shift') {
+        // Get current date to determine month/year we're showing
+        const monthDate = currentDate;
+        const monthYear = monthDate.getFullYear();
+        const monthNum = monthDate.getMonth();
         
-        // Skip if not a valid date (e.g., Feb 30)
-        if (date.getMonth() !== currentMonth) continue;
-        
-        const dateStr = format(date, 'yyyy-MM-dd');
-        result[dateStr] = calculateShift(date, employeeGroup);
+        // Generate dates for the whole month
+        for (let day = 1; day <= 31; day++) {
+          const date = new Date(monthYear, monthNum, day);
+          
+          // Skip if not a valid date (e.g., Feb 30)
+          if (date.getMonth() !== monthNum) continue;
+          
+          const dateStr = format(date, 'yyyy-MM-dd');
+          result[dateStr] = calculateShift(date, employeeGroup);
+        }
       }
+      
+      // Apply leave records
+      leaveRecords.forEach(leave => {
+        try {
+          const startDate = parseISO(leave.start_date);
+          const endDate = parseISO(leave.end_date);
+          const dates = [];
+          
+          // Create array of all dates in the leave period
+          let currentDate = new Date(startDate);
+          while (currentDate <= endDate) {
+            dates.push(new Date(currentDate));
+            currentDate.setDate(currentDate.getDate() + 1);
+          }
+          
+          // Mark each date as leave
+          dates.forEach(date => {
+            const dateStr = format(date, 'yyyy-MM-dd');
+            result[dateStr] = 'Leave';
+            notesData[dateStr] = leave.reason || 'Leave';
+          });
+        } catch (e) {
+          console.error('Error processing leave record', e);
+        }
+      });
+      
+      // Apply shift overrides (these take highest priority)
+      shiftOverrides.forEach(override => {
+        const dateStr = override.date;
+        result[dateStr] = override.shift_type;
+      });
     }
     
-    // Apply holidays
-    holidays.forEach(holiday => {
-      const dateStr = holiday.date;
-      result[dateStr] = 'Public';
-      notesData[dateStr] = holiday.name;
-    });
-    
-    // Apply leave records
-    leaveRecords.forEach(leave => {
-      try {
-        const startDate = parseISO(leave.start_date);
-        const endDate = parseISO(leave.end_date);
-        const dates = [];
-        
-        // Create array of all dates in the leave period
-        let currentDate = new Date(startDate);
-        while (currentDate <= endDate) {
-          dates.push(new Date(currentDate));
-          currentDate.setDate(currentDate.getDate() + 1);
-        }
-        
-        // Mark each date as leave
-        dates.forEach(date => {
-          const dateStr = format(date, 'yyyy-MM-dd');
-          result[dateStr] = 'Leave';
-          notesData[dateStr] = leave.reason || 'Leave';
-        });
-      } catch (e) {
-        console.error('Error processing leave record', e);
-      }
-    });
-    
-    // Apply shift overrides (these take highest priority)
-    shiftOverrides.forEach(override => {
-      const dateStr = override.date;
-      result[dateStr] = override.shift_type;
-    });
-    
     return { shifts: result, notes: notesData };
-  }, [employeeGroup, scheduleType, leaveRecords, shiftOverrides]);
+  }, [scheduleData, scheduleType, currentDate, employeeGroup, leaveRecords, shiftOverrides]);
 
   const handleUpdateShift = async (dateStr: string, type: ShiftType, notes?: string) => {
     try {
@@ -769,6 +798,22 @@ const SchedulePage: React.FC = () => {
     setCachedData(CACHE_KEYS.SCHEDULE_TYPE, newType);
   };
 
+  // Handle month navigation
+  const prevMonth = () => {
+    setCurrentDate(subMonths(currentDate, 1));
+  };
+  
+  const nextMonth = () => {
+    setCurrentDate(addMonths(currentDate, 1));
+  };
+  
+  const goToToday = () => {
+    setCurrentDate(new Date());
+  };
+
+  // Simplify the loading indicator to use scheduleLoading
+  const isPageLoading = isLoading || scheduleLoading;
+
   return (
     <Layout>
       <div className="container mx-auto px-4 py-8">
@@ -814,7 +859,7 @@ const SchedulePage: React.FC = () => {
           </div>
         </div>
         
-        {isLoading ? (
+        {isPageLoading ? (
           <div className="flex justify-center items-center h-64">
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
           </div>
