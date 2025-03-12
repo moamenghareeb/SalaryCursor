@@ -129,6 +129,14 @@ export default function Layout({ children }: LayoutProps) {
               >
                 Leave
               </Link>
+              <Link
+                href="/schedule"
+                className={`block px-4 py-2 mb-1 rounded ${
+                  router.pathname === '/schedule' ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-700'
+                }`}
+              >
+                Schedule
+              </Link>
               
               <div className="pl-4 border-l border-gray-200 dark:border-dark-border flex items-center space-x-3">
                 <NotificationCenter />
@@ -174,6 +182,14 @@ export default function Layout({ children }: LayoutProps) {
               onClick={() => setIsMenuOpen(false)}
             >
               Leave
+            </Link>
+            <Link
+              href="/schedule"
+              className={`block px-4 py-2 rounded ${
+                router.pathname === '/schedule' ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-700'
+              }`}
+            >
+              Schedule
             </Link>
             <div className="px-3 py-2 text-sm text-apple-gray dark:text-dark-text-secondary">{user?.email}</div>
             <button
