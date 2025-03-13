@@ -13,7 +13,15 @@ export interface Employee {
 }
 
 export interface SalaryCalculation {
+  basicSalary: number;
   baseSalary: number;
+  costOfLiving: number;
+  shiftAllowance: number;
+  overtimeHours: number;
+  overtimePay: number;
+  variablePay: number;
+  deduction: number;
+  totalSalary: number;
   overtime: number;
   deductions: number;
   totalEarnings: number;
