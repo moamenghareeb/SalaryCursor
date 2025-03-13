@@ -131,8 +131,8 @@ export default function Layout({ children }: LayoutProps) {
               </Link>
               <Link
                 href="/schedule"
-                className={`block px-4 py-2 mb-1 rounded ${
-                  router.pathname === '/schedule' ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-700'
+                className={`px-3 py-1 rounded-full text-sm text-apple-gray-dark dark:text-dark-text-primary font-medium hover:bg-gray-100 dark:hover:bg-dark-surface transition-colors ${
+                  router.pathname === '/schedule' ? 'bg-gray-100 dark:bg-dark-surface' : ''
                 }`}
               >
                 Schedule
@@ -185,9 +185,10 @@ export default function Layout({ children }: LayoutProps) {
             </Link>
             <Link
               href="/schedule"
-              className={`block px-4 py-2 rounded ${
-                router.pathname === '/schedule' ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-700'
+              className={`block px-3 py-2 rounded-md text-base font-medium text-apple-gray-dark dark:text-dark-text-primary ${
+                router.pathname === '/schedule' ? 'bg-gray-100 dark:bg-dark-surface/70' : 'hover:bg-gray-50 dark:hover:bg-dark-surface/70'
               }`}
+              onClick={() => setIsMenuOpen(false)}
             >
               Schedule
             </Link>
