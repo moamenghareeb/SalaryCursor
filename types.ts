@@ -22,6 +22,7 @@ export interface Leave {
   start_date?: string;
   end_date?: string;
   type?: 'Annual' | 'Sick' | 'Unpaid' | 'Compassionate';
+  leave_type?: 'Annual' | 'Sick' | 'Unpaid' | 'Compassionate';
   status?: 'Pending' | 'Approved' | 'Rejected';
   reason?: string;
 }
@@ -69,6 +70,8 @@ export interface InLieuRecord {
   date?: string;
   status?: string;
   reason?: string;
+  leave_days_added?: number;
+  leave_type?: 'Annual' | 'Sick' | 'Unpaid' | 'Compassionate';
 }
 
 export interface ShiftOverride {
