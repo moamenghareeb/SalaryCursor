@@ -1,7 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { supabase } from '../../lib/supabase';
-import AuthHelp from './AuthHelp';
+// AuthHelp can't be directly imported as it's not in the archive yet, so let's use a local stub
+// This ensures the archive file can be used standalone
+
+// Simple stub for AuthHelp component
+const AuthHelp: React.FC<{ onDismiss: () => void }> = ({ onDismiss }) => (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl max-w-md w-full">
+      <h2 className="text-xl font-bold mb-4">Authentication Help</h2>
+      <p className="mb-4">Please try signing out and signing back in to fix authentication issues.</p>
+      <button 
+        onClick={onDismiss}
+        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+      >
+        Close
+      </button>
+    </div>
+  </div>
+);
 
 interface ScheduleDebuggerProps {
   userId: string;
@@ -467,7 +484,7 @@ const ScheduleDebugger: React.FC<ScheduleDebuggerProps> = ({ userId }) => {
               className="mt-1 flex-1 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-sm"
             />
           </div>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Only change this if you need to test a different user's records.</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Only change this if you need to test a different user&apos;s records.</p>
         </div>
         
         <div className="mt-4">

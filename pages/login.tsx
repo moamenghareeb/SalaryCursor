@@ -219,7 +219,7 @@ export default function Login() {
               
               {!isResetMode && (
                 <div>
-                  <span className="text-sm text-gray-500 dark:text-gray-400">Don't have an account? </span>
+                  <span className="text-sm text-gray-500 dark:text-gray-400">Don&apos;t have an account? </span>
                   <Link href="/signup" className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-500 dark:hover:text-blue-300 font-medium">
                     Sign up
                   </Link>

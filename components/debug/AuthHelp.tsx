@@ -42,7 +42,7 @@ const AuthHelp: React.FC<AuthHelpProps> = ({ onDismiss }) => {
           <div className="bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300 p-4 rounded-lg">
             <h3 className="font-semibold mb-2">Method 1: Refresh the token</h3>
             <p className="text-sm">
-              Use the "Refresh Auth" button in the debugger to attempt to get a new authentication token.
+              Use the &quot;Refresh Auth&quot; button in the debugger to attempt to get a new authentication token.
             </p>
           </div>
           
@@ -67,7 +67,7 @@ const AuthHelp: React.FC<AuthHelpProps> = ({ onDismiss }) => {
           <div className="bg-purple-50 dark:bg-purple-900/20 text-purple-800 dark:text-purple-300 p-4 rounded-lg">
             <h3 className="font-semibold mb-2">Method 3: Clear browser storage</h3>
             <p className="text-sm">
-              Try clearing your browser's local storage and cookies, then refresh the page.
+              Try clearing your browser&apos;s local storage and cookies, then refresh the page.
             </p>
             <div className="mt-2 flex justify-end">
               <button

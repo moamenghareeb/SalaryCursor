@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Layout from '../../components/Layout';
 import { supabase } from '../../lib/supabase';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
+import Link from 'next/link';
 
 export default function FixRLSPage() {
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
@@ -135,12 +136,12 @@ export default function FixRLSPage() {
                 The RLS policies have been successfully updated. In-lieu time should now appear correctly in the schedule.
               </p>
               <div className="mt-3">
-                <a 
+                <Link 
                   href="/schedule" 
                   className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 underline"
                 >
                   Go to Schedule
-                </a>
+                </Link>
               </div>
               
               {result && (
@@ -170,7 +171,7 @@ export default function FixRLSPage() {
                   <li>Try restarting the application</li>
                   <li>Clear your browser cache and cookies</li>
                   <li>Log out and log back in</li>
-                  <li>Try accessing the <a href="/schedule" className="text-blue-600 hover:underline dark:text-blue-400">schedule page</a> directly</li>
+                  <li>Try accessing the <Link href="/schedule" className="text-blue-600 hover:underline dark:text-blue-400">schedule page</Link> directly</li>
                 </ul>
               </div>
             </div>
@@ -179,7 +180,7 @@ export default function FixRLSPage() {
           <div className="mt-8 border-t pt-6 dark:border-gray-700">
             <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Instructions for Developers</h2>
             <p className="text-gray-700 dark:text-gray-300 mb-3">
-              If the fix above doesn't work, you can manually run the SQL commands in the Supabase dashboard:
+              If the fix above doesn&apos;t work, you can manually run the SQL commands in the Supabase dashboard:
             </p>
             
             <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded font-mono text-sm overflow-x-auto">

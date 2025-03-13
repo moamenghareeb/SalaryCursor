@@ -1,15 +1,17 @@
 import React from 'react';
 import { format, isToday, isTomorrow, addDays } from 'date-fns';
 import { ShiftType } from '../../lib/types/schedule';
+import Link from 'next/link';
 
 // Define color schemes for different shift types (copied from DayCell component)
-const shiftColors: Record<ShiftType, string> = {
-  'Day': 'bg-blue-500 dark:bg-blue-600',
-  'Night': 'bg-indigo-600 dark:bg-indigo-700',
-  'Off': 'bg-gray-400 dark:bg-gray-600',
-  'Leave': 'bg-yellow-500 dark:bg-yellow-600',
-  'Public': 'bg-orange-500 dark:bg-orange-600',
-  'Overtime': 'bg-pink-500 dark:bg-pink-600'
+const shiftColorMap: Record<ShiftType, string> = {
+  Day: 'bg-blue-500',
+  Night: 'bg-indigo-600',
+  Off: 'bg-gray-400',
+  Leave: 'bg-yellow-500',
+  Public: 'bg-orange-500',
+  Overtime: 'bg-pink-500',
+  InLieu: 'bg-purple-500'
 };
 
 export interface UpcomingShift {
@@ -70,7 +72,7 @@ const UpcomingShifts: React.FC<UpcomingShiftsProps> = ({ shifts, isLoading }) =>
       ) : (
         <div className="space-y-3">
           {shifts.map((shift, index) => {
-            const shiftColorClass = shiftColors[shift.type];
+            const shiftColorClass = shiftColorMap[shift.type];
             
             return (
               <div key={index} className="bg-gray-700 p-3 rounded hover:bg-gray-650 transition-colors">
@@ -93,12 +95,12 @@ const UpcomingShifts: React.FC<UpcomingShiftsProps> = ({ shifts, isLoading }) =>
       )}
       
       <div className="mt-4 pt-3 border-t border-gray-700">
-        <a 
+        <Link 
           href="/schedule" 
           className="text-blue-400 hover:text-blue-300 text-sm flex justify-center items-center"
         >
           View Full Schedule
-        </a>
+        </Link>
       </div>
     </div>
   );

@@ -3,6 +3,7 @@ import Layout from '../../components/Layout';
 import { supabase } from '../../lib/supabase';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
+import Link from 'next/link';
 
 export default function FixRLSDirectPage() {
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
@@ -256,12 +257,12 @@ export default function FixRLSDirectPage() {
                 Test in-lieu shifts have been created successfully! These should now appear on your schedule.
               </p>
               <div className="mt-3">
-                <a 
+                <Link 
                   href="/schedule" 
                   className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 underline"
                 >
                   Go to Schedule
-                </a>
+                </Link>
               </div>
               
               {result && (
@@ -282,8 +283,8 @@ export default function FixRLSDirectPage() {
               <div className="mt-4">
                 <p className="text-gray-700 dark:text-gray-300 text-sm font-medium">Try These Steps:</p>
                 <ul className="list-disc list-inside text-sm text-gray-600 dark:text-gray-400 mt-2">
-                  <li>Go directly to the <a href="/leave" className="text-blue-600 hover:underline dark:text-blue-400">Leave page</a> and try creating in-lieu time from there</li>
-                  <li>Visit the <a href="/schedule" className="text-blue-600 hover:underline dark:text-blue-400">Schedule page</a> to see if your in-lieu time appears</li>
+                  <li>Go directly to the <Link href="/leave" className="text-blue-600 hover:underline dark:text-blue-400">Leave page</Link> and try creating in-lieu time from there</li>
+                  <li>Visit the <Link href="/schedule" className="text-blue-600 hover:underline dark:text-blue-400">Schedule page</Link> to see if your in-lieu time appears</li>
                   <li>Clear your browser cache and try again</li>
                   <li>Log out and log back in</li>
                 </ul>
@@ -304,7 +305,7 @@ export default function FixRLSDirectPage() {
             <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Why This Works</h2>
             <p className="text-gray-700 dark:text-gray-300 mb-3">
               This approach bypasses the RLS policy issues by directly creating in-lieu records in your database.
-              It's a pragmatic way to get your in-lieu time showing up in the schedule without needing complex database changes.
+              It&apos;s a pragmatic way to get your in-lieu time showing up in the schedule without needing complex database changes.
             </p>
             
             <p className="text-gray-700 dark:text-gray-300 mt-3">

@@ -170,7 +170,7 @@ const ShiftEditModal: React.FC<ShiftEditModalProps> = ({
           {day.holiday && (
             <div className="mb-4 p-3 bg-orange-50 dark:bg-orange-900/20 text-orange-800 dark:text-orange-300 rounded-md">
               <p className="text-sm font-medium">
-                Note: This day is marked as "{day.holiday.name}"
+                Note: This day is marked as &quot;{day.holiday.name}&quot;
               </p>
             </div>
           )}

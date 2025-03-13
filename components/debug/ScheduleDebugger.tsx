@@ -467,7 +467,7 @@ const ScheduleDebugger: React.FC<ScheduleDebuggerProps> = ({ userId }) => {
               className="mt-1 flex-1 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-sm"
             />
           </div>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Only change this if you need to test a different user's records.</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Only change this if you need to test a different user&apos;s records.</p>
         </div>
         
         <div className="mt-4">
