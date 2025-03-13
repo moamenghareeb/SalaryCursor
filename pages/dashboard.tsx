@@ -11,7 +11,7 @@ import toast from 'react-hot-toast';
 import StatsPanel, { StatsData } from '../components/dashboard/StatsPanel';
 import UpcomingShifts, { UpcomingShift } from '../components/dashboard/UpcomingShifts';
 import { format, addDays, getDay } from 'date-fns';
-import { ShiftType } from '../components/calendar/DayCell';
+import { ShiftType } from '../lib/types/schedule';
 import { supabase } from '../lib/supabase';
 
 // Import skeleton components
