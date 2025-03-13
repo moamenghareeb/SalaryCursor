@@ -12,6 +12,20 @@ export interface Employee {
   is_admin: boolean;
 }
 
+export interface Leave {
+  id: string;
+  employee_id: string;
+  year: number;
+  month: number;
+  days_taken: number;
+  created_at: string;
+  start_date?: string;
+  end_date?: string;
+  type?: 'Annual' | 'Sick' | 'Unpaid' | 'Compassionate';
+  status?: 'Pending' | 'Approved' | 'Rejected';
+  reason?: string;
+}
+
 export interface SalaryCalculation {
   basicSalary: number;
   baseSalary: number;
@@ -46,6 +60,14 @@ export interface LeaveRequest {
   end_date: string;
   type: 'Annual' | 'Sick' | 'Unpaid' | 'Compassionate';
   status: 'Pending' | 'Approved' | 'Rejected';
+  reason?: string;
+}
+
+export interface InLieuRecord {
+  id?: string;
+  employee_id?: string;
+  date?: string;
+  status?: string;
   reason?: string;
 }
 
