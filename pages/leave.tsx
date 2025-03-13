@@ -3,7 +3,7 @@ import Layout from '../components/Layout';
 import { supabase } from '../lib/supabase';
 import type { Employee as BaseEmployee, Leave } from '../types';
 import type { InLieuRecord as BaseInLieuRecord } from '../types';
-import type { Leave as LeaveType } from '../types/models';
+import type { Leave as LeaveModelType } from '../types/models';
 import { PDFDownloadLink, Document, Page, Text, View, StyleSheet, BlobProvider, pdf } from '@react-pdf/renderer';
 import Head from 'next/head';
 import { FiDownload, FiCalendar, FiEdit, FiTrash, FiCheck, FiX } from 'react-icons/fi';
@@ -15,9 +15,13 @@ import { format } from 'date-fns';
 import { useQueryClient } from '@tanstack/react-query';
 import { eachDayOfInterval, differenceInDays } from 'date-fns';
 import { toast } from 'react-hot-toast';
+import { Session } from '@supabase/supabase-js';
 
 // Define ShiftType enum to fix the type error
 type ShiftType = 'InLieu' | 'Leave' | 'Regular' | 'Sick' | 'Vacation';
+
+// Define LeaveType enum for leave types
+type LeaveTypeValue = 'Annual' | 'Casual' | 'Sick' | 'Unpaid' | 'Compassionate';
 
 // Extend the Employee type to include annual_leave_balance and hire_date
 interface Employee extends BaseEmployee {
@@ -682,8 +686,14 @@ export default function Leave() {
   };
 
   // Helper function to remove shift overrides for deleted leave
-  const removeShiftOverridesForLeave = async (start: string, end: string) => {
+  const removeShiftOverridesForLeave = async (start: string | undefined, end: string | undefined) => {
     try {
+      // Check if start and end dates are valid
+      if (!start || !end) {
+        console.log('Invalid start or end date for removing shift overrides');
+        return;
+      }
+      
       // First check if shift_overrides table exists
       const { error: checkError } = await supabase
         .from('shift_overrides')
@@ -854,10 +864,10 @@ export default function Leave() {
 
   const handleEdit = (leave: Leave) => {
     setEditingLeave(leave);
-    setStartDate(leave.start_date);
-    setEndDate(leave.end_date);
+    setStartDate(leave.start_date || '');
+    setEndDate(leave.end_date || '');
     setReason(leave.reason || '');
-    setLeaveType(leave.leave_type || 'Annual');
+    setLeaveType((leave.leave_type || 'Annual') as 'Annual' | 'Casual' | 'Sick' | 'Unpaid' | 'Compassionate');
     setShowInLieuForm(false);
     
     // Scroll to form
@@ -1000,13 +1010,13 @@ export default function Leave() {
       
       // Prepare shift overrides - create records for all dates and let upsert handle duplicates
       const shiftOverrides = dateArray.map(date => ({
-        employee_id: session.data.session.user.id,
+        employee_id: session?.data?.session?.user?.id || '',
         date,
-        shift_type: 'InLieu',
+        shift_type: 'InLieu' as const,
         source: 'in_lieu_form'
       }));
       
-      console.log('Creating shift overrides:', shiftOverrides.length);
+      console.log('Creating shift overrides:', shiftOverrides?.length || 0);
       
       // Use upsert with onConflict strategy to handle duplicates
       const { data: shiftData, error: shiftError } = await supabase
@@ -1035,7 +1045,8 @@ export default function Leave() {
           throw new Error(`Error adding shift overrides: ${shiftError.message}`);
         }
       } else {
-        console.log('Successfully created shift overrides:', shiftData?.length || 0);
+        // Safely handle the shiftData response
+        console.log('Successfully created shift overrides:', (shiftData ? (shiftData as unknown as any[]).length : 0));
       }
       
       // Force invalidate queries
@@ -1043,13 +1054,13 @@ export default function Leave() {
       
       // Add leave dates queries
       const queryKeys = Array.from(months).map(month => 
-        ['shift-overrides', session.data.session.user.id, month]
+        ['shift-overrides', session?.data?.session?.user?.id || '', month]
       );
       
       // Trigger a full data refresh for all affected months
-      await queryClient.invalidateQueries({ queryKey: ['leave-records', session.data.session.user.id] });
-      await queryClient.invalidateQueries({ queryKey: ['in-lieu-records', session.data.session.user.id] });
-      await queryClient.invalidateQueries({ queryKey: ['leave-balance', session.data.session.user.id] });
+      await queryClient.invalidateQueries({ queryKey: ['leave-records', session?.data?.session?.user?.id || ''] });
+      await queryClient.invalidateQueries({ queryKey: ['in-lieu-records', session?.data?.session?.user?.id || ''] });
+      await queryClient.invalidateQueries({ queryKey: ['leave-balance', session?.data?.session?.user?.id || ''] });
       
       // Invalidate shift overrides for all affected months
       for (const queryKey of queryKeys) {
@@ -1280,6 +1291,17 @@ export default function Leave() {
       fetchData();
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Add safe date formatting function
+  const formatDateSafe = (dateStr: string | undefined): string => {
+    if (!dateStr) return 'Invalid date';
+    try {
+      return new Date(dateStr).toLocaleDateString();
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return 'Invalid date';
     }
   };
 
@@ -1782,7 +1804,7 @@ export default function Leave() {
                           <tr key={leave.id} className={`${isDarkMode ? 'hover:bg-dark-bg' : 'hover:bg-gray-50'}`}>
                             <td className="px-4 py-3 text-sm">
                               <div className="text-apple-gray-dark dark:text-dark-text-primary">
-                                {new Date(leave.start_date).toLocaleDateString()} to {new Date(leave.end_date).toLocaleDateString()}
+                                {formatDateSafe(leave.start_date)} to {formatDateSafe(leave.end_date)}
                               </div>
                               <div className="text-xs text-apple-gray dark:text-dark-text-tertiary mt-1">
                                 {leave.reason || 'No reason provided'}
@@ -1793,13 +1815,17 @@ export default function Leave() {
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm">
                               <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                leave.leave_type === 'Annual' 
-                                  ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300' 
-                                  : leave.leave_type === 'Sick'
-                                    ? 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300'
-                                    : leave.leave_type === 'Casual'
-                                      ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300'
-                                      : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300'
+                                (() => {
+                                  const leaveType = leave.leave_type as LeaveTypeValue | undefined;
+                                  switch(leaveType) {
+                                    case 'Annual': return 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300';
+                                    case 'Sick': return 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300';
+                                    case 'Casual': return 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300';
+                                    case 'Unpaid': return 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300';
+                                    case 'Compassionate': return 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300';
+                                    default: return 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300';
+                                  }
+                                })()
                               }`}>
                                 {leave.leave_type || 'Annual'}
                               </span>
@@ -1863,7 +1889,7 @@ export default function Leave() {
                           <tr key={record.id} className={`${isDarkMode ? 'hover:bg-dark-bg' : 'hover:bg-gray-50'}`}>
                             <td className="px-4 py-3 text-sm">
                               <div className="text-apple-gray-dark dark:text-dark-text-primary">
-                                {new Date(record.start_date).toLocaleDateString()} to {new Date(record.end_date).toLocaleDateString()}
+                                {formatDateSafe(record.start_date)} to {formatDateSafe(record.end_date)}
                               </div>
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-apple-gray-dark dark:text-dark-text-primary">

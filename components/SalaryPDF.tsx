@@ -1,6 +1,19 @@
 import React from 'react';
 import { Page, Text, View, StyleSheet } from '@react-pdf/renderer';
-import { SalaryCalculation, Employee } from '../types';
+import { Employee } from '../types';
+
+// Define a local SalaryCalculation type that matches what's in salary.tsx
+interface SalaryCalculation {
+  basicSalary: number;
+  costOfLiving: number;
+  shiftAllowance: number;
+  overtimeHours: number;
+  overtimePay: number;
+  variablePay: number;
+  deduction: number;
+  totalSalary: number;
+  exchangeRate: number;
+}
 
 // Create styles
 const styles = StyleSheet.create({

@@ -1,8 +1,21 @@
 import React, { useState } from 'react';
 import { supabase } from '../../lib/supabase';
 
+interface TestResult {
+  success?: boolean;
+  shifts?: any[];
+  record?: any;
+  dateRange?: string[];
+  readTest?: {
+    success: boolean;
+    count?: number;
+    data?: any[];
+    error?: string;
+  };
+}
+
 export default function TestInLieuCreator() {
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<TestResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -90,22 +103,22 @@ export default function TestInLieuCreator() {
         
       if (readError) {
         console.error('Error reading created shifts:', readError);
-        setResult(prev => ({
+        setResult((prev: TestResult | null) => prev ? ({
           ...prev,
           readTest: {
             success: false,
             error: readError.message
           }
-        }));
+        }) : null);
       } else {
-        setResult(prev => ({
+        setResult((prev: TestResult | null) => prev ? ({
           ...prev,
           readTest: {
             success: true,
             count: readShifts?.length || 0,
             data: readShifts
           }
-        }));
+        }) : null);
       }
     } catch (err) {
       console.error('Error creating test in-lieu:', err);

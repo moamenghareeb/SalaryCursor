@@ -14,6 +14,6 @@ export type { Employee } from './useEmployee';
 export type { SalaryData, SalaryRecord, MonthlySalary } from './useSalaryData';
 export type { ShiftData, ShiftOverride, ShiftStats } from './useShiftData';
 export type { LeaveBalanceData } from './useLeaveBalance';
-export type { ScheduleDay, ScheduleMonthData } from './useScheduleData';
+export type { MonthData as ScheduleMonthData } from '../types/schedule';
 export type { ShiftUpdateData } from './useShiftMutation';
 export type { LeaveRequest, LeaveRecord } from './useLeaveMutation'; 

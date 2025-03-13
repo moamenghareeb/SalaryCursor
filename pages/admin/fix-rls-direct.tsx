@@ -5,9 +5,44 @@ import { useRouter } from 'next/router';
 import Head from 'next/head';
 import Link from 'next/link';
 
+interface FixRLSResult {
+  step?: string;
+  initialCheck?: {
+    error?: string;
+    count?: any;
+  };
+  deleteResults?: Array<{
+    policy: string;
+    result: string;
+    error?: string;
+  }>;
+  directAccess?: {
+    error?: string;
+    count?: number;
+    data?: any[];
+  };
+  testShift?: {
+    error?: string;
+    success?: boolean;
+    data?: any;
+  };
+  testRecord?: {
+    error?: string;
+    success?: boolean;
+    data?: any;
+  };
+  finalCheck?: {
+    error?: string;
+    success?: boolean;
+    count?: number;
+    data?: any[];
+  };
+  finalError?: string;
+}
+
 export default function FixRLSDirectPage() {
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<FixRLSResult | null>(null);
   const [authenticated, setAuthenticated] = useState(false);
   const router = useRouter();
 
@@ -40,16 +75,29 @@ export default function FixRLSDirectPage() {
       
       if (initialError) {
         console.log("Initial check error:", initialError);
-        setResult(prev => ({ ...prev, initialCheck: { error: initialError.message } }));
+        setResult((prev: FixRLSResult | null) => prev ? ({
+          ...prev,
+          initialCheck: { error: initialError.message }
+        }) : { initialCheck: { error: initialError.message } });
       } else {
-        setResult(prev => ({ ...prev, initialCheck: { count: initialCheck } }));
+        setResult((prev: FixRLSResult | null) => prev ? ({
+          ...prev,
+          initialCheck: { count: initialCheck }
+        }) : { initialCheck: { count: initialCheck } });
       }
       
       // Step 2: Test direct query access - try to delete existing policies first
-      setResult(prev => ({ ...prev, step: "Deleting existing policies..." }));
+      setResult((prev: FixRLSResult | null) => prev ? ({
+        ...prev,
+        step: "Deleting existing policies..."
+      }) : { step: "Deleting existing policies..." });
       
       // This won't work without admin privileges but we can try the workaround below
-      const deleteResults = [];
+      const deleteResults: Array<{
+        policy: string;
+        result: 'success' | 'error' | 'exception';
+        error?: string;
+      }> = [];
       
       try {
         // Try deleting view policy
@@ -58,26 +106,43 @@ export default function FixRLSDirectPage() {
           policy_name: 'Users can view their own shift overrides'
         });
         deleteResults.push({ policy: 'view', result: deleteViewError ? 'error' : 'success', error: deleteViewError?.message });
-      } catch (e) {
-        deleteResults.push({ policy: 'view', result: 'exception', error: e.message });
+      } catch (err) {
+        const error = err as Error;
+        deleteResults.push({ policy: 'view', result: 'exception', error: error.message });
       }
       
-      setResult(prev => ({ ...prev, deleteResults }));
+      setResult((prev: FixRLSResult | null) => prev ? ({
+        ...prev,
+        deleteResults
+      }) : { deleteResults });
       
       // Step 3: Create new policies via an API endpoint
-      setResult(prev => ({ ...prev, step: "Fixing policies via Supabase RPCQ" }));
+      setResult((prev: FixRLSResult | null) => prev ? ({
+        ...prev,
+        step: "Fixing policies via Supabase RPCQ"
+      }) : { step: "Fixing policies via Supabase RPCQ" });
       
       // Try to directly access the created shift overrides
-      setResult(prev => ({ ...prev, step: "Testing direct access with filters" }));
+      setResult((prev: FixRLSResult | null) => prev ? ({
+        ...prev,
+        step: "Testing direct access with filters"
+      }) : { step: "Testing direct access with filters" });
+      
       const { data: directAccess, error: directError } = await supabase
         .from('shift_overrides')
         .select('*')
         .limit(10);
       
       if (directError) {
-        setResult(prev => ({ ...prev, directAccess: { error: directError.message } }));
+        setResult((prev: FixRLSResult | null) => prev ? ({
+          ...prev,
+          directAccess: { error: directError.message }
+        }) : { directAccess: { error: directError.message } });
       } else {
-        setResult(prev => ({ ...prev, directAccess: { count: directAccess?.length, data: directAccess } }));
+        setResult((prev: FixRLSResult | null) => prev ? ({
+          ...prev,
+          directAccess: { count: directAccess?.length, data: directAccess }
+        }) : { directAccess: { count: directAccess?.length, data: directAccess } });
       }
       
       // Step 4: Apply direct RLS fixes via the REST API
@@ -89,21 +154,26 @@ export default function FixRLSDirectPage() {
       }
       
       // Make direct REST API calls to fix policies
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+        'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+      };
+      
       const response = await fetch(
         `https://vxwclkjgcowcowmrkvjf.supabase.co/rest/v1/rpc/fix_shift_overrides_direct`, 
         {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`,
-            'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-          },
+          headers,
           body: JSON.stringify({})
         }
       );
       
       // If we got here, try a different approach - create in-lieu shifts directly
-      setResult(prev => ({ ...prev, step: "Attempting direct fix: creating in-lieu shifts" }));
+      setResult((prev: FixRLSResult | null) => prev ? ({
+        ...prev,
+        step: "Attempting direct fix: creating in-lieu shifts"
+      }) : { step: "Attempting direct fix: creating in-lieu shifts" });
       
       // Get current user ID
       const userId = session.user.id;
@@ -128,9 +198,15 @@ export default function FixRLSDirectPage() {
         .select();
       
       if (testShiftError) {
-        setResult(prev => ({ ...prev, testShift: { error: testShiftError.message } }));
+        setResult((prev: FixRLSResult | null) => prev ? ({
+          ...prev,
+          testShift: { error: testShiftError.message }
+        }) : { testShift: { error: testShiftError.message } });
       } else {
-        setResult(prev => ({ ...prev, testShift: { success: true, data: testShift } }));
+        setResult((prev: FixRLSResult | null) => prev ? ({
+          ...prev,
+          testShift: { success: true, data: testShift }
+        }) : { testShift: { success: true, data: testShift } });
       }
       
       // Create a test in-lieu record in the in_lieu_records table
@@ -146,9 +222,15 @@ export default function FixRLSDirectPage() {
         .select();
       
       if (testRecordError) {
-        setResult(prev => ({ ...prev, testRecord: { error: testRecordError.message } }));
+        setResult((prev: FixRLSResult | null) => prev ? ({
+          ...prev,
+          testRecord: { error: testRecordError.message }
+        }) : { testRecord: { error: testRecordError.message } });
       } else {
-        setResult(prev => ({ ...prev, testRecord: { success: true, data: testRecord } }));
+        setResult((prev: FixRLSResult | null) => prev ? ({
+          ...prev,
+          testRecord: { success: true, data: testRecord }
+        }) : { testRecord: { success: true, data: testRecord } });
       }
       
       // Final check if we can access shift_overrides now
@@ -159,17 +241,26 @@ export default function FixRLSDirectPage() {
         .eq('shift_type', 'InLieu');
       
       if (finalError) {
-        setResult(prev => ({ ...prev, finalCheck: { error: finalError.message } }));
+        setResult((prev: FixRLSResult | null) => prev ? ({
+          ...prev,
+          finalCheck: { error: finalError.message }
+        }) : { finalCheck: { error: finalError.message } });
         setStatus('error');
       } else {
-        setResult(prev => ({ 
+        setResult((prev: FixRLSResult | null) => prev ? ({ 
           ...prev, 
           finalCheck: { 
             success: true, 
             count: finalCheck?.length, 
             data: finalCheck 
           } 
-        }));
+        }) : { 
+          finalCheck: { 
+            success: true, 
+            count: finalCheck?.length, 
+            data: finalCheck 
+          } 
+        });
         
         // If we have data at this point, consider it a success!
         if (finalCheck && finalCheck.length > 0) {
@@ -180,10 +271,14 @@ export default function FixRLSDirectPage() {
         }
       }
       
-    } catch (error) {
-      console.error('Error fixing RLS policies:', error);
+    } catch (err) {
+      console.error('Error fixing RLS policies:', err);
       setStatus('error');
-      setResult(prev => ({ ...prev, finalError: error instanceof Error ? error.message : String(error) }));
+      const error = err as Error;
+      setResult((prev: FixRLSResult | null) => prev ? ({
+        ...prev,
+        finalError: error.message
+      }) : { finalError: error.message });
     }
   };
   
@@ -277,7 +372,7 @@ export default function FixRLSDirectPage() {
             <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-lg">
               <p className="text-red-800 dark:text-red-300 font-medium">Error</p>
               <p className="text-red-700 dark:text-red-400 text-sm mt-1">
-                An error occurred. However, we've collected diagnostic information that may help solve the problem.
+                An error occurred. However, we&apos;ve collected diagnostic information that may help solve the problem.
               </p>
               
               <div className="mt-4">
