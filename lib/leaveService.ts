@@ -97,19 +97,23 @@ export const leaveService = {
       let leaveAllocationError = null;
       
       try {
-        // Try to fetch leave allocation from the database
-        const result = await supabase
+        // Try to fetch leave allocation from the database with proper error handling
+        const { data, error } = await supabase
           .from('leave_allocations')
           .select('allocated_days')
           .eq('employee_id', userId)
           .eq('year', currentYear)
           .eq('type', 'annual')
-          .single();
-          
-        leaveAllocation = result.data;
-        leaveAllocationError = result.error;
+          .maybeSingle(); // Use maybeSingle instead of single to prevent errors if no record found
+        
+        if (error) {
+          logger.error(`Error fetching leave allocations: ${error.message}`);
+          leaveAllocationError = error;
+        } else {
+          leaveAllocation = data;
+        }
       } catch (error: any) {
-        // Handle errors (like 406 Not Acceptable or other API errors)
+        // Handle unexpected errors
         logger.error(`Exception fetching leave allocations: ${error.message || 'Unknown error'}`);
         leaveAllocationError = error;
       }

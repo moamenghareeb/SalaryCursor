@@ -12,6 +12,12 @@ import { useTheme } from '../lib/themeContext';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { leaveService } from '../lib/leaveService';
 import { format } from 'date-fns';
+import { useQueryClient } from '@tanstack/react-query';
+import { eachDayOfInterval, differenceInDays } from 'date-fns';
+import { toast } from 'react-hot-toast';
+
+// Define ShiftType enum to fix the type error
+type ShiftType = 'InLieu' | 'Leave' | 'Regular' | 'Sick' | 'Vacation';
 
 // Extend the Employee type to include annual_leave_balance and hire_date
 interface Employee extends BaseEmployee {
@@ -20,10 +26,17 @@ interface Employee extends BaseEmployee {
   hire_date: Date;
 }
 
-// Extend the InLieuRecord type to include status and reason
+// Extend the InLieuRecord type to include the actual fields from the database
 interface InLieuRecord extends BaseInLieuRecord {
-  status?: string;
-  reason?: string;
+  // Override the properties to match the database schema
+  id: string;
+  employee_id: string;
+  start_date: string;
+  end_date: string;
+  days_count: number;
+  leave_days_added: number;
+  created_at?: string;
+  updated_at?: string;
 }
 
 // Create styles for PDF
@@ -280,6 +293,11 @@ export default function Leave() {
   const [success, setSuccess] = useState<string | null>(null);
   const [baseLeaveBalance, setBaseLeaveBalance] = useState<number | null>(null);
   const [additionalLeaveBalance, setAdditionalLeaveBalance] = useState<number>(0);
+  const queryClient = useQueryClient();
+  const [inLieuStartDate, setInLieuStartDate] = useState<Date | null>(null);
+  const [inLieuEndDate, setInLieuEndDate] = useState<Date | null>(null);
+  const [inLieuNotes, setInLieuNotes] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Calculate remaining leave - will update whenever leaveBalance or leaveTaken changes
   const remainingLeave = useMemo(() => {
@@ -673,7 +691,7 @@ export default function Leave() {
         .limit(1);
         
       // If table doesn't exist, skip this step
-      if (checkError && (checkError.code === '42P01' || checkError.message.includes('does not exist'))) {
+      if (checkError && (checkError.code === '42P01' || checkError.message?.includes('does not exist'))) {
         console.log('shift_overrides table does not exist, skipping removal');
         return;
       }
@@ -733,7 +751,9 @@ export default function Leave() {
       
       // Recalculate leave taken for the current year
       const currentYear = new Date().getFullYear();
-      const isCurrentYearLeave = new Date(leave.start_date).getFullYear() === currentYear;
+      const isCurrentYearLeave = leave.start_date 
+        ? new Date(leave.start_date).getFullYear() === currentYear 
+        : false;
       
       if (isCurrentYearLeave) {
         // Update leave taken for the current year
@@ -852,51 +872,335 @@ export default function Leave() {
     setLeaveType('Annual');
   };
 
-  const handleInLieuOf = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!employee || !startDate || !endDate) return;
-
-    setError(null);
-    setSuccess(null);
-
-    // Validate dates
-    if (new Date(endDate) < new Date(startDate)) {
-      setError('End date cannot be before start date');
-      return;
-    }
-
-    const days = calculateDays(startDate, endDate);
-    const leaveAdded = parseFloat((days * 0.667).toFixed(2)); // 2/3 day credit per day worked
-
+  // Define the missing refreshInLieuList function
+  const refreshInLieuList = async () => {
     try {
-      // Create in-lieu record
-      const { data, error: insertError } = await supabase
-        .from('in_lieu_records')
-        .insert([{
-          employee_id: employee.id,
-          start_date: startDate,
-          end_date: endDate,
-          days_count: days,
-          leave_days_added: leaveAdded,
-          reason,
-          status: 'approved', // Auto-approve in-lieu records
-        }])
-        .select();
+      // Get user
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      
+      if (userError || !userData.user) {
+        console.error('Auth error when refreshing in-lieu list:', userError);
+        return;
+      }
 
-      if (insertError) throw insertError;
+      // Fetch in-lieu records for the user
+      const { data: inLieuData, error: inLieuError } = await supabase
+        .from('in_lieu_records')
+        .select('*')
+        .eq('employee_id', userData.user.id)
+        .order('start_date', { ascending: false });
       
-      setSuccess('In-lieu time added successfully');
+      if (inLieuError) {
+        console.error('Error fetching in-lieu records:', inLieuError);
+        return;
+      }
       
-      // Reset form
+      // Update the state with the new in-lieu records
+      setInLieuRecords(inLieuData || []);
+      console.log('Refreshed in-lieu records:', inLieuData?.length || 0);
+      
+    } catch (error) {
+      console.error('Error in refreshInLieuList:', error);
+    }
+  };
+
+  // Update the handleInLieuOf function to remove the notes field
+  const handleInLieuOf = async (e: React.FormEvent) => {
+    e.preventDefault(); // Prevent form from submitting and refreshing the page
+    try {
+      setIsSubmitting(true);
+      
+      // Get the current user session
+      const session = await supabase.auth.getSession();
+      
+      if (!session?.data?.session) {
+        throw new Error('No active session found');
+      }
+      
+      // First create the in-lieu shift overrides
+      console.log('Adding in-lieu time with auth session:', !!session.data.session);
+      console.log('User ID:', session.data.session.user.id);
+      
+      if (!startDate || !endDate) {
+        throw new Error('Start date and end date are required');
+      }
+      
+      // Create an array of dates between start and end date (inclusive)
+      const startDateObj = new Date(startDate);
+      const endDateObj = new Date(endDate);
+      
+      // Verify we have valid dates
+      if (isNaN(startDateObj.getTime()) || isNaN(endDateObj.getTime())) {
+        throw new Error('Invalid date format');
+      }
+      
+      // Calculate months to invalidate for query refreshing
+      const currentMonth = startDateObj.toISOString().substring(0, 7);
+      const months = new Set([currentMonth]);
+      
+      // If date spans multiple months, add all affected months
+      let tempDate = new Date(startDateObj);
+      while (tempDate <= endDateObj) {
+        months.add(tempDate.toISOString().substring(0, 7));
+        tempDate.setMonth(tempDate.getMonth() + 1);
+      }
+      
+      console.log("Will invalidate these months:", Array.from(months));
+      
+      // Create date array for all days in the range
+      const dateArray = [];
+      const tempDate2 = new Date(startDateObj);
+      
+      while (tempDate2 <= endDateObj) {
+        dateArray.push(new Date(tempDate2).toISOString().split('T')[0]);
+        tempDate2.setDate(tempDate2.getDate() + 1);
+      }
+      
+      // Calculate the number of days and leave credit (2/3 day per in-lieu day)
+      const daysCount = dateArray.length;
+      const leaveAdded = parseFloat((daysCount * 0.667).toFixed(2));
+      
+      console.log(`Creating in-lieu record: ${daysCount} days (${leaveAdded} leave credit)`);
+      
+      // Create the in-lieu record without the notes field
+      const { data: inLieuData, error: inLieuError } = await supabase
+        .from('in_lieu_records')
+        .insert([
+          {
+            employee_id: session.data.session.user.id,
+            start_date: startDate,
+            end_date: endDate,
+            days_count: daysCount,
+            leave_days_added: leaveAdded
+          }
+        ])
+        .select();
+      
+      if (inLieuError) {
+        console.error('Error adding in-lieu time:', inLieuError);
+        throw new Error(`Error adding in-lieu time: ${inLieuError.message}`);
+      }
+      
+      console.log('Successfully created in-lieu record:', inLieuData);
+      
+      // Now fetch existing shift overrides to avoid duplicates
+      const { data: existingOverrides, error: fetchError } = await supabase
+        .from('shift_overrides')
+        .select('date')
+        .eq('employee_id', session.data.session.user.id)
+        .in('date', dateArray);
+        
+      if (fetchError) {
+        console.error('Error fetching existing shift overrides:', fetchError);
+        // Continue anyway, we'll handle conflicts with upsert
+      }
+      
+      const existingDates = new Set((existingOverrides || []).map(o => o.date));
+      console.log(`Found ${existingDates.size} existing shift overrides`);
+      
+      // Prepare shift overrides - create records for all dates and let upsert handle duplicates
+      const shiftOverrides = dateArray.map(date => ({
+        employee_id: session.data.session.user.id,
+        date,
+        shift_type: 'InLieu',
+        source: 'in_lieu_form'
+      }));
+      
+      console.log('Creating shift overrides:', shiftOverrides.length);
+      
+      // Use upsert with onConflict strategy to handle duplicates
+      const { data: shiftData, error: shiftError } = await supabase
+        .from('shift_overrides')
+        .upsert(shiftOverrides, { 
+          onConflict: 'employee_id,date',
+          ignoreDuplicates: true  // This will ignore rather than update existing records
+        });
+      
+      if (shiftError) {
+        console.error('Error adding shift overrides:', shiftError);
+        
+        // If we get a unique constraint error, we can continue since the in-lieu record is still valid
+        if (shiftError.code === '23505') {
+          console.log('Some shift overrides already exist. Continuing with in-lieu record creation.');
+        } else {
+          // For other errors, roll back the in-lieu record
+          if (inLieuData?.[0]?.id) {
+            console.log('Rolling back in-lieu record:', inLieuData[0].id);
+            await supabase
+              .from('in_lieu_records')
+              .delete()
+              .eq('id', inLieuData[0].id);
+          }
+          
+          throw new Error(`Error adding shift overrides: ${shiftError.message}`);
+        }
+      } else {
+        console.log('Successfully created shift overrides:', shiftData?.length || 0);
+      }
+      
+      // Force invalidate queries
+      console.log('Invalidating queries for in-lieu period', startDate, 'to', endDate);
+      
+      // Add leave dates queries
+      const queryKeys = Array.from(months).map(month => 
+        ['shift-overrides', session.data.session.user.id, month]
+      );
+      
+      // Trigger a full data refresh for all affected months
+      await queryClient.invalidateQueries({ queryKey: ['leave-records', session.data.session.user.id] });
+      await queryClient.invalidateQueries({ queryKey: ['in-lieu-records', session.data.session.user.id] });
+      await queryClient.invalidateQueries({ queryKey: ['leave-balance', session.data.session.user.id] });
+      
+      // Invalidate shift overrides for all affected months
+      for (const queryKey of queryKeys) {
+        await queryClient.invalidateQueries({ queryKey });
+      }
+      
+      // Clear form fields
       setStartDate('');
       setEndDate('');
-      setReason('');
       
-      // Refresh data
-      await fetchData(true);
+      // Force a refresh of the calendar
+      await refreshInLieuList();
+      
+      toast.success(`Added ${daysCount} days of in-lieu time`);
+      
+      // Close the in-lieu form
+      setShowInLieuForm(false);
+      
+      // Refresh data to update UI
+      fetchData(true);
+      
     } catch (error: any) {
-      console.error('Error adding in-lieu time:', error);
-      setError(error.message || 'Failed to add in-lieu time');
+      console.error('Error in handleInLieuOf:', error);
+      
+      toast.error(error.message || 'Failed to add in-lieu time');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  /**
+   * Create shift overrides for each day in the in-lieu date range
+   */
+  const createShiftOverridesForInLieu = async (startDate: Date, endDate: Date) => {
+    if (!employee) {
+      console.error('No employee data available for creating shift overrides');
+      return;
+    }
+    
+    try {
+      // Generate all dates in the range
+      const dates = eachDayOfInterval({ start: startDate, end: endDate });
+      
+      console.log(`Creating shift overrides for ${dates.length} days from ${format(startDate, 'yyyy-MM-dd')} to ${format(endDate, 'yyyy-MM-dd')}`);
+      
+      // Check for existing overrides first to avoid duplicates
+      const dateStrings = dates.map(date => format(date, 'yyyy-MM-dd'));
+      
+      const { data: existingOverrides, error: checkError } = await supabase
+        .from('shift_overrides')
+        .select('date')
+        .eq('employee_id', employee.id)
+        .in('date', dateStrings);
+        
+      if (checkError) throw checkError;
+      
+      // Filter out dates that already have overrides
+      const existingDates = (existingOverrides || []).map(o => o.date);
+      const newDates = dateStrings.filter(date => !existingDates.includes(date));
+      
+      console.log(`Found ${existingDates.length} existing overrides, creating ${newDates.length} new ones`);
+      
+      if (newDates.length === 0) {
+        console.log('No new shift overrides needed - all dates already have overrides');
+        return;
+      }
+      
+      // Create new shift overrides
+      const overrides = newDates.map(date => ({
+        employee_id: employee.id,
+        date,
+        shift_type: 'InLieu' as ShiftType,
+        source: 'in_lieu_page'
+      }));
+      
+      // Insert new overrides
+      const { error: insertError } = await supabase
+        .from('shift_overrides')
+        .insert(overrides);
+        
+      if (insertError) throw insertError;
+      
+      console.log(`Successfully created ${overrides.length} InLieu shift overrides`);
+    } catch (error) {
+      console.error('Error creating shift overrides for in-lieu time:', error);
+      throw error;
+    }
+  };
+
+  // Helper function to remove shift overrides for deleted in-lieu
+  const removeShiftOverridesForInLieu = async (start: string, end: string) => {
+    try {
+      // First check if shift_overrides table exists
+      const { error: checkError } = await supabase
+        .from('shift_overrides')
+        .select('id')
+        .limit(1);
+        
+      // If table doesn't exist, skip this step
+      if (checkError && (checkError.code === '42P01' || checkError.message?.includes('does not exist'))) {
+        console.log('shift_overrides table does not exist, skipping removal');
+        return;
+      }
+      
+      // Make sure we have a valid employee ID before proceeding
+      if (!employee || !employee.id) {
+        console.error('No employee ID available for removing shift overrides');
+        return;
+      }
+      
+      // Create array of all days in the in-lieu period
+      const days = [];
+      const startDate = new Date(start);
+      const endDate = new Date(end);
+      const currentDay = new Date(startDate);
+      
+      while (currentDay <= endDate) {
+        days.push(format(currentDay, 'yyyy-MM-dd'));
+        currentDay.setDate(currentDay.getDate() + 1);
+      }
+      
+      // Delete shift overrides that were created for this in-lieu period
+      // Only delete those with shift_type = 'InLieu' to avoid removing other types of overrides
+      const { error } = await supabase
+        .from('shift_overrides')
+        .delete()
+        .eq('employee_id', employee.id)
+        .in('date', days)
+        .eq('shift_type', 'InLieu');
+        
+      if (error) throw error;
+      
+      // Invalidate schedule-related queries for all affected months
+      const startMonth = format(startDate, 'yyyy-MM');
+      const endMonth = format(endDate, 'yyyy-MM');
+      
+      // Invalidate the specific months affected
+      queryClient.invalidateQueries({ queryKey: ['shift-overrides'] });
+      queryClient.invalidateQueries({ queryKey: ['shift-overrides', employee.id] });
+      queryClient.invalidateQueries({ queryKey: ['shift-overrides', employee.id, startMonth] });
+      if (startMonth !== endMonth) {
+        queryClient.invalidateQueries({ queryKey: ['shift-overrides', employee.id, endMonth] });
+      }
+      
+      // Invalidate general queries
+      queryClient.invalidateQueries({ queryKey: ['schedule'] });
+      
+      console.log(`Removed shift overrides for in-lieu period ${start} to ${end}`);
+    } catch (error) {
+      console.error('Error removing shift overrides for in-lieu:', error);
+      // Don't block the main process if this fails
     }
   };
 
@@ -918,6 +1222,11 @@ export default function Leave() {
 
       if (deleteError) throw deleteError;
       
+      // Also remove any shift overrides for this in-lieu period
+      if (record.start_date && record.end_date) {
+        await removeShiftOverridesForInLieu(record.start_date, record.end_date);
+      }
+      
       // Update UI immediately for better UX
       setInLieuRecords(prevRecords => prevRecords.filter(r => r.id !== record.id));
       
@@ -928,6 +1237,38 @@ export default function Leave() {
       });
       
       setSuccess('In-lieu record deleted successfully');
+      
+      // Invalidate all relevant queries
+      if (record.start_date && record.end_date && employee?.id) {
+        const startMonth = format(new Date(record.start_date), 'yyyy-MM');
+        const endMonth = format(new Date(record.end_date), 'yyyy-MM');
+        
+        // Invalidate the specific months affected
+        queryClient.invalidateQueries({ queryKey: ['shift-overrides'] });
+        queryClient.invalidateQueries({ queryKey: ['shift-overrides', employee.id] });
+        queryClient.invalidateQueries({ queryKey: ['shift-overrides', employee.id, startMonth] });
+        if (startMonth !== endMonth) {
+          queryClient.invalidateQueries({ queryKey: ['shift-overrides', employee.id, endMonth] });
+        }
+        
+        // Invalidate schedule data
+        queryClient.invalidateQueries({ queryKey: ['schedule'] });
+        queryClient.invalidateQueries({ queryKey: ['schedule', employee.id] });
+        queryClient.invalidateQueries({ queryKey: ['schedule', employee.id, startMonth] });
+        if (startMonth !== endMonth) {
+          queryClient.invalidateQueries({ queryKey: ['schedule', employee.id, endMonth] });
+        }
+      }
+      
+      // Invalidate general queries
+      queryClient.invalidateQueries({ queryKey: ['in-lieu'] });
+      queryClient.invalidateQueries({ queryKey: ['leaveBalance'] });
+      
+      // Force refetch of all relevant queries
+      queryClient.refetchQueries({ queryKey: ['schedule'] });
+      queryClient.refetchQueries({ queryKey: ['shift-overrides'] });
+      queryClient.refetchQueries({ queryKey: ['in-lieu'] });
+      queryClient.refetchQueries({ queryKey: ['leaveBalance'] });
       
       // Full refresh in background
       await fetchData(true);
@@ -1293,21 +1634,6 @@ export default function Leave() {
                   />
                 </div>
                 
-                <div>
-                  <label className="block text-sm font-medium text-apple-gray-dark dark:text-dark-text-primary mb-1">Reason</label>
-                  <textarea
-                    value={reason}
-                    onChange={(e) => setReason(e.target.value)}
-                    className={`w-full px-4 py-2 rounded-lg border transition-colors ${
-                      isDarkMode
-                        ? 'bg-dark-bg border-dark-border text-dark-text-primary focus:border-apple-blue'
-                        : 'border-gray-200 focus:border-apple-blue focus:ring-1 focus:ring-apple-blue'
-                    }`}
-                    rows={3}
-                    placeholder="Why did you work on this day? (e.g. weekend emergency, public holiday coverage)"
-                  />
-                </div>
-                
                 {/* Calculated Days and Credit Preview */}
                 {startDate && endDate && new Date(endDate) >= new Date(startDate) && (
                   <div className={`p-3 rounded-lg ${isDarkMode ? 'bg-dark-bg' : 'bg-gray-50'}`}>
@@ -1538,9 +1864,6 @@ export default function Leave() {
                             <td className="px-4 py-3 text-sm">
                               <div className="text-apple-gray-dark dark:text-dark-text-primary">
                                 {new Date(record.start_date).toLocaleDateString()} to {new Date(record.end_date).toLocaleDateString()}
-                              </div>
-                              <div className="text-xs text-apple-gray dark:text-dark-text-tertiary mt-1">
-                                {record.reason || 'No reason provided'}
                               </div>
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-apple-gray-dark dark:text-dark-text-primary">

@@ -107,148 +107,65 @@ function ToastWrapper() {
 }
 
 function MyApp({ Component, pageProps }: AppProps) {
-  const [offlineMode, setOfflineMode] = useState(false);
-  // Create a client
-  const [queryClient] = useState(() => new QueryClient({
-    defaultOptions: {
-      queries: {
-        staleTime: 60 * 1000, // 1 minute
-        gcTime: 5 * 60 * 1000, // 5 minutes (previously cacheTime)
-        retry: 1,
-        refetchOnWindowFocus: false,
-        // For better offline experience
-        refetchOnReconnect: true,
-      },
-    },
-  }));
+  const [queryClient] = useState(() => new QueryClient());
+  const [isOnline, setIsOnline] = useState(true);
+  const [persistOptions, setPersistOptions] = useState<any>(null);
 
-  // Monitor network status
   useEffect(() => {
-    const handleOnline = () => {
-      logger.info('Application is online');
-      setOfflineMode(false);
-    };
-    
-    const handleOffline = () => {
-      logger.warn('Application is offline');
-      setOfflineMode(true);
-    };
-    
+    // Get persisted options after component mounts (client-side only)
+    const options = getPersistedOptions();
+    setPersistOptions(options);
+  }, []);
+
+  useEffect(() => {
+    // Check initial online status
+    setIsOnline(navigator.onLine);
+
+    // Add event listeners for online/offline status
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
-    
-    // Check initial status
-    setOfflineMode(!navigator.onLine);
-    
+
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
   }, []);
 
-  // Set up axios interceptors for global auth token handling
-  useEffect(() => {
-    // Request interceptor to add auth token to all API requests
-    const requestInterceptor = axios.interceptors.request.use(
-      async (config) => {
-        // Only intercept requests to our API routes
-        if (config.url?.startsWith('/api/') || config.url?.includes('vercel.app/api/')) {
-          try {
-            // Get current session to include token in requests
-            const { data } = await supabase.auth.getSession();
-            const token = data.session?.access_token;
-            
-            // Set auth header if token exists
-            if (token) {
-              config.headers.Authorization = `Bearer ${token}`;
-              logger.debug('Added auth token to request:', config.url);
-            } else {
-              // Try to get token from localStorage as fallback
-              const localToken = localStorage.getItem('sb-access-token');
-              if (localToken) {
-                config.headers.Authorization = `Bearer ${localToken}`;
-                logger.debug('Added fallback token to request:', config.url);
-              } else {
-                logger.warn('No auth token available for request:', config.url);
-              }
-            }
-          } catch (error) {
-            logger.error('Error setting auth header:', error);
-          }
-        }
-        return config;
-      },
-      (error) => {
-        logger.error('Request interceptor error:', error);
-        return Promise.reject(error);
-      }
-    );
-    
-    // Response interceptor to handle auth errors
-    const responseInterceptor = axios.interceptors.response.use(
-      (response) => response,
-      async (error) => {
-        // If received 401, check if we can refresh token
-        if (error.response?.status === 401) {
-          try {
-            logger.info('401 error, refreshing session...');
-            const { data } = await supabase.auth.refreshSession();
-            if (data.session) {
-              logger.info('Session refreshed, retrying request');
-              // Retry the original request with new token
-              const originalRequest = error.config;
-              originalRequest.headers.Authorization = `Bearer ${data.session.access_token}`;
-              return axios(originalRequest);
-            }
-          } catch (refreshError) {
-            logger.error('Error refreshing session:', refreshError);
-          }
-        }
-        
-        // Log all API errors
-        if (axios.isAxiosError(error)) {
-          logger.error(`API Error: ${error.response?.status || 'Network Error'}`, { 
-            url: error.config?.url,
-            method: error.config?.method,
-            status: error.response?.status,
-            data: error.response?.data
-          });
-        }
-        
-        return Promise.reject(error);
-      }
-    );
-    
-    // Clean up interceptors on unmount
-    return () => {
-      axios.interceptors.request.eject(requestInterceptor);
-      axios.interceptors.response.eject(responseInterceptor);
-    };
-  }, []);
-  
-  // Offline mode banner
-  const OfflineBanner = offlineMode ? (
-    <div className="fixed top-0 left-0 right-0 bg-yellow-500 text-black p-2 text-center z-50">
-      You are currently offline. Some features may be unavailable.
-    </div>
-  ) : null;
-  
+  const handleOnline = () => {
+    setIsOnline(true);
+  };
+
+  const handleOffline = () => {
+    setIsOnline(false);
+  };
+
+  // Show loading state until we have persisted options
+  if (!persistOptions) {
+    return null;
+  }
+
   return (
-    <ErrorBoundary FallbackComponent={ErrorFallback}>
+    <QueryClientProvider client={queryClient}>
       <PersistQueryClientProvider
         client={queryClient}
-        persistOptions={getPersistedOptions()}
+        persistOptions={persistOptions}
       >
-        <AuthProvider>
-          <ThemeProvider>
-            {OfflineBanner}
-            <ToastWrapper />
-            <Component {...pageProps} />
-          </ThemeProvider>
-        </AuthProvider>
-        {process.env.NODE_ENV !== 'production' && <ReactQueryDevtools />}
+        <ThemeProvider>
+          <AuthProvider>
+            <ErrorBoundary FallbackComponent={ErrorFallback}>
+              {!isOnline && (
+                <div className="bg-yellow-500 text-white px-4 py-2 text-center">
+                  You are currently offline. Some features may be limited.
+                </div>
+              )}
+              <Component {...pageProps} />
+              <ToastWrapper />
+            </ErrorBoundary>
+          </AuthProvider>
+        </ThemeProvider>
+        <ReactQueryDevtools />
       </PersistQueryClientProvider>
-    </ErrorBoundary>
+    </QueryClientProvider>
   );
 }
 

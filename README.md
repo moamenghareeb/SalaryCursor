@@ -70,4 +70,29 @@ The application is configured for deployment on Vercel.
 npm run build
 ```
 
-For production builds, or use the continuous deployment workflow with GitHub. 
+For production builds, or use the continuous deployment workflow with GitHub.
+
+## Troubleshooting
+
+### In-Lieu Time Issues
+
+If you're experiencing issues with in-lieu time not appearing in your schedule, we've created a set of scripts to help diagnose and fix these problems:
+
+1. **Test Database Connection**:
+   ```bash
+   ./scripts/run-test-db.sh
+   ```
+   This script tests the connection to the database and verifies that all required tables are accessible.
+
+2. **Fix In-Lieu Time Records**:
+   ```bash
+   ./scripts/run-fix-in-lieu.sh <command> [userId] [options]
+   ```
+   This script provides several commands to diagnose and fix in-lieu time issues:
+   - `list-users`: List all users in the system
+   - `check-in-lieu <userId>`: Check in-lieu records for a user
+   - `check-shifts <userId> [startDate] [endDate]`: Check shift overrides for a user
+   - `create-in-lieu <userId> <startDate> <endDate> [notes]`: Create an in-lieu record for a user
+   - `check-permissions`: Check RLS policies
+
+For more detailed information, see the [scripts README](./scripts/README.md). 

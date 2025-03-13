@@ -1,6 +1,16 @@
 import React from 'react';
 import { format, isToday, isTomorrow, addDays } from 'date-fns';
-import { ShiftType, shiftColors } from '../calendar/DayCell';
+import { ShiftType } from '../../lib/types/schedule';
+
+// Define color schemes for different shift types (copied from DayCell component)
+const shiftColors: Record<ShiftType, string> = {
+  'Day': 'bg-blue-500 dark:bg-blue-600',
+  'Night': 'bg-indigo-600 dark:bg-indigo-700',
+  'Off': 'bg-gray-400 dark:bg-gray-600',
+  'Leave': 'bg-yellow-500 dark:bg-yellow-600',
+  'Public': 'bg-orange-500 dark:bg-orange-600',
+  'Overtime': 'bg-pink-500 dark:bg-pink-600'
+};
 
 export interface UpcomingShift {
   date: Date;

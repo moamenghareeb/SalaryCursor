@@ -1,3 +1,4 @@
+import { format } from 'date-fns';
 import { supabase } from './supabase';
 
 export interface Holiday {
@@ -5,46 +6,55 @@ export interface Holiday {
   date: string;
   name: string;
   isOfficial: boolean;
+  country?: string;
 }
 
-// Static holiday data for 2025 (fallback if database is not available)
-export const STATIC_HOLIDAYS_2025: Holiday[] = [
-  { id: '1', date: '2025-01-07', name: 'Coptic Christmas', isOfficial: true },
-  { id: '2', date: '2025-01-25', name: 'Revolution Day', isOfficial: true },
-  { id: '3', date: '2025-03-31', name: 'Eid el-Fitr (Day 1)', isOfficial: true },
-  { id: '4', date: '2025-04-01', name: 'Eid el-Fitr (Day 2)', isOfficial: true },
-  { id: '5', date: '2025-04-02', name: 'Eid el-Fitr (Day 3)', isOfficial: true },
-  { id: '6', date: '2025-04-19', name: 'Coptic Easter', isOfficial: true },
-  { id: '7', date: '2025-04-20', name: 'Sham El-Nessim', isOfficial: true },
-  { id: '8', date: '2025-04-25', name: 'Sinai Liberation Day', isOfficial: true },
-  { id: '9', date: '2025-05-01', name: 'Labor Day', isOfficial: true },
-  { id: '10', date: '2025-06-30', name: 'June 30 Revolution', isOfficial: true },
-  { id: '11', date: '2025-07-07', name: 'Eid al-Adha (Day 1)', isOfficial: true },
-  { id: '12', date: '2025-07-08', name: 'Eid al-Adha (Day 2)', isOfficial: true },
-  { id: '13', date: '2025-07-09', name: 'Eid al-Adha (Day 3)', isOfficial: true },
-  { id: '14', date: '2025-07-23', name: 'Revolution Day', isOfficial: true },
-  { id: '15', date: '2025-08-06', name: 'Islamic New Year', isOfficial: true },
-  { id: '16', date: '2025-10-06', name: 'Armed Forces Day', isOfficial: true },
-  { id: '17', date: '2025-10-15', name: 'Prophet\'s Birthday', isOfficial: true },
-  { id: '18', date: '2025-12-25', name: 'Christmas Day', isOfficial: true },
+// Cache for holidays to reduce database calls
+const holidayCache: Record<string, Holiday[]> = {};
+
+// Static holiday data for 2025 (fallback)
+const STATIC_HOLIDAYS_2025: Holiday[] = [
+  { id: '2025-01-01', date: '2025-01-01', name: 'New Year', isOfficial: true },
+  { id: '2025-04-20', date: '2025-04-20', name: 'Easter', isOfficial: true },
+  { id: '2025-05-01', date: '2025-05-01', name: 'Labor Day', isOfficial: true },
+  { id: '2025-07-04', date: '2025-07-04', name: 'Independence Day', isOfficial: true },
+  { id: '2025-12-25', date: '2025-12-25', name: 'Christmas', isOfficial: true },
+  { id: '2025-12-31', date: '2025-12-31', name: 'New Year\'s Eve', isOfficial: true },
 ];
 
-// Helper function to deduplicate holidays by date
-function deduplicateHolidays(holidays: Holiday[]): Holiday[] {
-  const holidayMap = new Map<string, Holiday>();
+/**
+ * Check if a specific date is a holiday
+ * @param date The date to check
+ * @returns True if the date is a holiday, false otherwise
+ */
+export async function isHoliday(date: Date): Promise<boolean> {
+  const dateStr = format(date, 'yyyy-MM-dd');
   
-  // Process holidays in order, giving preference to official holidays
-  holidays.forEach(holiday => {
-    const existingHoliday = holidayMap.get(holiday.date);
-    
-    // If there's no holiday for this date, or the new one is official and the existing one isn't,
-    // use the new one
-    if (!existingHoliday || (holiday.isOfficial && !existingHoliday.isOfficial)) {
-      holidayMap.set(holiday.date, holiday);
-    }
+  // Check for the specific date
+  const holidays = await getHolidaysForRange(date, date);
+  return holidays.length > 0;
+}
+
+/**
+ * Get holiday information for a specific date
+ * @param date The date to check
+ * @returns Holiday information or null if not a holiday
+ */
+export async function getHolidayInfo(date: Date): Promise<Holiday | null> {
+  const dateStr = format(date, 'yyyy-MM-dd');
+  
+  // Check for the specific date
+  const holidays = await getHolidaysForRange(date, date);
+  return holidays.length > 0 ? holidays[0] : null;
+}
+
+/**
+ * Clear the holiday cache (useful after updates)
+ */
+export function clearHolidayCache() {
+  Object.keys(holidayCache).forEach(key => {
+    delete holidayCache[key];
   });
-  
-  return Array.from(holidayMap.values());
 }
 
 /**
@@ -117,27 +127,51 @@ export async function getHolidaysForRange(
   endDate: Date, 
   userId?: string
 ): Promise<Holiday[]> {
-  const startYear = startDate.getFullYear();
-  const endYear = endDate.getFullYear();
+  // Format dates for cache key and queries
+  const startStr = format(startDate, 'yyyy-MM-dd');
+  const endStr = format(endDate, 'yyyy-MM-dd');
+  const cacheKey = `${startStr}_${endStr}_${userId || ''}`;
   
-  // If crossing a year boundary, fetch both years
-  const yearsToFetch: number[] = [startYear];
-  if (startYear !== endYear) {
-    yearsToFetch.push(endYear);
+  // Check cache first
+  if (holidayCache[cacheKey]) {
+    return holidayCache[cacheKey];
   }
   
-  // Fetch holidays for all required years
+  const startYear = startDate.getFullYear();
+  const endYear = endDate.getFullYear();
   let allHolidays: Holiday[] = [];
-  for (const year of yearsToFetch) {
+  
+  // Fetch holidays for each year in the range
+  for (let year = startYear; year <= endYear; year++) {
     const yearHolidays = await getHolidays(year, userId);
     allHolidays = [...allHolidays, ...yearHolidays];
   }
   
-  // Filter to the specified date range
-  const startStr = startDate.toISOString().split('T')[0];
-  const endStr = endDate.toISOString().split('T')[0];
-  
-  return allHolidays.filter(holiday => {
+  // Filter to the date range
+  const holidaysInRange = allHolidays.filter(holiday => {
     return holiday.date >= startStr && holiday.date <= endStr;
   });
-} 
+  
+  // Cache the results
+  holidayCache[cacheKey] = holidaysInRange;
+  
+  return holidaysInRange;
+}
+
+// Helper function to deduplicate holidays by date
+function deduplicateHolidays(holidays: Holiday[]): Holiday[] {
+  const holidayMap = new Map<string, Holiday>();
+  
+  // Process holidays in order, giving preference to official holidays
+  holidays.forEach(holiday => {
+    const existingHoliday = holidayMap.get(holiday.date);
+    
+    // If there's no holiday for this date, or the new one is official and the existing one isn't,
+    // use the new one
+    if (!existingHoliday || (holiday.isOfficial && !existingHoliday.isOfficial)) {
+      holidayMap.set(holiday.date, holiday);
+    }
+  });
+  
+  return Array.from(holidayMap.values());
+}

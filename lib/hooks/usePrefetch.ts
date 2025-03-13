@@ -135,11 +135,22 @@ export function usePrefetch() {
           .eq('id', userId)
           .single();
           
-        const { data: leaveAllocationData } = await supabase
-          .from('leave_allocations')
-          .select('*')
-          .eq('employee_id', userId)
-          .eq('year', currentYear);
+        let leaveAllocationData = null;
+        try {
+          const { data, error } = await supabase
+            .from('leave_allocations')
+            .select('*')
+            .eq('employee_id', userId)
+            .eq('year', currentYear);
+            
+          if (error) {
+            console.error('Error prefetching leave allocations:', error);
+          } else {
+            leaveAllocationData = data;
+          }
+        } catch (err) {
+          console.error('Exception prefetching leave allocations:', err);
+        }
           
         const { data: inLieuData } = await supabase
           .from('in_lieu_records')

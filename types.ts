@@ -78,7 +78,7 @@ export interface ShiftOverride {
   id?: string;
   employee_id: string;
   date: string;
-  shift_type: 'Day' | 'Night' | 'Off' | 'Leave' | 'Public' | 'Overtime';
+  shift_type: 'Day' | 'Night' | 'Off' | 'Leave' | 'Public' | 'Overtime' | 'InLieu';
   notes?: string;
 }
 
