@@ -10,32 +10,32 @@ interface DayCellProps {
 // Define color schemes for different shift types
 const shiftColors: Record<ShiftType, { bg: string; text: string }> = {
   'Day': { 
-    bg: 'bg-blue-100 dark:bg-blue-900/30', 
-    text: 'text-blue-800 dark:text-blue-300' 
+    bg: 'bg-blue-500', 
+    text: 'text-white' 
   },
   'Night': { 
-    bg: 'bg-indigo-100 dark:bg-indigo-900/30', 
-    text: 'text-indigo-800 dark:text-indigo-300' 
+    bg: 'bg-green-500', 
+    text: 'text-white' 
   },
   'Off': { 
-    bg: 'bg-gray-100 dark:bg-gray-800/40', 
-    text: 'text-gray-600 dark:text-gray-400' 
+    bg: 'bg-red-500', 
+    text: 'text-white' 
   },
   'Leave': { 
-    bg: 'bg-yellow-100 dark:bg-yellow-900/30', 
-    text: 'text-yellow-800 dark:text-yellow-300' 
+    bg: 'bg-yellow-500', 
+    text: 'text-white' 
   },
   'Public': { 
-    bg: 'bg-orange-100 dark:bg-orange-900/30', 
-    text: 'text-orange-800 dark:text-orange-300' 
+    bg: 'bg-orange-500', 
+    text: 'text-white' 
   },
   'Overtime': { 
-    bg: 'bg-pink-100 dark:bg-pink-900/30', 
-    text: 'text-pink-800 dark:text-pink-300' 
+    bg: 'bg-pink-500', 
+    text: 'text-white' 
   },
   'InLieu': {
-    bg: 'bg-purple-100 dark:bg-purple-900/30',
-    text: 'text-purple-800 dark:text-purple-300'
+    bg: 'bg-purple-500',
+    text: 'text-white'
   }
 };
 
@@ -76,7 +76,6 @@ const DayCell: React.FC<DayCellProps> = ({ day, onClick }) => {
       className={`
         relative min-h-[100px] p-2 border border-gray-200 dark:border-gray-700
         ${!isCurrentMonth ? 'opacity-40 bg-gray-50 dark:bg-gray-800/30' : ''}
-        ${isWeekend ? 'bg-gray-50 dark:bg-gray-800/20' : ''}
         ${isToday ? 'ring-2 ring-blue-500 dark:ring-blue-400' : ''}
         ${hasGroupChange ? 'ring-1 ring-green-500 dark:ring-green-400' : ''}
         hover:bg-gray-100 dark:hover:bg-gray-700/30 transition-colors
@@ -103,11 +102,11 @@ const DayCell: React.FC<DayCellProps> = ({ day, onClick }) => {
         )}
       </div>
       
-      {/* Shift badge */}
+      {/* Shift badge - now full width and colored background */}
       <div className={`
-        mt-2 py-1 px-2 rounded text-xs font-medium
+        mt-2 py-1 px-2 rounded text-center text-sm font-medium
         ${shiftColor.bg} ${shiftColor.text}
-        ${personalShift.isOverridden ? 'border-l-2 border-blue-500 dark:border-blue-400' : ''}
+        ${personalShift.isOverridden ? 'border-l-2 border-white' : ''}
       `}>
         {personalShift.type}
         {personalShift.shiftNumber && (
@@ -152,7 +151,7 @@ const DayCell: React.FC<DayCellProps> = ({ day, onClick }) => {
         
         {groupAssignments.nightShift.length > 0 && (
           <div className="flex items-center">
-            <div className="w-2 h-2 rounded-full bg-indigo-600 mr-1"></div>
+            <div className="w-2 h-2 rounded-full bg-green-500 mr-1"></div>
             <span className="text-xs text-gray-600 dark:text-gray-400">
               Night: {groupsOnNightShift}
             </span>

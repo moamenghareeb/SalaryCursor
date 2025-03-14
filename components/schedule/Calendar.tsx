@@ -50,71 +50,55 @@ const Calendar: React.FC<CalendarProps> = ({
         </div>
         
         {/* Calendar days */}
-        {weeks.map((week, weekIndex) => (
-          <div key={`week-${weekIndex}`} className="grid grid-cols-7">
-            {week.map((day) => (
-              <DayCell 
-                key={day.date} 
-                day={day}
-                onClick={onDayClick}
-              />
-            ))}
-          </div>
-        ))}
-      </div>
-      
-      {/* Calendar legend */}
-      <div className="mt-6">
-        <h3 className="text-lg font-medium mb-2 text-gray-800 dark:text-gray-200">Legend</h3>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 p-3 bg-gray-50 dark:bg-gray-800/40 rounded-lg">
-          {(Object.keys(ShiftLegendItems) as ShiftType[]).map(type => {
-            const item = ShiftLegendItems[type];
-            return (
-              <div key={type} className="flex items-center">
-                <div 
-                  className={`w-4 h-4 rounded mr-2 ${item.colorClass}`}
-                ></div>
-                <span className="text-sm text-gray-700 dark:text-gray-300">
-                  {item.label}
-                </span>
-              </div>
-            );
-          })}
+        <div className="grid grid-cols-7">
+          {weeks.map((week, weekIndex) => (
+            <React.Fragment key={`week-${weekIndex}`}>
+              {week.map((day) => (
+                <DayCell 
+                  key={day.date} 
+                  day={day}
+                  onClick={onDayClick}
+                />
+              ))}
+            </React.Fragment>
+          ))}
         </div>
       </div>
+      
+      {/* Removed Calendar legend from here - will be displayed in the main schedule page */}
     </div>
   );
 };
 
-// Legend items for shift types
-const ShiftLegendItems: Record<ShiftType, { label: string, colorClass: string }> = {
+// Legend items for shift types (moved to schedule.tsx)
+export const ShiftLegendItems: Record<ShiftType, { label: string, colorClass: string }> = {
   'Day': { 
     label: 'Day Shift (7am-7pm)', 
-    colorClass: 'bg-blue-500 dark:bg-blue-600' 
+    colorClass: 'bg-blue-500' 
   },
   'Night': { 
     label: 'Night Shift (7pm-7am)', 
-    colorClass: 'bg-indigo-600 dark:bg-indigo-700' 
+    colorClass: 'bg-green-500'
   },
   'Off': { 
     label: 'Off Duty', 
-    colorClass: 'bg-gray-400 dark:bg-gray-600' 
+    colorClass: 'bg-red-500'
   },
   'Leave': { 
     label: 'On Leave', 
-    colorClass: 'bg-yellow-500 dark:bg-yellow-600' 
+    colorClass: 'bg-yellow-500' 
   },
   'Public': { 
     label: 'Public Holiday', 
-    colorClass: 'bg-orange-500 dark:bg-orange-600' 
+    colorClass: 'bg-orange-500' 
   },
   'Overtime': { 
     label: 'Overtime', 
-    colorClass: 'bg-pink-500 dark:bg-pink-600' 
+    colorClass: 'bg-pink-500'
   },
   'InLieu': {
     label: 'In-Lieu Time',
-    colorClass: 'bg-purple-500 dark:bg-purple-600'
+    colorClass: 'bg-purple-500'
   }
 };
 

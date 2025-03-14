@@ -7,7 +7,7 @@ import { supabase } from '../lib/supabase';
 // Components
 import Layout from '../components/Layout';
 import LoadingSpinner from '../components/LoadingSpinner';
-import Calendar from '../components/schedule/Calendar';
+import Calendar, { ShiftLegendItems } from '../components/schedule/Calendar';
 import MobileScheduleView from '../components/schedule/MobileScheduleView';
 import CalendarControls from '../components/schedule/CalendarControls';
 import ShiftEditModal from '../components/schedule/ShiftEditModal';
@@ -445,11 +445,11 @@ const SchedulePage: React.FC = () => {
                     <span className="text-xs text-gray-600 dark:text-gray-400">Day Shift</span>
                   </div>
                   <div className="flex items-center">
-                    <div className="w-3 h-3 bg-indigo-600 mr-2"></div>
+                    <div className="w-3 h-3 bg-green-500 mr-2"></div>
                     <span className="text-xs text-gray-600 dark:text-gray-400">Night Shift</span>
                   </div>
                   <div className="flex items-center">
-                    <div className="w-3 h-3 bg-gray-400 mr-2"></div>
+                    <div className="w-3 h-3 bg-red-500 mr-2"></div>
                     <span className="text-xs text-gray-600 dark:text-gray-400">Off Duty</span>
                   </div>
                   <div className="flex items-center">

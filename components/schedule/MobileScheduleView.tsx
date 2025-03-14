@@ -10,8 +10,8 @@ interface MobileScheduleViewProps {
 // Define color mapping for different shift types
 const shiftColorMap: Record<ShiftType, string> = {
   'Day': 'bg-blue-500',
-  'Night': 'bg-indigo-600',
-  'Off': 'bg-gray-400',
+  'Night': 'bg-green-500',
+  'Off': 'bg-red-500',
   'Leave': 'bg-yellow-500',
   'Public': 'bg-orange-500',
   'Overtime': 'bg-pink-500',
