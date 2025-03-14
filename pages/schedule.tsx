@@ -251,7 +251,7 @@ const SchedulePage: React.FC = () => {
   
   // Build the schedule information component
   const getScheduleInfo = () => {
-    if (!employeeData?.schedule_preferences) {
+    if (!employeeData?.shift_group || !employeeData?.schedule_type) {
       // Add a button to set up preferences
       return (
         <div className="bg-yellow-50 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-300 p-4 rounded-lg">
