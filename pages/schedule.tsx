@@ -415,24 +415,26 @@ const SchedulePage: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-gray-50 dark:bg-gray-800/50 p-6 rounded-lg">
               {scheduleInfo}
               
-              <div>
-                <h3 className="text-lg font-medium mb-2">Your Schedule Settings</h3>
-                <div className="space-y-2">
-                  <p>
-                    <span className="text-gray-600 dark:text-gray-400">Schedule Type:</span>{' '}
-                    <span className="font-medium">{scheduleType === 'regular' ? 'Regular Work Hours' : 'Shift-Based'}</span>
-                  </p>
-                  {scheduleType === 'shift' && (
+              {employeeData?.shift_group && employeeData?.schedule_type && (
+                <div>
+                  <h3 className="text-lg font-medium mb-2">Your Schedule Settings</h3>
+                  <div className="space-y-2">
                     <p>
-                      <span className="text-gray-600 dark:text-gray-400">Assigned Group:</span>{' '}
-                      <span className="font-medium">Group {employeeGroup}</span>
+                      <span className="text-gray-600 dark:text-gray-400">Schedule Type:</span>{' '}
+                      <span className="font-medium">{scheduleType === 'regular' ? 'Regular Work Hours' : 'Shift-Based'}</span>
                     </p>
-                  )}
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
-                    You can change these settings using the controls above.
-                  </p>
+                    {scheduleType === 'shift' && (
+                      <p>
+                        <span className="text-gray-600 dark:text-gray-400">Assigned Group:</span>{' '}
+                        <span className="font-medium">Group {employeeGroup}</span>
+                      </p>
+                    )}
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
+                      You can change these settings using the controls above.
+                    </p>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
             
             {/* Color legend key (hidden on mobile - already in mobile view) */}

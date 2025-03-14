@@ -47,9 +47,8 @@ const MobileScheduleView: React.FC<MobileScheduleViewProps> = ({
         }
       }
       
-      // Get visible days (current month only)
-      const currentMonthDays = monthData.days.filter(day => day.isCurrentMonth);
-      setVisibleDays(currentMonthDays);
+      // Get visible days (all days in the month data)
+      setVisibleDays(monthData.days);
     }
   }, [monthData]);
   
@@ -66,16 +65,6 @@ const MobileScheduleView: React.FC<MobileScheduleViewProps> = ({
     }
   };
   
-  // Calculate days to show in the bottom scroller
-  const getDaysToShow = () => {
-    if (!visibleDays.length) return [];
-    
-    // Get 3 days before and 3 days after selected day
-    const startIdx = Math.max(0, selectedDayIndex - 3);
-    const endIdx = Math.min(visibleDays.length - 1, selectedDayIndex + 3);
-    return visibleDays.slice(startIdx, endIdx + 1);
-  };
-  
   // Get detailed info for selected day
   const getSelectedDay = () => {
     if (!visibleDays.length || selectedDayIndex >= visibleDays.length) return null;
@@ -83,7 +72,14 @@ const MobileScheduleView: React.FC<MobileScheduleViewProps> = ({
   };
   
   const selectedDay = getSelectedDay();
-  const daysToShow = getDaysToShow();
+  
+  // Group days into weeks for grid display
+  const weekRows: CalendarDay[][] = [];
+  if (visibleDays.length > 0) {
+    for (let i = 0; i < visibleDays.length; i += 7) {
+      weekRows.push(visibleDays.slice(i, Math.min(i + 7, visibleDays.length)));
+    }
+  }
   
   if (!selectedDay) {
     return <div className="p-4 text-center">Loading schedule...</div>;
@@ -186,7 +182,7 @@ const MobileScheduleView: React.FC<MobileScheduleViewProps> = ({
           
           {selectedDay.groupAssignments.nightShift.length > 0 && (
             <div className="flex items-center">
-              <div className="w-3 h-3 rounded-full bg-indigo-600 mr-2"></div>
+              <div className="w-3 h-3 rounded-full bg-green-500 mr-2"></div>
               <span className="text-sm text-gray-600 dark:text-gray-400">
                 Night Shift: {selectedDay.groupAssignments.nightShift.map(g => `${g.group}${g.isFirstNight ? ' (1st)' : ' (2nd)'}`).join(', ')}
               </span>
@@ -199,34 +195,54 @@ const MobileScheduleView: React.FC<MobileScheduleViewProps> = ({
         </div>
       </div>
       
-      {/* Day selector */}
-      <div className="relative">
+      {/* Day selector - Grid calendar style */}
+      <div className="mb-8">
         <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">
           Navigate Days:
         </h3>
-        <div className="flex space-x-2 overflow-x-auto pb-2">
-          {visibleDays.map((day, index) => (
-            <button
-              key={day.date}
-              onClick={() => handleDaySelect(index)}
-              className={`
-                flex-shrink-0 w-12 h-12 flex flex-col items-center justify-center rounded-full
-                text-sm border
-                ${selectedDayIndex === index 
-                  ? 'bg-blue-500 text-white border-blue-500' 
-                  : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200'}
-                ${day.isToday ? 'ring-2 ring-blue-300 dark:ring-blue-500' : ''}
-              `}
-            >
-              <span className="text-xs">{format(new Date(day.date), 'E')}</span>
-              <span className="font-semibold">{day.dayOfMonth}</span>
-            </button>
+        
+        {/* Day of week headers */}
+        <div className="grid grid-cols-7 text-center mb-1">
+          {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((dayLabel, i) => (
+            <div key={i} className="text-xs font-medium text-gray-500">
+              {dayLabel}
+            </div>
+          ))}
+        </div>
+        
+        {/* Calendar grid */}
+        <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+          {weekRows.map((week, weekIndex) => (
+            <div key={`week-${weekIndex}`} className="grid grid-cols-7 border-b border-gray-200 dark:border-gray-700 last:border-b-0">
+              {week.map((day, dayIndex) => {
+                const isSelected = selectedDayIndex === monthData.days.findIndex(d => d.date === day.date);
+                return (
+                  <button
+                    key={`${weekIndex}-${dayIndex}`}
+                    onClick={() => handleDaySelect(monthData.days.findIndex(d => d.date === day.date))}
+                    className={`
+                      aspect-square flex flex-col items-center justify-center p-1 relative
+                      ${!day.isCurrentMonth ? 'opacity-40' : ''}
+                      ${isSelected ? 'ring-2 ring-blue-500 dark:ring-blue-400 z-10' : ''}
+                      ${day.isToday ? 'font-bold' : ''}
+                    `}
+                    disabled={!day.isCurrentMonth}
+                  >
+                    {/* Colored background for shift type */}
+                    <div className={`absolute inset-1 rounded-md opacity-80 ${shiftColorMap[day.personalShift.type]}`}></div>
+                    
+                    {/* Date number on top of background */}
+                    <span className="z-10 text-white font-medium">{day.dayOfMonth}</span>
+                  </button>
+                );
+              })}
+            </div>
           ))}
         </div>
       </div>
       
       {/* Shift legend */}
-      <div className="mt-8">
+      <div className="mt-4">
         <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">Legend:</h3>
         <div className="grid grid-cols-2 gap-2">
           {Object.entries(shiftColorMap).map(([type, color]) => (
