@@ -8,6 +8,7 @@ import { supabase } from '../lib/supabase';
 import Layout from '../components/Layout';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Calendar from '../components/schedule/Calendar';
+import MobileScheduleView from '../components/schedule/MobileScheduleView';
 import CalendarControls from '../components/schedule/CalendarControls';
 import ShiftEditModal from '../components/schedule/ShiftEditModal';
 import GroupChangeModal from '../components/schedule/GroupChangeModal';
@@ -22,6 +23,23 @@ import {
 // Types
 import { CalendarDay, ShiftGroup, ShiftType, ScheduleType } from '../lib/types/schedule';
 
+// Define types for the work hours
+interface RegularWorkHours {
+  start: string;
+  end: string;
+}
+
+interface ShiftWorkHours {
+  day: {
+    start: string;
+    end: string;
+  };
+  night: {
+    start: string;
+    end: string;
+  };
+}
+
 const EMPLOYEE_GROUPS = [
   { id: 'A', name: 'Group A' },
   { id: 'B', name: 'Group B' },
@@ -29,12 +47,43 @@ const EMPLOYEE_GROUPS = [
   { id: 'D', name: 'Group D' }
 ];
 
+// Default work hours for when utility functions aren't available
+const DEFAULT_REGULAR_HOURS: RegularWorkHours = { 
+  start: '9:00 AM', 
+  end: '5:00 PM' 
+};
+
+const DEFAULT_SHIFT_HOURS: ShiftWorkHours = { 
+  day: { start: '7:00 AM', end: '7:00 PM' },
+  night: { start: '7:00 PM', end: '7:00 AM' }
+};
+
 const SchedulePage: React.FC = () => {
   // Router
   const router = useRouter();
   
   // Authentication state
   const [isAuthChecking, setIsAuthChecking] = useState(true);
+  
+  // Mobile detection state
+  const [isMobileView, setIsMobileView] = useState(false);
+  
+  // Initialize mobile detection on mount
+  useEffect(() => {
+    // Check if the screen is mobile sized
+    const checkIfMobile = () => {
+      setIsMobileView(window.innerWidth < 768); // 768px is standard tablet breakpoint
+    };
+    
+    // Check immediately on component mount
+    checkIfMobile();
+    
+    // Add resize listener to update when screen size changes
+    window.addEventListener('resize', checkIfMobile);
+    
+    // Clean up listener on unmount
+    return () => window.removeEventListener('resize', checkIfMobile);
+  }, []);
   
   // Check authentication on mount
   useEffect(() => {
@@ -167,39 +216,89 @@ const SchedulePage: React.FC = () => {
     }
   };
   
-  // Determine the schedule information to display
-  const scheduleInfo = scheduleType === 'regular' ? (
-    <div>
-      <h3 className="text-lg font-medium mb-2">Regular Work Hours</h3>
-      <ul className="space-y-2 list-disc pl-5">
-        <li>Sunday – Wednesday: 07:45 AM – 04:00 PM</li>
-        <li>Thursday: 07:45 AM – 01:30 PM</li>
-        <li>Friday & Saturday: Off</li>
-      </ul>
-    </div>
-  ) : (
-    <div>
-      <h3 className="text-lg font-medium mb-2">Shift-Based Work (8-Day Cycle)</h3>
-      <ul className="space-y-2 list-disc pl-5">
-        <li>Day 1-2: Day Shift (07:00 AM – 07:00 PM)</li>
-        <li>Day 3-4: Night Shift (07:00 PM – 07:00 AM)</li>
-        <li>Day 5-8: Off Duty</li>
-      </ul>
-      <div className="mt-2 flex flex-col sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm text-gray-600 dark:text-gray-400">
-          You are currently assigned to <strong>Group {employeeGroup}</strong>
-        </p>
-        <button
-          onClick={handleGroupChangeClick}
-          className="mt-2 sm:mt-0 px-3 py-1 text-sm rounded-md bg-blue-50 hover:bg-blue-100 
-            text-blue-600 dark:bg-blue-900/20 dark:hover:bg-blue-800/40 dark:text-blue-400
-            focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors"
-        >
-          Change Group
-        </button>
-      </div>
-    </div>
-  );
+  // Build the schedule information component
+  const getScheduleInfo = () => {
+    if (!employeeData?.schedule_preferences) {
+      return (
+        <div className="bg-yellow-50 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-300 p-4 rounded-lg">
+          Schedule preferences not found. Please contact an administrator.
+        </div>
+      );
+    }
+    
+    // Regular schedule or shift-based info
+    if (scheduleType === 'regular') {
+      // Get work hours with proper fallback
+      let workHours: RegularWorkHours = DEFAULT_REGULAR_HOURS;
+      
+      // Try to call the utility function if it exists
+      if (typeof getRegularWorkHours === 'function') {
+        try {
+          const result = getRegularWorkHours(0);
+          if (result && typeof result === 'object' && 'start' in result && 'end' in result) {
+            workHours = result as RegularWorkHours;
+          }
+        } catch (error) {
+          console.error('Error getting regular work hours:', error);
+        }
+      }
+      
+      return (
+        <div>
+          <h3 className="text-lg font-medium mb-2">Your Work Hours</h3>
+          <div className="space-y-2">
+            <p>
+              <span className="text-gray-600 dark:text-gray-400">Monday - Friday:</span>{' '}
+              <span className="font-medium">{workHours.start} to {workHours.end}</span>
+            </p>
+            <p>
+              <span className="text-gray-600 dark:text-gray-400">Weekends:</span>{' '}
+              <span className="font-medium">Off duty</span>
+            </p>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
+              Any shift overrides are shown in the calendar.
+            </p>
+          </div>
+        </div>
+      );
+    } else {
+      // Get shift hours with proper fallback
+      let shiftHours: ShiftWorkHours = DEFAULT_SHIFT_HOURS;
+      
+      // Try to call the utility function if it exists
+      if (typeof getShiftWorkHours === 'function') {
+        try {
+          const result = getShiftWorkHours('Day' as ShiftType);
+          if (result && typeof result === 'object' && 'day' in result && 'night' in result) {
+            shiftHours = result as ShiftWorkHours;
+          }
+        } catch (error) {
+          console.error('Error getting shift work hours:', error);
+        }
+      }
+      
+      return (
+        <div>
+          <h3 className="text-lg font-medium mb-2">Your Shift Schedule</h3>
+          <div className="space-y-2">
+            <p>
+              <span className="text-gray-600 dark:text-gray-400">Day Shift:</span>{' '}
+              <span className="font-medium">{shiftHours.day.start} to {shiftHours.day.end}</span>
+            </p>
+            <p>
+              <span className="text-gray-600 dark:text-gray-400">Night Shift:</span>{' '}
+              <span className="font-medium">{shiftHours.night.start} to {shiftHours.night.end}</span>
+            </p>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
+              Your shifts follow the Group {employeeGroup} rotation pattern.
+            </p>
+          </div>
+        </div>
+      );
+    }
+  };
+  
+  const scheduleInfo = getScheduleInfo();
   
   return (
     <Layout>
@@ -256,12 +355,19 @@ const SchedulePage: React.FC = () => {
               isUpdating={isLoading || isUpdatingGroup || isUpdatingScheduleType}
             />
             
-            {/* Main calendar */}
+            {/* Toggle between desktop and mobile view */}
             <div className="bg-white dark:bg-gray-800 shadow-md rounded-lg p-4">
-              <Calendar 
-                monthData={monthData}
-                onDayClick={handleDayClick}
-              />
+              {isMobileView ? (
+                <MobileScheduleView 
+                  monthData={monthData}
+                  onDayClick={handleDayClick}
+                />
+              ) : (
+                <Calendar 
+                  monthData={monthData}
+                  onDayClick={handleDayClick}
+                />
+              )}
             </div>
             
             {/* Schedule information */}
@@ -288,40 +394,42 @@ const SchedulePage: React.FC = () => {
               </div>
             </div>
             
-            {/* Color legend key */}
-            <div className="mt-4 p-4 bg-white dark:bg-gray-800 shadow-sm rounded-lg">
-              <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Legend:</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-y-2 gap-x-4">
-                <div className="flex items-center">
-                  <div className="w-3 h-3 bg-blue-500 mr-2"></div>
-                  <span className="text-xs text-gray-600 dark:text-gray-400">Day Shift</span>
-                </div>
-                <div className="flex items-center">
-                  <div className="w-3 h-3 bg-indigo-600 mr-2"></div>
-                  <span className="text-xs text-gray-600 dark:text-gray-400">Night Shift</span>
-                </div>
-                <div className="flex items-center">
-                  <div className="w-3 h-3 bg-gray-400 mr-2"></div>
-                  <span className="text-xs text-gray-600 dark:text-gray-400">Off Duty</span>
-                </div>
-                <div className="flex items-center">
-                  <div className="w-3 h-3 bg-yellow-500 mr-2"></div>
-                  <span className="text-xs text-gray-600 dark:text-gray-400">On Leave</span>
-                </div>
-                <div className="flex items-center">
-                  <div className="w-3 h-3 bg-orange-500 mr-2"></div>
-                  <span className="text-xs text-gray-600 dark:text-gray-400">Public Holiday</span>
-                </div>
-                <div className="flex items-center">
-                  <div className="w-3 h-3 bg-pink-500 mr-2"></div>
-                  <span className="text-xs text-gray-600 dark:text-gray-400">Overtime</span>
-                </div>
-                <div className="flex items-center">
-                  <div className="w-3 h-3 bg-purple-500 mr-2"></div>
-                  <span className="text-xs text-gray-600 dark:text-gray-400">In-Lieu Time</span>
+            {/* Color legend key (hidden on mobile - already in mobile view) */}
+            {!isMobileView && (
+              <div className="mt-4 p-4 bg-white dark:bg-gray-800 shadow-sm rounded-lg">
+                <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Legend:</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-y-2 gap-x-4">
+                  <div className="flex items-center">
+                    <div className="w-3 h-3 bg-blue-500 mr-2"></div>
+                    <span className="text-xs text-gray-600 dark:text-gray-400">Day Shift</span>
+                  </div>
+                  <div className="flex items-center">
+                    <div className="w-3 h-3 bg-indigo-600 mr-2"></div>
+                    <span className="text-xs text-gray-600 dark:text-gray-400">Night Shift</span>
+                  </div>
+                  <div className="flex items-center">
+                    <div className="w-3 h-3 bg-gray-400 mr-2"></div>
+                    <span className="text-xs text-gray-600 dark:text-gray-400">Off Duty</span>
+                  </div>
+                  <div className="flex items-center">
+                    <div className="w-3 h-3 bg-yellow-500 mr-2"></div>
+                    <span className="text-xs text-gray-600 dark:text-gray-400">On Leave</span>
+                  </div>
+                  <div className="flex items-center">
+                    <div className="w-3 h-3 bg-orange-500 mr-2"></div>
+                    <span className="text-xs text-gray-600 dark:text-gray-400">Public Holiday</span>
+                  </div>
+                  <div className="flex items-center">
+                    <div className="w-3 h-3 bg-pink-500 mr-2"></div>
+                    <span className="text-xs text-gray-600 dark:text-gray-400">Overtime</span>
+                  </div>
+                  <div className="flex items-center">
+                    <div className="w-3 h-3 bg-purple-500 mr-2"></div>
+                    <span className="text-xs text-gray-600 dark:text-gray-400">In-Lieu Time</span>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
         ) : (
           // Future months view
