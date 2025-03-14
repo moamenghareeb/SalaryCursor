@@ -23,6 +23,9 @@ import {
 // Types
 import { CalendarDay, ShiftGroup, ShiftType, ScheduleType } from '../lib/types/schedule';
 
+// Add import for the initializeSchedulePreferences function
+import { initializeSchedulePreferences } from '../lib/initSchedulePreferences';
+
 // Define types for the work hours
 interface RegularWorkHours {
   start: string;
@@ -170,6 +173,36 @@ const SchedulePage: React.FC = () => {
     };
   }, [refreshData]);
   
+  // Add state for tracking initialization status
+  const [isInitializingPreferences, setIsInitializingPreferences] = useState(false);
+  
+  // Add a function to handle initializing preferences  
+  const handleInitializePreferences = async () => {
+    setIsInitializingPreferences(true);
+    try {
+      // Use the default group from the state
+      const result = await initializeSchedulePreferences(undefined, {
+        scheduleType: 'shift',
+        shiftGroup: employeeGroup,
+      });
+      
+      if (result.success) {
+        toast.success('Schedule preferences set up successfully!');
+        // Refresh the data
+        if (refreshData) {
+          refreshData();
+        }
+      } else {
+        toast.error('Failed to set up schedule preferences');
+      }
+    } catch (error) {
+      console.error('Error initializing preferences:', error);
+      toast.error('An error occurred while setting up your schedule preferences');
+    } finally {
+      setIsInitializingPreferences(false);
+    }
+  };
+  
   // Show loading state while checking auth
   if (isAuthChecking) {
     return (
@@ -219,9 +252,17 @@ const SchedulePage: React.FC = () => {
   // Build the schedule information component
   const getScheduleInfo = () => {
     if (!employeeData?.schedule_preferences) {
+      // Add a button to set up preferences
       return (
         <div className="bg-yellow-50 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-300 p-4 rounded-lg">
-          Schedule preferences not found. Please contact an administrator.
+          <p className="mb-3">Schedule preferences not found. We need to set up your schedule preferences before you can use the calendar.</p>
+          <button
+            onClick={handleInitializePreferences}
+            className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-md font-medium transition-colors"
+            disabled={isInitializingPreferences}
+          >
+            {isInitializingPreferences ? 'Setting up...' : 'Set Up Schedule Preferences'}
+          </button>
         </div>
       );
     }
