@@ -156,7 +156,7 @@ export const isAuthenticated = async (): Promise<boolean> => {
     
     return !!data?.user;
   } catch (error) {
-    logger.error('Error checking authentication:', error);
+    console.error('Error checking authentication:', error);
     return false;
   }
 }; 

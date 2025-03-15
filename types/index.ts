@@ -43,15 +43,24 @@ export interface Leave {
 }
 
 export interface SalaryCalculation {
-  basicSalary: number;
-  costOfLiving: number;
-  shiftAllowance: number;
+  // Base calculation fields
+  baseSalary: number;
   overtimeHours: number;
-  overtimePay: number;
-  variablePay: number;
-  deduction: number;
-  totalSalary: number;
-  exchangeRate: number;
+  overtimeRate: number;
+  deductions: number;
+  bonuses: number;
+  month: string;
+  employee_id: string;
+
+  // Additional salary components
+  costOfLiving?: number;
+  shiftAllowance?: number;
+  variablePay?: number;
+  exchangeRate?: number;
+  
+  // Computed fields
+  overtimePay?: number;
+  totalSalary?: number;
   
   // Additional fields used in PDF generation
   actAsPay?: number;
