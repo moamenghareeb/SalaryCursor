@@ -222,10 +222,34 @@ export default function Salary() {
   }, 1000);
 
   const handleInputChange = (field: keyof SalaryCalculation, value: number) => {
+    // Create the updated calculation object
     const newCalc = {
       ...salaryCalc,
       [field]: value,
     };
+    
+    // Automatically calculate overtime pay when overtime hours or related fields change
+    if (field === 'overtimeHours' || field === 'basicSalary' || field === 'costOfLiving') {
+      // Calculate overtime pay: (basic + cost of living) / 240 * 1.5 * overtime hours
+      const basicSalary = field === 'basicSalary' ? value : newCalc.basicSalary || 0;
+      const costOfLiving = field === 'costOfLiving' ? value : newCalc.costOfLiving || 0;
+      const overtimeHours = field === 'overtimeHours' ? value : newCalc.overtimeHours || 0;
+      
+      const overtimeRate = (basicSalary + costOfLiving) / 240 * 1.5;
+      const overtimePay = overtimeRate * overtimeHours;
+      
+      // Update overtime pay
+      newCalc.overtimePay = overtimePay;
+      
+      // Calculate variable pay
+      const variablePay = calculateVariablePay(basicSalary);
+      newCalc.variablePay = variablePay;
+      
+      // Recalculate total salary
+      newCalc.totalSalary = 
+        basicSalary + costOfLiving + (newCalc.shiftAllowance || 0) + overtimePay + variablePay - 
+        (newCalc.deduction || 0);
+    }
     
     setSalaryCalc(newCalc);
     

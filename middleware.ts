@@ -82,10 +82,10 @@ function isRateLimited(ip: string, now: number): boolean {
  * Add security headers to response
  */
 function addSecurityHeaders(response: NextResponse): void {
-  // Set Content Security Policy with Supabase domains allowed
+  // Set Content Security Policy with all required domains and features allowed
   response.headers.set(
     'Content-Security-Policy',
-    "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://*.supabase.co https://*.supabase.in https://supabase.com"
+    "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://*.supabase.co https://*.supabase.in https://supabase.com data:; worker-src 'self' blob:"
   );
   
   // Prevent MIME type sniffing
