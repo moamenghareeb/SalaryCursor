@@ -84,7 +84,37 @@ export default function Salary() {
 
   const [salaryCalc, setSalaryCalc] = useState<SalaryCalculation>(defaultSalaryCalc);
 
-  // Function to handle date changes
+  // Add state for overtime data
+  const [overtimeHours, setOvertimeHours] = useState(0);
+
+  // Function to fetch overtime hours for the selected month
+  const fetchOvertimeHours = async () => {
+    if (!user) return;
+
+    try {
+      const monthDate = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-01`;
+      
+      const { data, error } = await supabase
+        .from('salaries')
+        .select('overtime_hours')
+        .eq('employee_id', user.id)
+        .eq('month', monthDate)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (data) {
+        setOvertimeHours(data.overtime_hours || 0);
+        // Update the salary calculation with the new overtime hours
+        handleInputChange('overtimeHours', data.overtime_hours || 0);
+      }
+    } catch (error) {
+      console.error('Error fetching overtime hours:', error);
+      toast.error('Failed to fetch overtime data');
+    }
+  };
+
+  // Update the handleDateChange function to fetch overtime data
   const handleDateChange = (year: number, month: number) => {
     setSelectedYear(year);
     setSelectedMonth(month);
@@ -119,7 +149,55 @@ export default function Salary() {
         toast(`No existing record for ${new Date(year, month-1).toLocaleDateString('en-US', {month: 'long', year: 'numeric'})}. You can create a new one.`);
       }
     }
+
+    // Fetch overtime hours for the new month
+    fetchOvertimeHours();
   };
+
+  // Update the handleInputChange function to handle overtime calculations
+  const handleInputChange = (field: keyof SalaryCalculation, value: number) => {
+    // Create the updated calculation object
+    const newCalc = {
+      ...salaryCalc,
+      [field]: value,
+    };
+    
+    // Automatically calculate overtime pay when overtime hours or related fields change
+    if (field === 'overtimeHours' || field === 'basicSalary' || field === 'costOfLiving') {
+      // Calculate overtime pay: (basic + cost of living) / 240 * 1.5 * overtime hours
+      const basicSalary = field === 'basicSalary' ? value : newCalc.basicSalary || 0;
+      const costOfLiving = field === 'costOfLiving' ? value : newCalc.costOfLiving || 0;
+      const overtimeHours = field === 'overtimeHours' ? value : newCalc.overtimeHours || 0;
+      
+      // Calculate hourly rate based on 240 working hours per month
+      const hourlyRate = (basicSalary + costOfLiving) / 240;
+      // Calculate overtime pay at 1.5x rate
+      const overtimePay = hourlyRate * 1.5 * overtimeHours;
+      
+      // Update overtime pay
+      newCalc.overtimePay = overtimePay;
+      
+      // Calculate variable pay
+      const variablePay = calculateVariablePay(basicSalary);
+      newCalc.variablePay = variablePay;
+      
+      // Recalculate total salary
+      newCalc.totalSalary = 
+        basicSalary + costOfLiving + (newCalc.shiftAllowance || 0) + overtimePay + variablePay - 
+        (newCalc.deduction || 0);
+    }
+    
+    setSalaryCalc(newCalc);
+    // Save to localStorage with debounce
+    debouncedSaveToLocalStorage(newCalc);
+  };
+
+  // Add useEffect to fetch overtime hours when component mounts
+  useEffect(() => {
+    if (user) {
+      fetchOvertimeHours();
+    }
+  }, [user, selectedYear, selectedMonth]);
 
   // Modified useEffects to guarantee localStorage priority
   useEffect(() => {
@@ -225,42 +303,6 @@ export default function Salary() {
   const debouncedSaveToLocalStorage = useDebounce((data: SalaryCalculation) => {
     saveInputsToLocalStorage(data);
   }, 1000);
-
-  const handleInputChange = (field: keyof SalaryCalculation, value: number) => {
-    // Create the updated calculation object
-    const newCalc = {
-      ...salaryCalc,
-      [field]: value,
-    };
-    
-    // Automatically calculate overtime pay when overtime hours or related fields change
-    if (field === 'overtimeHours' || field === 'basicSalary' || field === 'costOfLiving') {
-      // Calculate overtime pay: (basic + cost of living) / 240 * 1.5 * overtime hours
-      const basicSalary = field === 'basicSalary' ? value : newCalc.basicSalary || 0;
-      const costOfLiving = field === 'costOfLiving' ? value : newCalc.costOfLiving || 0;
-      const overtimeHours = field === 'overtimeHours' ? value : newCalc.overtimeHours || 0;
-      
-      const overtimeRate = (basicSalary + costOfLiving) / 240 * 1.5;
-      const overtimePay = overtimeRate * overtimeHours;
-      
-      // Update overtime pay
-      newCalc.overtimePay = overtimePay;
-      
-      // Calculate variable pay
-      const variablePay = calculateVariablePay(basicSalary);
-      newCalc.variablePay = variablePay;
-      
-      // Recalculate total salary
-      newCalc.totalSalary = 
-        basicSalary + costOfLiving + (newCalc.shiftAllowance || 0) + overtimePay + variablePay - 
-        (newCalc.deduction || 0);
-    }
-    
-    setSalaryCalc(newCalc);
-    
-    // Save to localStorage with debounce as user types
-    debouncedSaveToLocalStorage(newCalc);
-  };
 
   // Function to calculate variable pay based on basic salary
   const calculateVariablePay = (basicSalary: number): number => {
