@@ -518,17 +518,29 @@ export function useSchedule({
       
       // Handle overtime calculation
       if (shiftType === 'Overtime') {
-        await updateUserOvertime(date, 24, authUser);
+        try {
+          await updateUserOvertime(date, 24, authUser);
+        } catch (error) {
+          // If overtime update fails, don't block the shift update
+          console.error('Failed to update overtime:', error);
+        }
       } else {
-        // If changing from overtime to another shift type, remove overtime record
-        const { error: deleteError } = await supabase
-          .from('overtime')
-          .delete()
-          .eq('employee_id', authUser)
-          .eq('date', date);
+        try {
+          // If changing from overtime to another shift type, remove overtime record
+          const { error: deleteError } = await supabase
+            .from('salaries')
+            .update({
+              overtime_hours: 0,
+              updated_at: new Date().toISOString()
+            })
+            .eq('employee_id', authUser)
+            .eq('month', new Date(date).toISOString().substring(0, 7) + '-01');
 
-        if (deleteError) {
-          throw deleteError;
+          if (deleteError) {
+            console.error('Failed to clear overtime:', deleteError);
+          }
+        } catch (error) {
+          console.error('Failed to clear overtime:', error);
         }
       }
       
