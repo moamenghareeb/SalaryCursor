@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { CalendarDay, ShiftType } from '../../lib/types/schedule';
+import { updateUserOvertime } from '../lib/overtime';
 
 interface ShiftEditModalProps {
   day: CalendarDay | null;
@@ -50,7 +51,15 @@ const ShiftEditModal: React.FC<ShiftEditModalProps> = ({
     e.preventDefault();
     
     if (day && !isLoading) {
+      // Update the shift and notes
       onSave(day.date, selectedShift, notes || undefined);
+      
+      // If the selected shift is Overtime, add 24 hours to the user's overtime
+      if (selectedShift === 'Overtime') {
+        const overtimeHours = 24;
+        // Call the function to update the user's overtime
+        updateUserOvertime(day.date, overtimeHours);
+      }
     }
   };
   
@@ -140,7 +149,7 @@ const ShiftEditModal: React.FC<ShiftEditModalProps> = ({
               disabled={isLoading}
               className="w-full px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 
                 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200
-                focus:outline-none focus:ring-2 focus:ring-blue-500"
+                focus:outline-none focus:ring-2 focus:ring-gray-500"
             >
               {SHIFT_OPTIONS.map(option => (
                 <option key={option.value} value={option.value}>{option.label}</option>
@@ -161,7 +170,7 @@ const ShiftEditModal: React.FC<ShiftEditModalProps> = ({
               placeholder="Add any notes or reason for the override"
               className="w-full px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 
                 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200
-                focus:outline-none focus:ring-2 focus:ring-blue-500"
+                focus:outline-none focus:ring-2 focus:ring-gray-500"
               rows={3}
             ></textarea>
           </div>
