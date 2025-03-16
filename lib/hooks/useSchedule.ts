@@ -404,7 +404,7 @@ export function useSchedule({
           .from('shift_overrides')
           .update({
             shift_type: shiftType,
-            notes,
+            notes: notes === undefined ? null : notes,
             source: 'schedule_page'
           })
           .eq('id', existing.id);
@@ -419,7 +419,7 @@ export function useSchedule({
             employee_id: authUser,
             date,
             shift_type: shiftType,
-            notes,
+            notes: notes === undefined ? null : notes,
             source: 'schedule_page'
           });
           
