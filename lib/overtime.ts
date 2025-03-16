@@ -3,6 +3,38 @@ import { supabase } from './supabase';
 // Function to update user overtime in the database
 export const updateUserOvertime = async (date: string, hours: number, employeeId: string) => {
   try {
+    // First check if the overtime table exists
+    const { error: tableCheckError } = await supabase
+      .from('overtime')
+      .select('id')
+      .limit(1);
+
+    // If table doesn't exist, just update the salaries table directly
+    if (tableCheckError && tableCheckError.code === '42P01') {
+      // Calculate the month start date
+      const monthStart = new Date(date);
+      monthStart.setDate(1);
+
+      // Update the salaries table with the overtime hours
+      const { error: salaryError } = await supabase
+        .from('salaries')
+        .upsert({
+          employee_id: employeeId,
+          month: monthStart.toISOString().substring(0, 7) + '-01',
+          overtime_hours: hours,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'employee_id,month'
+        });
+
+      if (salaryError) {
+        throw salaryError;
+      }
+
+      return;
+    }
+
+    // If we get here, the table exists, proceed with normal flow
     // Check if there's an existing overtime record for this date
     const { data: existing, error: checkError } = await supabase
       .from('overtime')
@@ -48,25 +80,31 @@ export const updateUserOvertime = async (date: string, hours: number, employeeId
     const monthStart = new Date(date);
     monthStart.setDate(1); // Set to first day of month
 
-    const { data: monthlyTotal, error: totalError } = await supabase
+    let monthlyTotal = hours; // Default to current hours
+    const { data: calculatedTotal, error: totalError } = await supabase
       .rpc('calculate_monthly_overtime_total', {
         p_employee_id: employeeId,
         p_month: monthStart.toISOString()
       });
 
-    if (totalError) {
+    if (!totalError) {
+      monthlyTotal = calculatedTotal;
+    } else if (totalError.code !== '42883') {
+      // Only throw if it's not the "function doesn't exist" error
       throw totalError;
     }
 
     // Update the salaries table with the new overtime total
     const { error: salaryError } = await supabase
       .from('salaries')
-      .update({
+      .upsert({
+        employee_id: employeeId,
+        month: monthStart.toISOString().substring(0, 7) + '-01',
         overtime_hours: monthlyTotal,
         updated_at: new Date().toISOString()
-      })
-      .eq('employee_id', employeeId)
-      .eq('month', monthStart.toISOString().substring(0, 7) + '-01');
+      }, {
+        onConflict: 'employee_id,month'
+      });
 
     if (salaryError) {
       throw salaryError;
@@ -75,6 +113,6 @@ export const updateUserOvertime = async (date: string, hours: number, employeeId
     console.log('Overtime updated successfully');
   } catch (error) {
     console.error('Error updating overtime:', error);
-    throw new Error('Failed to update overtime.');
+    throw error;
   }
 };
