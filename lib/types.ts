@@ -1,0 +1,1 @@
+export type ShiftType = 'morning' | 'afternoon' | 'night' | 'off' | 'overtime'; 
