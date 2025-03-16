@@ -188,8 +188,7 @@ export default function Salary() {
       // Update the salaries table with the new overtime hours
       const salaryRecord = {
         employee_id: user.id,
-        year: selectedYear,
-        month: selectedMonth,
+        month: `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-01`,
         overtime_hours: scheduleHours,
         manual_overtime_hours: manualOvertimeHours || 0,
         total_overtime_hours: scheduleHours + (manualOvertimeHours || 0),
@@ -199,7 +198,8 @@ export default function Salary() {
         overtime_pay: salaryCalc.overtimePay || 0,
         variable_pay: salaryCalc.variablePay || 0,
         deduction: salaryCalc.deduction || 0,
-        total_salary: salaryCalc.totalSalary || 0
+        total_salary: salaryCalc.totalSalary || 0,
+        exchange_rate: exchangeRate
       };
 
       console.log('Upserting salary record:', salaryRecord);
@@ -207,13 +207,15 @@ export default function Salary() {
       const { error: updateError } = await supabase
         .from('salaries')
         .upsert(salaryRecord, {
-          onConflict: 'employee_id,year,month'
+          onConflict: 'employee_id,month'
         });
 
       if (updateError) {
         console.error('Error updating salary record:', updateError);
         toast.error('Failed to update salary record');
       } else {
+        console.log('Successfully updated salary record');
+        toast.success('Salary record updated successfully');
       }
 
     } catch (error) {
