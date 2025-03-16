@@ -242,189 +242,223 @@ export default function Dashboard() {
   return (
     <Layout>
       <Head>
-        <title>Dashboard | SalaryCursor</title>
+        <title>Dashboard - SalaryCursor</title>
       </Head>
-      
-      {employeeError ? (
-        <div className="bg-red-500 bg-opacity-20 text-red-100 p-4 rounded-lg mb-6">
-          <h3 className="text-lg font-semibold mb-2">Error</h3>
-          <p>{employeeError.message}</p>
-          <button 
-            onClick={() => router.push('/login')}
-            className="mt-4 bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
-          >
-            Back to Login
-          </button>
-        </div>
-      ) : (
-        <div className="container mx-auto px-4 py-6">
-          {/* Welcome Section */}
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold mb-2">
-              Welcome, {employee?.name || 'Employee'}
-            </h1>
-            <p className="text-gray-400">
-              {employee?.position || 'Staff'} • ID: {employee?.employee_id || 'N/A'}
+
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        <div className="px-2 sm:px-4 lg:px-8 py-4 sm:py-6">
+          {/* Header section */}
+          <div className="mb-4 sm:mb-8">
+            <h1 className="text-2xl sm:text-3xl font-semibold text-gray-900 dark:text-white">Dashboard</h1>
+            <p className="mt-1 text-sm sm:text-base text-gray-600 dark:text-gray-400">
+              Welcome back, {employee?.name || 'Loading...'}
             </p>
           </div>
-          
+
           {/* Stats Panel */}
-          {salaryLoading ? <StatsPanelSkeleton /> : <StatsPanel stats={stats} isLoading={false} />}
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid gap-4 sm:gap-6 mb-4 sm:mb-6">
+            {isLoading ? (
+              <StatsPanelSkeleton />
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* Salary Stats */}
+                <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg shadow-sm">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                        <FiDollarSign className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                      </div>
+                    </div>
+                    <div className="ml-4">
+                      <h3 className="text-sm font-medium text-gray-900 dark:text-white">Last Month's Salary</h3>
+                      <p className="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">
+                        {salaryData?.currentSalary ? `EGP ${salaryData.currentSalary.toLocaleString()}` : '-'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Overtime Stats */}
+                <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg shadow-sm">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                        <FiPieChart className="h-6 w-6 text-green-600 dark:text-green-400" />
+                      </div>
+                    </div>
+                    <div className="ml-4">
+                      <h3 className="text-sm font-medium text-gray-900 dark:text-white">Overtime Hours</h3>
+                      <p className="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">
+                        {shiftData?.stats?.overtimeHours ? `${shiftData.stats.overtimeHours} hrs` : '0 hrs'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Leave Balance */}
+                <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg shadow-sm">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+                        <FiCalendar className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+                      </div>
+                    </div>
+                    <div className="ml-4">
+                      <h3 className="text-sm font-medium text-gray-900 dark:text-white">Leave Balance</h3>
+                      <p className="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">
+                        {leaveBalanceData?.remainingBalance ? `${leaveBalanceData.remainingBalance} days` : '0 days'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Next Shift */}
+                <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg shadow-sm">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
+                        <FiArrowRight className="h-6 w-6 text-amber-600 dark:text-amber-400" />
+                      </div>
+                    </div>
+                    <div className="ml-4">
+                      <h3 className="text-sm font-medium text-gray-900 dark:text-white">Next Shift</h3>
+                      <p className="mt-1 text-lg font-semibold text-gray-900 dark:text-white">
+                        {upcomingShifts.length > 0 ? format(new Date(upcomingShifts[0].date), 'MMM dd') : 'No upcoming shifts'}
+                      </p>
+                      {upcomingShifts.length > 0 && (
+                        <p className="text-sm text-gray-600 dark:text-gray-400">{upcomingShifts[0].type} Shift</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Main Content Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
             {/* Upcoming Shifts */}
-            <div className="md:col-span-1">
-              {shiftLoading ? <UpcomingShiftsSkeleton /> : <UpcomingShifts shifts={upcomingShifts} isLoading={false} />}
-              
-              {/* Leave Balance */}
-              {leaveLoading ? (
-                <LeaveBalanceSkeleton />
-              ) : (
-                <div className="bg-gray-800 rounded-lg p-4 shadow-md mb-6">
-                  <h2 className="text-lg font-semibold mb-4 text-white">Leave Balance</h2>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-gray-300">Annual Leave</span>
-                    <span className="text-white font-medium">{leaveBalanceData?.remainingBalance || 0} days</span>
-                  </div>
-                  <div className="w-full bg-gray-700 rounded-full h-2.5 mb-4">
-                    <div 
-                      className="bg-green-500 h-2.5 rounded-full" 
-                      style={{ width: `${Math.min(100, ((leaveBalanceData?.remainingBalance || 0) / 30) * 100)}%` }}
-                    ></div>
-                  </div>
-                  <Link href="/leave" className="text-blue-400 hover:text-blue-300 text-sm flex justify-center items-center mt-3">
-                    Request Leave
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm">
+              <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
+                  <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">Upcoming Shifts</h2>
+                  <Link 
+                    href="/schedule" 
+                    className="flex items-center justify-center text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
+                  >
+                    View Schedule
+                    <FiArrowRight className="ml-1 h-4 w-4" />
                   </Link>
                 </div>
-              )}
-            </div>
-            
-            {/* Salary Chart */}
-            <div className="md:col-span-2">
-              {salaryLoading ? (
-                <SalaryHistorySkeleton />
-              ) : (
-                <div className="bg-gray-800 rounded-lg p-4 shadow-md mb-6">
-                  <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-lg font-semibold text-white">Salary History</h2>
-                    <div className="flex items-center space-x-2">
-                      <button 
-                        onClick={() => setSelectedYear(selectedYear - 1)}
-                        className="p-1 rounded bg-gray-700 hover:bg-gray-600 disabled:opacity-50"
+              </div>
+
+              <div className="p-4 sm:p-6">
+                {isLoading ? (
+                  <UpcomingShiftsSkeleton />
+                ) : upcomingShifts.length > 0 ? (
+                  <div className="space-y-4">
+                    {upcomingShifts.map((shift, index) => (
+                      <div 
+                        key={index}
+                        className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg"
                       >
-                        <FiChevronLeft />
-                      </button>
-                      <span className="text-gray-300">{selectedYear}</span>
-                      <button 
-                        onClick={() => setSelectedYear(selectedYear + 1)}
-                        className="p-1 rounded bg-gray-700 hover:bg-gray-600 disabled:opacity-50"
-                      >
-                        <FiChevronRight />
-                      </button>
-                      <button
-                        onClick={handleDownloadPDF}
-                        disabled={pdfLoading}
-                        className="ml-2 p-2 rounded bg-blue-600 hover:bg-blue-500 text-white text-sm flex items-center"
-                      >
-                        {pdfLoading ? 'Generating...' : <><FiDownload className="mr-1" /> Export</>}
-                      </button>
-                    </div>
-                  </div>
-                  
-                  {/* Monthly Salary Breakdown */}
-                  <div className="h-64 w-full overflow-auto">
-                    {salaryData?.monthlySalaries && salaryData.monthlySalaries.length > 0 ? (
-                      <div className="space-y-3">
-                        {salaryData.monthlySalaries.map((month, index) => (
-                          <div key={index} className="bg-gray-700 p-3 rounded-md">
-                            <div className="flex justify-between mb-1">
-                              <span className="text-gray-300">{month.name}</span>
-                              <span className="text-white font-semibold">EGP {month.total.toLocaleString()}</span>
-                            </div>
-                            <div className="w-full bg-gray-800 rounded-full h-2">
-                              <div 
-                                className="bg-blue-500 h-2 rounded-full"
-                                style={{ 
-                                  width: `${Math.min(100, (month.total / (salaryData.yearlyTotal || 1)) * 100)}%` 
-                                }}
-                              ></div>
-                            </div>
+                        <div className="flex items-center space-x-3">
+                          <div className={`p-2 rounded-lg ${
+                            shift.type === 'Day' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' :
+                            shift.type === 'Night' ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400' :
+                            'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400'
+                          }`}>
+                            <FiCalendar className="h-5 w-5" />
                           </div>
-                        ))}
+                          <div>
+                            <p className="text-sm font-medium text-gray-900 dark:text-white">
+                              {format(new Date(shift.date), 'EEEE, MMMM d')}
+                            </p>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                              {shift.type} Shift
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-medium text-gray-900 dark:text-white">
+                            {getShiftTimes(shift.type).start}
+                          </p>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                            {getShiftTimes(shift.type).end}
+                          </p>
+                        </div>
                       </div>
-                    ) : (
-                      <div className="flex items-center justify-center h-full">
-                        <p className="text-gray-400">No salary data available for {selectedYear}</p>
-                      </div>
-                    )}
+                    ))}
                   </div>
-                  
-                  <div className="mt-4 pt-3 border-t border-gray-700 flex justify-between">
-                    <div>
-                      <p className="text-sm text-gray-400">Yearly Total</p>
-                      <p className="text-xl font-bold text-white">EGP {salaryData?.yearlyTotal?.toLocaleString() || '0'}</p>
-                    </div>
-                    <Link href="/salary" className="text-blue-400 hover:text-blue-300 text-sm flex items-center">
-                      View Details <FiArrowRight className="ml-1" />
+                ) : (
+                  <div className="text-center py-6">
+                    <p className="text-sm text-gray-600 dark:text-gray-400">No upcoming shifts scheduled</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Salary History */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm">
+              <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
+                  <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">Salary History</h2>
+                  <div className="flex items-center space-x-2">
+                    <Link 
+                      href="/salary" 
+                      className="flex items-center justify-center text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
+                    >
+                      View All
+                      <FiArrowRight className="ml-1 h-4 w-4" />
                     </Link>
                   </div>
                 </div>
-              )}
+              </div>
+
+              <div className="p-4 sm:p-6">
+                {isLoading ? (
+                  <SalaryHistorySkeleton />
+                ) : salaryData?.monthlySalaries && salaryData.monthlySalaries.length > 0 ? (
+                  <div className="space-y-4">
+                    {salaryData.monthlySalaries.slice(0, 5).map((month, index) => (
+                      <div 
+                        key={index}
+                        className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg"
+                      >
+                        <div>
+                          <p className="text-sm font-medium text-gray-900 dark:text-white">
+                            {month.name}
+                          </p>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                            Month {month.month}: EGP {month.total.toLocaleString()}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-medium text-gray-900 dark:text-white">
+                            EGP {month.total.toLocaleString()}
+                          </p>
+                          <button
+                            onClick={() => handleDownloadPDF()}
+                            disabled={pdfLoading}
+                            className="mt-1 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 flex items-center"
+                          >
+                            <FiDownload className="h-4 w-4 mr-1" />
+                            PDF
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-6">
+                    <p className="text-sm text-gray-600 dark:text-gray-400">No salary history available</p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-          
-          {/* Quick Links */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-            <Link href="/schedule" className="bg-gray-800 p-4 rounded-lg shadow-md hover:bg-gray-700 transition-colors">
-              <div className="flex items-center">
-                <div className="w-10 h-10 rounded-full bg-blue-500 bg-opacity-20 flex items-center justify-center mr-3">
-                  <FiCalendar className="text-blue-400" />
-                </div>
-                <div>
-                  <h3 className="font-medium text-white">Schedule</h3>
-                  <p className="text-sm text-gray-400">View your shifts</p>
-                </div>
-              </div>
-            </Link>
-            
-            <Link href="/salary" className="bg-gray-800 p-4 rounded-lg shadow-md hover:bg-gray-700 transition-colors">
-              <div className="flex items-center">
-                <div className="w-10 h-10 rounded-full bg-green-500 bg-opacity-20 flex items-center justify-center mr-3">
-                  <FiDollarSign className="text-green-400" />
-                </div>
-                <div>
-                  <h3 className="font-medium text-white">Salary</h3>
-                  <p className="text-sm text-gray-400">Monthly breakdown</p>
-                </div>
-              </div>
-            </Link>
-            
-            <Link href="/leave" className="bg-gray-800 p-4 rounded-lg shadow-md hover:bg-gray-700 transition-colors">
-              <div className="flex items-center">
-                <div className="w-10 h-10 rounded-full bg-purple-500 bg-opacity-20 flex items-center justify-center mr-3">
-                  <FiCalendar className="text-purple-400" />
-                </div>
-                <div>
-                  <h3 className="font-medium text-white">Leave</h3>
-                  <p className="text-sm text-gray-400">Request time off</p>
-                </div>
-              </div>
-            </Link>
-            
-            <Link href="/reports" className="bg-gray-800 p-4 rounded-lg shadow-md hover:bg-gray-700 transition-colors">
-              <div className="flex items-center">
-                <div className="w-10 h-10 rounded-full bg-yellow-500 bg-opacity-20 flex items-center justify-center mr-3">
-                  <FiPieChart className="text-yellow-400" />
-                </div>
-                <div>
-                  <h3 className="font-medium text-white">Reports</h3>
-                  <p className="text-sm text-gray-400">View annual reports</p>
-                </div>
-              </div>
-            </Link>
-          </div>
         </div>
-      )}
+      </div>
     </Layout>
   );
 } 
