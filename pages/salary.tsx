@@ -92,10 +92,14 @@ export default function Salary() {
 
   // Function to fetch overtime hours for the selected month
   const fetchOvertimeHours = async () => {
-    if (!user) return;
+    if (!user) {
+      console.log('No user found, skipping overtime fetch');
+      return;
+    }
 
     try {
       const monthDate = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-01`;
+      console.log('Fetching overtime hours for:', monthDate);
       
       // Get overtime hours from salaries table (schedule overtime)
       const { data, error } = await supabase
@@ -105,10 +109,14 @@ export default function Salary() {
         .eq('month', monthDate)
         .maybeSingle();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching overtime:', error);
+        throw error;
+      }
 
       // Set schedule overtime hours
       const scheduleHours = data?.overtime_hours || 0;
+      console.log('Fetched schedule overtime hours:', scheduleHours);
       setScheduleOvertimeHours(scheduleHours);
       
       // Update salary calculation with total overtime hours
@@ -117,6 +125,12 @@ export default function Salary() {
         const costOfLiving = prev.costOfLiving || 0;
         const manualHours = prev.manualOvertimeHours || 0;
         const totalOvertimeHours = scheduleHours + manualHours;
+        
+        console.log('Updating salary calc with:', {
+          scheduleHours,
+          manualHours,
+          totalOvertimeHours
+        });
         
         // Calculate overtime pay: ((basic + cost of living) / 210) * overtime hours
         const overtimePay = ((basicSalary + costOfLiving) / 210) * totalOvertimeHours;
@@ -254,16 +268,13 @@ export default function Salary() {
     debouncedSaveToLocalStorage(newCalc);
   };
 
-  // Add useEffect to fetch overtime hours when component mounts
-  useEffect(() => {
-    if (user) {
-      fetchOvertimeHours();
-    }
-  }, [user, selectedYear, selectedMonth]);
-
   // Modified useEffects to guarantee localStorage priority
   useEffect(() => {
     fetchData();
+    // Fetch overtime hours when component mounts
+    if (user) {
+      fetchOvertimeHours();
+    }
   }, []);
 
   // This separate useEffect ensures localStorage values are applied AFTER 
@@ -273,6 +284,8 @@ export default function Salary() {
       // After a small delay, apply localStorage data with priority
       const timer = setTimeout(() => {
         applyLocalStorageData();
+        // Fetch overtime hours after localStorage data is applied
+        fetchOvertimeHours();
         console.log('Applied localStorage data with delay for employee:', employee.id);
       }, 500);
       
@@ -281,7 +294,7 @@ export default function Salary() {
       return () => clearTimeout(timer);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [employee?.id]); // Only trigger when employee ID changes
+  }, [employee?.id, selectedYear, selectedMonth]); // Add selectedYear and selectedMonth as dependencies
 
   // Add another timer to recheck after a longer delay to ensure localStorage values are applied
   useEffect(() => {
@@ -289,13 +302,15 @@ export default function Salary() {
       const timer = setTimeout(() => {
         // Double-check localStorage values were applied properly
         applyLocalStorageData();
+        // Fetch overtime hours one final time
+        fetchOvertimeHours();
         console.log('Final verification of localStorage data for employee:', employee.id);
       }, 2000);
       
       return () => clearTimeout(timer);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [employee?.id]); // Only trigger when employee ID changes
+  }, [employee?.id, selectedYear, selectedMonth]); // Add selectedYear and selectedMonth as dependencies
 
   // Enhanced localStorage functions with debugging
   const saveInputsToLocalStorage = (data: SalaryCalculation) => {
