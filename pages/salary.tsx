@@ -186,21 +186,34 @@ export default function Salary() {
       });
 
       // Update the salaries table with the new overtime hours
+      const salaryRecord = {
+        employee_id: user.id,
+        year: selectedYear,
+        month: selectedMonth,
+        overtime_hours: scheduleHours,
+        manual_overtime_hours: manualOvertimeHours || 0,
+        total_overtime_hours: scheduleHours + (manualOvertimeHours || 0),
+        basic_salary: salaryCalc.basicSalary || 0,
+        cost_of_living: salaryCalc.costOfLiving || 0,
+        shift_allowance: salaryCalc.shiftAllowance || 0,
+        overtime_pay: salaryCalc.overtimePay || 0,
+        variable_pay: salaryCalc.variablePay || 0,
+        deduction: salaryCalc.deduction || 0,
+        total_salary: salaryCalc.totalSalary || 0
+      };
+
+      console.log('Upserting salary record:', salaryRecord);
+
       const { error: updateError } = await supabase
         .from('salaries')
-        .upsert({
-          employee_id: user.id,
-          month: startDate.toISOString().split('T')[0],
-          overtime_hours: scheduleHours,
-          // Remove updated_at as it's not in the schema
-          // updated_at: new Date().toISOString()
-        }, {
-          onConflict: 'employee_id,month'
+        .upsert(salaryRecord, {
+          onConflict: 'employee_id,year,month'
         });
 
       if (updateError) {
         console.error('Error updating salary record:', updateError);
         toast.error('Failed to update salary record');
+      } else {
       }
 
     } catch (error) {
