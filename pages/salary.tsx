@@ -198,9 +198,7 @@ export default function Salary() {
         basic_salary: salaryCalc.basicSalary || 0,
         cost_of_living: salaryCalc.costOfLiving || 0,
         shift_allowance: salaryCalc.shiftAllowance || 0,
-        overtime_hours: scheduleHours,
-        manual_overtime_hours: manualOvertimeHours || 0,
-        total_overtime_hours: scheduleHours + (manualOvertimeHours || 0),
+        overtime_hours: scheduleHours + (manualOvertimeHours || 0), // Combine both into single field
         overtime_pay: salaryCalc.overtimePay || 0,
         variable_pay: salaryCalc.variablePay || 0,
         deduction: salaryCalc.deduction || 0,
@@ -229,8 +227,7 @@ export default function Salary() {
       const { error: updateError } = await supabase
         .from('salaries')
         .upsert(salaryRecord, {
-          onConflict: 'employee_id,month',
-          ignoreDuplicates: false
+          onConflict: 'employee_id,month'
         });
 
       if (updateError) {
@@ -595,13 +592,16 @@ export default function Salary() {
         basic_salary: salaryCalc.basicSalary || 0,
         cost_of_living: salaryCalc.costOfLiving || 0,
         shift_allowance: salaryCalc.shiftAllowance || 0,
-        overtime_hours: salaryCalc.overtimeHours || 0,
+        overtime_hours: (scheduleOvertimeHours || 0) + (manualOvertimeHours || 0),
         overtime_pay: salaryCalc.overtimePay || 0,
         variable_pay: salaryCalc.variablePay || 0,
         deduction: salaryCalc.deduction || 0,
         total_salary: salaryCalc.totalSalary || 0,
         exchange_rate: exchangeRate,
+        created_at: new Date().toISOString()
       };
+      
+      console.log('Saving salary record:', salaryData);
       
       // Check if a record for this month already exists
       const { data: existingData, error: existingError } = await supabase
@@ -636,17 +636,6 @@ export default function Salary() {
           
         if (error) throw error;
         result = data;
-      }
-      
-      // Also save a history record in the calculation table
-      const { error: calcError } = await supabase
-        .from('salary_calculations')
-        .insert({
-          ...salaryData,
-        });
-        
-      if (calcError) {
-        console.error('Error saving calculation history:', calcError);
       }
       
       toast.success('Salary saved successfully!');
