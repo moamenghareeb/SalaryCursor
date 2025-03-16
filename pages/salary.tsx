@@ -993,10 +993,10 @@ export default function Salary() {
         <meta name="description" content="Manage and calculate salary information" />
       </Head>
 
-      <div className="px-4 sm:px-6 lg:px-8">
+      <div className="px-2 sm:px-4 lg:px-8 py-4 sm:py-6">
         {authError && (
-          <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-md mb-6">
-            <p>{authError}</p>
+          <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-3 sm:p-4 rounded-md mb-4 sm:mb-6">
+            <p className="text-sm sm:text-base">{authError}</p>
             <button 
               onClick={() => window.location.href = '/login'} 
               className="mt-2 text-sm text-red-700 dark:text-red-300 underline"
@@ -1007,21 +1007,21 @@ export default function Salary() {
         )}
 
         {/* Header section */}
-        <section className="mb-8">
-          <h1 className="text-3xl font-medium text-apple-gray-dark dark:text-dark-text-primary mb-2">Salary Management</h1>
-          <p className="text-apple-gray dark:text-dark-text-secondary">Calculate and manage salary information for {employee?.name}</p>
+        <section className="mb-4 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl font-medium text-apple-gray-dark dark:text-dark-text-primary mb-1 sm:mb-2">Salary Management</h1>
+          <p className="text-sm sm:text-base text-apple-gray dark:text-dark-text-secondary">Calculate and manage salary information for {employee?.name}</p>
         </section>
 
         {/* Main content grid */}
-        <div className="grid gap-8 lg:grid-cols-3">
+        <div className="grid gap-4 sm:gap-8 lg:grid-cols-3">
           {/* Salary Calculator Card */}
           <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-lg shadow-sm">
-            <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-              <div className="flex justify-between items-center">
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Salary Calculator</h2>
+            <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
+                <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">Salary Calculator</h2>
                 <button
                   onClick={clearSavedInputs}
-                  className="px-3 py-1.5 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  className="w-full sm:w-auto px-3 py-1.5 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                 >
                   Clear
                 </button>
@@ -1029,7 +1029,7 @@ export default function Salary() {
             </div>
 
             {/* Month/Year Picker */}
-            <div className="p-6 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+            <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
               <div className="flex items-center mb-4">
                 <FiCalendar className="w-5 h-5 text-blue-500 mr-2" />
                 <h3 className="text-base font-medium text-gray-900 dark:text-white">
@@ -1037,7 +1037,7 @@ export default function Salary() {
                 </h3>
               </div>
               
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Month
@@ -1117,10 +1117,10 @@ export default function Salary() {
             </div>
 
             {/* Salary Form */}
-            <div className="p-6">
-              <div className="grid gap-6 sm:grid-cols-2">
+            <div className="p-4 sm:p-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                 {/* Basic Information */}
-                <div className="space-y-6">
+                <div className="space-y-4 sm:space-y-6">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Basic Salary (EGP)
@@ -1165,7 +1165,7 @@ export default function Salary() {
                 </div>
 
                 {/* Overtime and Additional Info */}
-                <div className="space-y-6">
+                <div className="space-y-4 sm:space-y-6">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Overtime Hours
@@ -1227,16 +1227,16 @@ export default function Salary() {
             </div>
 
             {/* Exchange Rate Section */}
-            <div className="p-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
-              <div className="flex justify-between items-center">
+            <div className="p-4 sm:p-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
                 <div>
                   <h3 className="text-base font-medium text-gray-900 dark:text-white">Exchange Rate</h3>
                   <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
                     Last updated: {rateLastUpdated || 'Not available'}
                   </p>
                 </div>
-                <div className="flex items-center space-x-3">
-                  <span className="text-lg font-medium text-gray-900 dark:text-white">
+                <div className="flex items-center justify-between sm:justify-end sm:space-x-3">
+                  <span className="text-base sm:text-lg font-medium text-gray-900 dark:text-white">
                     1 USD = {exchangeRate} EGP
                   </span>
                   <button
@@ -1252,21 +1252,21 @@ export default function Salary() {
 
           {/* Results Card */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm h-fit">
-            <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Calculation Results</h2>
+            <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700">
+              <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">Calculation Results</h2>
             </div>
 
-            <div className="p-6">
+            <div className="p-4 sm:p-6">
               {salaryCalc.totalSalary > 0 ? (
-                <div className="space-y-6">
+                <div className="space-y-4 sm:space-y-6">
                   <div>
                     <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Salary</p>
-                    <p className="mt-1 text-3xl font-semibold text-gray-900 dark:text-white">
+                    <p className="mt-1 text-2xl sm:text-3xl font-semibold text-gray-900 dark:text-white">
                       EGP {salaryCalc.totalSalary.toLocaleString('en-US', { maximumFractionDigits: 2 })}
                     </p>
                   </div>
 
-                  <div className="space-y-3">
+                  <div className="space-y-2 sm:space-y-3">
                     <button
                       onClick={calculateSalary}
                       disabled={calculationLoading}
@@ -1292,7 +1292,7 @@ export default function Salary() {
                   </div>
                 </div>
               ) : (
-                <div className="text-center py-8">
+                <div className="text-center py-6 sm:py-8">
                   <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                   </svg>
@@ -1305,13 +1305,13 @@ export default function Salary() {
         </div>
 
         {/* Salary History Section */}
-        <div className="mt-8 bg-white dark:bg-gray-800 rounded-lg shadow-sm">
-          <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-            <div className="flex justify-between items-center">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Salary History</h2>
+        <div className="mt-4 sm:mt-8 bg-white dark:bg-gray-800 rounded-lg shadow-sm">
+          <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
+              <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">Salary History</h2>
               <button
                 onClick={fetchSalaryHistory}
-                className="flex items-center px-3 py-1.5 text-sm font-medium rounded-md text-blue-600 dark:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                className="flex items-center justify-center px-3 py-1.5 text-sm font-medium rounded-md text-blue-600 dark:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-700"
               >
                 <FiRefreshCw className="w-4 h-4 mr-1.5" />
                 Refresh
@@ -1320,81 +1320,85 @@ export default function Salary() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-              <thead>
-                <tr className="bg-gray-50 dark:bg-gray-900">
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Month</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Basic Salary</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Total</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                {salaryHistory && salaryHistory.length > 0 ? (
-                  salaryHistory.map((salary) => {
-                    const salaryDate = new Date(salary.month);
-                    const isCurrentSelection = 
-                      salaryDate.getFullYear() === selectedYear && 
-                      salaryDate.getMonth() + 1 === selectedMonth;
-                    
-                    return (
-                      <tr 
-                        key={salary.id}
-                        className={`hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${
-                          isCurrentSelection ? 'bg-blue-50 dark:bg-blue-900/30' : ''
-                        }`}
-                      >
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            {isCurrentSelection && (
-                              <div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
-                            )}
-                            <span className={`text-sm ${
-                              isCurrentSelection 
-                                ? 'font-medium text-blue-600 dark:text-blue-400'
-                                : 'text-gray-900 dark:text-white'
-                            }`}>
-                              {new Date(salary.month).toLocaleDateString('en-US', {
-                                year: 'numeric',
-                                month: 'long'
-                              })}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-right whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                          {salary.basic_salary.toLocaleString('en-US', { maximumFractionDigits: 2 })}
-                        </td>
-                        <td className="px-6 py-4 text-right whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
-                          {salary.total_salary.toLocaleString('en-US', { maximumFractionDigits: 2 })}
-                        </td>
-                        <td className="px-6 py-4 text-right whitespace-nowrap">
-                          <div className="flex justify-end space-x-2">
-                            <button
-                              onClick={() => handleDateChange(salaryDate.getFullYear(), salaryDate.getMonth() + 1)}
-                              className="px-2.5 py-1.5 text-xs font-medium rounded text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                            >
-                              Load
-                            </button>
-                            <button
-                              onClick={() => {/* PDF generation logic */}}
-                              className="px-2.5 py-1.5 text-xs font-medium rounded text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
-                            >
-                              PDF
-                            </button>
-                          </div>
+            <div className="min-w-full inline-block align-middle">
+              <div className="overflow-hidden">
+                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                  <thead>
+                    <tr className="bg-gray-50 dark:bg-gray-900">
+                      <th scope="col" className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Month</th>
+                      <th scope="col" className="px-3 sm:px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Basic Salary</th>
+                      <th scope="col" className="px-3 sm:px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Total</th>
+                      <th scope="col" className="px-3 sm:px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                    {salaryHistory && salaryHistory.length > 0 ? (
+                      salaryHistory.map((salary) => {
+                        const salaryDate = new Date(salary.month);
+                        const isCurrentSelection = 
+                          salaryDate.getFullYear() === selectedYear && 
+                          salaryDate.getMonth() + 1 === selectedMonth;
+                        
+                        return (
+                          <tr 
+                            key={salary.id}
+                            className={`hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${
+                              isCurrentSelection ? 'bg-blue-50 dark:bg-blue-900/30' : ''
+                            }`}
+                          >
+                            <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
+                              <div className="flex items-center">
+                                {isCurrentSelection && (
+                                  <div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
+                                )}
+                                <span className={`text-xs sm:text-sm ${
+                                  isCurrentSelection 
+                                    ? 'font-medium text-blue-600 dark:text-blue-400'
+                                    : 'text-gray-900 dark:text-white'
+                                }`}>
+                                  {new Date(salary.month).toLocaleDateString('en-US', {
+                                    year: 'numeric',
+                                    month: 'long'
+                                  })}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="px-3 sm:px-6 py-3 sm:py-4 text-right whitespace-nowrap text-xs sm:text-sm text-gray-500 dark:text-gray-400">
+                              {salary.basic_salary.toLocaleString('en-US', { maximumFractionDigits: 2 })}
+                            </td>
+                            <td className="px-3 sm:px-6 py-3 sm:py-4 text-right whitespace-nowrap text-xs sm:text-sm font-medium text-gray-900 dark:text-white">
+                              {salary.total_salary.toLocaleString('en-US', { maximumFractionDigits: 2 })}
+                            </td>
+                            <td className="px-3 sm:px-6 py-3 sm:py-4 text-right whitespace-nowrap">
+                              <div className="flex justify-end space-x-2">
+                                <button
+                                  onClick={() => handleDateChange(salaryDate.getFullYear(), salaryDate.getMonth() + 1)}
+                                  className="px-2 sm:px-2.5 py-1 sm:py-1.5 text-xs font-medium rounded text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                                >
+                                  Load
+                                </button>
+                                <button
+                                  onClick={() => {/* PDF generation logic */}}
+                                  className="px-2 sm:px-2.5 py-1 sm:py-1.5 text-xs font-medium rounded text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
+                                >
+                                  PDF
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    ) : (
+                      <tr>
+                        <td colSpan={4} className="px-3 sm:px-6 py-8 sm:py-10 text-center text-xs sm:text-sm text-gray-500 dark:text-gray-400">
+                          No salary history available
                         </td>
                       </tr>
-                    );
-                  })
-                ) : (
-                  <tr>
-                    <td colSpan={4} className="px-6 py-10 text-center text-sm text-gray-500 dark:text-gray-400">
-                      No salary history available
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         </div>
       </div>
