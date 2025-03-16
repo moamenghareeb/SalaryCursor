@@ -52,7 +52,7 @@ const ShiftEditModal: React.FC<ShiftEditModalProps> = ({
     
     if (day && !isLoading) {
       // Update the shift and notes
-      onSave(day.date, selectedShift, notes || undefined);
+      onSave(day.date, selectedShift, notes === '' ? undefined : notes);
       
       // If the selected shift is Overtime, add 24 hours to the user's overtime
       if (selectedShift === 'Overtime') {
