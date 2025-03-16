@@ -55,9 +55,9 @@ export interface SalaryAllowances {
   costOfLiving: number;
   shiftAllowance: number;
   variablePay: number;
-  transportation?: number;
-  housing?: number;
-  meals?: number;
+  transportation: number;
+  housing: number;
+  meals: number;
 }
 
 export interface SalaryCalculation {
@@ -72,25 +72,25 @@ export interface SalaryCalculation {
   costOfLiving: number;
   shiftAllowance: number;
   variablePay: number;
-  transportation?: number;
-  housing?: number;
-  meals?: number;
+  transportation: number;
+  housing: number;
+  meals: number;
 
-  // Optional deductions
-  pensionPlan?: number;
-  premiumCardDeduction?: number;
-  mobileDeduction?: number;
-  absences?: number;
-  sickLeave?: number;
-  actAsPay?: number;
+  // Deductions
+  pensionPlan: number;
+  premiumCardDeduction: number;
+  mobileDeduction: number;
+  absences: number;
+  sickLeave: number;
+  actAsPay: number;
 
-  // Optional calculated fields
-  exchangeRate?: number;
-  overtimePay?: number;
-  totalSalary?: number;
-  grossSalary?: number;
-  netSalary?: number;
-  allowances?: SalaryAllowances;
+  // Calculated fields
+  exchangeRate: number;
+  overtimePay: number;
+  totalSalary: number;
+  grossSalary: number;
+  netSalary: number;
+  allowances: SalaryAllowances;
 }
 
 export interface CalculatedSalary {

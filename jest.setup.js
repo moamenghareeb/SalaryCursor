@@ -1,4 +1,4 @@
-import '@testing-library/jest-dom'
+require('@testing-library/jest-dom');
 
 // Mock Next.js router
 jest.mock('next/router', () => ({
@@ -8,7 +8,7 @@ jest.mock('next/router', () => ({
     query: {},
     asPath: '/',
   }),
-}))
+}));
 
 // Mock Supabase
 jest.mock('./lib/supabase', () => ({
@@ -21,4 +21,4 @@ jest.mock('./lib/supabase', () => ({
       })),
     },
   },
-}))
+}));
