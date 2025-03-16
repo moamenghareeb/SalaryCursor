@@ -108,14 +108,15 @@ export default function Salary() {
       if (error) throw error;
 
       // Set schedule overtime hours
-      const hours = data?.overtime_hours || 0;
-      setScheduleOvertimeHours(hours);
+      const scheduleHours = data?.overtime_hours || 0;
+      setScheduleOvertimeHours(scheduleHours);
       
       // Update salary calculation with total overtime hours
       setSalaryCalc(prev => {
         const basicSalary = prev.basicSalary || 0;
         const costOfLiving = prev.costOfLiving || 0;
-        const totalOvertimeHours = hours + (prev.manualOvertimeHours || 0);
+        const manualHours = prev.manualOvertimeHours || 0;
+        const totalOvertimeHours = scheduleHours + manualHours;
         
         // Calculate overtime pay: ((basic + cost of living) / 210) * overtime hours
         const overtimePay = ((basicSalary + costOfLiving) / 210) * totalOvertimeHours;
@@ -136,7 +137,6 @@ export default function Salary() {
         return {
           ...prev,
           overtimeHours: totalOvertimeHours,
-          manualOvertimeHours: prev.manualOvertimeHours || 0,
           overtimePay,
           variablePay,
           totalSalary
@@ -202,19 +202,36 @@ export default function Salary() {
       setManualOvertimeHours(value);
       const totalOvertimeHours = scheduleOvertimeHours + value;
       newCalc.overtimeHours = totalOvertimeHours;
+      
+      // Calculate overtime pay
+      const basicSalary = newCalc.basicSalary || 0;
+      const costOfLiving = newCalc.costOfLiving || 0;
+      const overtimePay = ((basicSalary + costOfLiving) / 210) * totalOvertimeHours;
+      newCalc.overtimePay = overtimePay;
+      
+      // Calculate variable pay
+      const shiftAllowance = newCalc.shiftAllowance || 0;
+      const variablePay = (basicSalary + costOfLiving + shiftAllowance + overtimePay) * ((exchangeRate / 31) - 1);
+      newCalc.variablePay = variablePay;
+      
+      // Recalculate total salary
+      newCalc.totalSalary = 
+        basicSalary + 
+        costOfLiving + 
+        shiftAllowance + 
+        overtimePay + 
+        variablePay - 
+        (newCalc.deduction || 0);
     }
     
-    // Automatically calculate overtime pay when overtime hours or related fields change
-    if (field === 'overtimeHours' || field === 'basicSalary' || field === 'costOfLiving' || field === 'manualOvertimeHours') {
-      // Calculate overtime pay: ((basic + cost of living) / 210) * overtime hours
+    // Automatically calculate overtime pay when basic salary or cost of living changes
+    if (field === 'basicSalary' || field === 'costOfLiving') {
       const basicSalary = field === 'basicSalary' ? value : newCalc.basicSalary || 0;
       const costOfLiving = field === 'costOfLiving' ? value : newCalc.costOfLiving || 0;
-      const totalOvertimeHours = newCalc.overtimeHours || 0;
+      const totalOvertimeHours = scheduleOvertimeHours + manualOvertimeHours;
       
       // Calculate overtime pay based on 210 working hours per month
       const overtimePay = ((basicSalary + costOfLiving) / 210) * totalOvertimeHours;
-      
-      // Update overtime pay
       newCalc.overtimePay = overtimePay;
       
       // Calculate variable pay
