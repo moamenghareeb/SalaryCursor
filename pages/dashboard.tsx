@@ -136,12 +136,10 @@ export default function Dashboard() {
   }, [shiftData?.shifts]);
   
   // Prepare stats data
-  const stats = useMemo(() => {
-    return {
-      monthlyEarnings: salaryData?.currentSalary || 0,
-      overtimeHours: shiftData?.stats?.overtimeHours || 0
-    };
-  }, [salaryData, shiftData]);
+  const stats = useMemo(() => ({
+    monthlyEarnings: salaryData?.currentSalary || 0,
+    overtimeHours: shiftData?.stats?.overtimeHours || 0
+  }), [salaryData, shiftData]);
   
   // Combined loading state
   const isLoading = employeeLoading || leaveLoading || salaryLoading || shiftLoading;
@@ -246,113 +244,49 @@ export default function Dashboard() {
       </Head>
 
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-        <div className="px-2 sm:px-4 lg:px-8 py-4 sm:py-6">
-          {/* Header section */}
-          <div className="mb-4 sm:mb-8">
-            <h1 className="text-2xl sm:text-3xl font-semibold text-gray-900 dark:text-white">Dashboard</h1>
-            <p className="mt-1 text-sm sm:text-base text-gray-600 dark:text-gray-400">
+        <div className="px-4 sm:px-6 lg:px-8 py-8">
+          {/* Welcome Section */}
+          <div className="mb-8">
+            <h1 className="text-2xl sm:text-3xl font-semibold text-gray-900 dark:text-white mb-2">
               Welcome back, {employee?.name || 'Loading...'}
+            </h1>
+            <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">
+              Here's an overview of your work schedule and salary information
             </p>
           </div>
 
-          {/* Stats Panel */}
-          <div className="grid gap-4 sm:gap-6 mb-4 sm:mb-6">
+          {/* Stats Grid */}
+          <div className="grid gap-6 mb-8">
             {isLoading ? (
               <StatsPanelSkeleton />
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {/* Salary Stats */}
-                <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg shadow-sm">
-                  <div className="flex items-center">
-                    <div className="flex-shrink-0">
-                      <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-                        <FiDollarSign className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-                      </div>
-                    </div>
-                    <div className="ml-4">
-                      <h3 className="text-sm font-medium text-gray-900 dark:text-white">Last Month's Salary</h3>
-                      <p className="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">
-                        {salaryData?.currentSalary ? `EGP ${salaryData.currentSalary.toLocaleString()}` : '-'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Overtime Stats */}
-                <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg shadow-sm">
-                  <div className="flex items-center">
-                    <div className="flex-shrink-0">
-                      <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
-                        <FiPieChart className="h-6 w-6 text-green-600 dark:text-green-400" />
-                      </div>
-                    </div>
-                    <div className="ml-4">
-                      <h3 className="text-sm font-medium text-gray-900 dark:text-white">Overtime Hours</h3>
-                      <p className="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">
-                        {shiftData?.stats?.overtimeHours ? `${shiftData.stats.overtimeHours} hrs` : '0 hrs'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Leave Balance */}
-                <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg shadow-sm">
-                  <div className="flex items-center">
-                    <div className="flex-shrink-0">
-                      <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
-                        <FiCalendar className="h-6 w-6 text-purple-600 dark:text-purple-400" />
-                      </div>
-                    </div>
-                    <div className="ml-4">
-                      <h3 className="text-sm font-medium text-gray-900 dark:text-white">Leave Balance</h3>
-                      <p className="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">
-                        {leaveBalanceData?.remainingBalance ? `${leaveBalanceData.remainingBalance} days` : '0 days'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Next Shift */}
-                <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg shadow-sm">
-                  <div className="flex items-center">
-                    <div className="flex-shrink-0">
-                      <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
-                        <FiArrowRight className="h-6 w-6 text-amber-600 dark:text-amber-400" />
-                      </div>
-                    </div>
-                    <div className="ml-4">
-                      <h3 className="text-sm font-medium text-gray-900 dark:text-white">Next Shift</h3>
-                      <p className="mt-1 text-lg font-semibold text-gray-900 dark:text-white">
-                        {upcomingShifts.length > 0 ? format(new Date(upcomingShifts[0].date), 'MMM dd') : 'No upcoming shifts'}
-                      </p>
-                      {upcomingShifts.length > 0 && (
-                        <p className="text-sm text-gray-600 dark:text-gray-400">{upcomingShifts[0].type} Shift</p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <StatsPanel data={stats} />
             )}
           </div>
 
           {/* Main Content Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-            {/* Upcoming Shifts */}
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* Upcoming Shifts Card */}
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm">
-              <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
-                  <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">Upcoming Shifts</h2>
+              <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <FiCalendar className="w-5 h-5 text-blue-500 mr-2" />
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                      Upcoming Shifts
+                    </h2>
+                  </div>
                   <Link 
                     href="/schedule" 
-                    className="flex items-center justify-center text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
+                    className="flex items-center text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
                   >
                     View Schedule
-                    <FiArrowRight className="ml-1 h-4 w-4" />
+                    <FiArrowRight className="ml-1 w-4 h-4" />
                   </Link>
                 </div>
               </div>
 
-              <div className="p-4 sm:p-6">
+              <div className="p-6">
                 {isLoading ? (
                   <UpcomingShiftsSkeleton />
                 ) : upcomingShifts.length > 0 ? (
@@ -360,100 +294,246 @@ export default function Dashboard() {
                     {upcomingShifts.map((shift, index) => (
                       <div 
                         key={index}
-                        className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg"
+                        className="flex items-start p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg"
                       >
-                        <div className="flex items-center space-x-3">
-                          <div className={`p-2 rounded-lg ${
-                            shift.type === 'Day' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' :
-                            shift.type === 'Night' ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400' :
-                            'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400'
-                          }`}>
-                            <FiCalendar className="h-5 w-5" />
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium text-gray-900 dark:text-white">
-                              {format(new Date(shift.date), 'EEEE, MMMM d')}
-                            </p>
-                            <p className="text-sm text-gray-600 dark:text-gray-400">
-                              {shift.type} Shift
-                            </p>
-                          </div>
+                        <div className="flex-shrink-0 w-12 h-12 flex items-center justify-center bg-blue-100 dark:bg-blue-900/50 rounded-lg mr-4">
+                          <span className="text-lg font-semibold text-blue-600 dark:text-blue-400">
+                            {format(new Date(shift.date), 'd')}
+                          </span>
                         </div>
-                        <div className="text-right">
-                          <p className="text-sm font-medium text-gray-900 dark:text-white">
-                            {getShiftTimes(shift.type).start}
-                          </p>
+                        <div className="flex-grow">
+                          <div className="flex items-center justify-between mb-1">
+                            <h3 className="text-sm font-medium text-gray-900 dark:text-white">
+                              {format(new Date(shift.date), 'EEEE, MMMM d')}
+                            </h3>
+                            <span className={`px-2.5 py-0.5 text-xs font-medium rounded-full ${
+                              shift.type === 'Day' 
+                                ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                                : shift.type === 'Night'
+                                ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400'
+                                : 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400'
+                            }`}>
+                              {shift.type} Shift
+                            </span>
+                          </div>
                           <p className="text-sm text-gray-600 dark:text-gray-400">
-                            {getShiftTimes(shift.type).end}
+                            {shift.startTime} - {shift.endTime}
                           </p>
                         </div>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center py-6">
-                    <p className="text-sm text-gray-600 dark:text-gray-400">No upcoming shifts scheduled</p>
+                  <div className="text-center py-8">
+                    <div className="w-12 h-12 mx-auto mb-4 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700">
+                      <FiCalendar className="w-6 h-6 text-gray-400 dark:text-gray-500" />
+                    </div>
+                    <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-1">
+                      No Upcoming Shifts
+                    </h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      You have no scheduled shifts for the next few days
+                    </p>
                   </div>
                 )}
               </div>
             </div>
 
-            {/* Salary History */}
+            {/* Leave Balance Card */}
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm">
-              <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
-                  <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">Salary History</h2>
-                  <div className="flex items-center space-x-2">
+              <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <FiPieChart className="w-5 h-5 text-blue-500 mr-2" />
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                      Leave Balance
+                    </h2>
+                  </div>
+                  <Link 
+                    href="/leave" 
+                    className="flex items-center text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
+                  >
+                    Request Leave
+                    <FiArrowRight className="ml-1 w-4 h-4" />
+                  </Link>
+                </div>
+              </div>
+
+              <div className="p-6">
+                {isLoading ? (
+                  <LeaveBalanceSkeleton />
+                ) : leaveBalanceData ? (
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="text-sm font-medium text-gray-900 dark:text-white">
+                          Annual Leave
+                        </h3>
+                        <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                          {leaveBalanceData.used} used
+                        </span>
+                      </div>
+                      <div className="relative pt-1">
+                        <div className="flex mb-2 items-center justify-between">
+                          <div>
+                            <span className="text-lg font-semibold text-blue-600 dark:text-blue-400">
+                              {leaveBalanceData.remainingBalance}
+                            </span>
+                            <span className="text-xs font-medium text-gray-500 dark:text-gray-400 ml-1">
+                              days remaining
+                            </span>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                              {Math.round((leaveBalanceData.remainingBalance / leaveBalanceData.total) * 100)}%
+                            </span>
+                          </div>
+                        </div>
+                        <div className="overflow-hidden h-2 text-xs flex rounded bg-gray-200 dark:bg-gray-600">
+                          <div 
+                            style={{ width: `${(leaveBalanceData.remainingBalance / leaveBalanceData.total) * 100}%` }}
+                            className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-blue-500 dark:bg-blue-400"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="text-sm font-medium text-gray-900 dark:text-white">
+                          Sick Leave
+                        </h3>
+                        <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                          {leaveBalanceData.used} used
+                        </span>
+                      </div>
+                      <div className="relative pt-1">
+                        <div className="flex mb-2 items-center justify-between">
+                          <div>
+                            <span className="text-lg font-semibold text-green-600 dark:text-green-400">
+                              {leaveBalanceData.remainingBalance}
+                            </span>
+                            <span className="text-xs font-medium text-gray-500 dark:text-gray-400 ml-1">
+                              days remaining
+                            </span>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                              {Math.round((leaveBalanceData.remainingBalance / leaveBalanceData.total) * 100)}%
+                            </span>
+                          </div>
+                        </div>
+                        <div className="overflow-hidden h-2 text-xs flex rounded bg-gray-200 dark:bg-gray-600">
+                          <div 
+                            style={{ width: `${(leaveBalanceData.remainingBalance / leaveBalanceData.total) * 100}%` }}
+                            className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-green-500 dark:bg-green-400"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <div className="w-12 h-12 mx-auto mb-4 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700">
+                      <FiPieChart className="w-6 h-6 text-gray-400 dark:text-gray-500" />
+                    </div>
+                    <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-1">
+                      No Leave Data
+                    </h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      Your leave balance information is not available
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Recent Salary History */}
+          <div className="mt-8">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm">
+              <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <FiDollarSign className="w-5 h-5 text-blue-500 mr-2" />
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                      Recent Salary History
+                    </h2>
+                  </div>
+                  <div className="flex items-center space-x-4">
+                    <button
+                      onClick={handleDownloadPDF}
+                      disabled={pdfLoading}
+                      className="flex items-center px-3 py-1.5 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                    >
+                      <FiDownload className="w-4 h-4 mr-1.5" />
+                      {pdfLoading ? 'Generating...' : 'Yearly Report'}
+                    </button>
                     <Link 
                       href="/salary" 
-                      className="flex items-center justify-center text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
+                      className="flex items-center text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
                     >
                       View All
-                      <FiArrowRight className="ml-1 h-4 w-4" />
+                      <FiArrowRight className="ml-1 w-4 h-4" />
                     </Link>
                   </div>
                 </div>
               </div>
 
-              <div className="p-4 sm:p-6">
-                {isLoading ? (
-                  <SalaryHistorySkeleton />
-                ) : salaryData?.monthlySalaries && salaryData.monthlySalaries.length > 0 ? (
-                  <div className="space-y-4">
-                    {salaryData.monthlySalaries.slice(0, 5).map((month, index) => (
-                      <div 
-                        key={index}
-                        className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg"
-                      >
-                        <div>
-                          <p className="text-sm font-medium text-gray-900 dark:text-white">
-                            {month.name}
-                          </p>
-                          <p className="text-sm text-gray-600 dark:text-gray-400">
-                            Month {month.month}: EGP {month.total.toLocaleString()}
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-sm font-medium text-gray-900 dark:text-white">
-                            EGP {month.total.toLocaleString()}
-                          </p>
-                          <button
-                            onClick={() => handleDownloadPDF()}
-                            disabled={pdfLoading}
-                            className="mt-1 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 flex items-center"
-                          >
-                            <FiDownload className="h-4 w-4 mr-1" />
-                            PDF
-                          </button>
-                        </div>
-                      </div>
-                    ))}
+              <div className="overflow-x-auto">
+                <div className="min-w-full inline-block align-middle">
+                  <div className="overflow-hidden">
+                    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                      <thead>
+                        <tr className="bg-gray-50 dark:bg-gray-900">
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            Month
+                          </th>
+                          <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            Basic Salary
+                          </th>
+                          <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            Overtime
+                          </th>
+                          <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            Total
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                        {isLoading ? (
+                          <SalaryHistorySkeleton />
+                        ) : salaryData?.monthlySalaries && salaryData.monthlySalaries.length > 0 ? (
+                          salaryData.monthlySalaries.slice(0, 5).map((salary, index) => (
+                            <tr 
+                              key={index}
+                              className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                            >
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                                {format(new Date(salary.date), 'MMMM yyyy')}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-500 dark:text-gray-400">
+                                {salary.basic_salary.toLocaleString('en-US', { maximumFractionDigits: 2 })}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-500 dark:text-gray-400">
+                                {salary.overtime_pay.toLocaleString('en-US', { maximumFractionDigits: 2 })}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-right text-gray-900 dark:text-white">
+                                {salary.total_salary.toLocaleString('en-US', { maximumFractionDigits: 2 })}
+                              </td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan={4} className="px-6 py-10 text-center text-sm text-gray-500 dark:text-gray-400">
+                              No salary history available
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
                   </div>
-                ) : (
-                  <div className="text-center py-6">
-                    <p className="text-sm text-gray-600 dark:text-gray-400">No salary history available</p>
-                  </div>
-                )}
+                </div>
               </div>
             </div>
           </div>

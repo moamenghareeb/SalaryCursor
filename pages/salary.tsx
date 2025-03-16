@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Layout from '../components/Layout';
 import { supabase } from '../lib/supabase';
 import { Employee } from '../types';
@@ -90,175 +90,73 @@ export default function Salary() {
   const [scheduleOvertimeHours, setScheduleOvertimeHours] = useState(0);
   const [manualOvertimeHours, setManualOvertimeHours] = useState(0);
 
-  // Function to fetch data from Supabase
-  const fetchData = useCallback(async () => {
-    if (!user) return;
-
-    try {
-      setAuthError(null);
-      
-      // Fetch exchange rate from cached endpoint
-      try {
-        console.log("Fetching exchange rate...");
-        const rateResponse = await fetch('/api/exchange-rate');
-        
-        if (rateResponse.ok) {
-          const rateData = await rateResponse.json();
-          if (rateData.rate) {
-            setExchangeRate(rateData.rate);
-            const lastUpdated = new Date(rateData.lastUpdated);
-            setRateLastUpdated(lastUpdated.toLocaleDateString('en-US', {
-              year: 'numeric',
-              month: 'short',
-              day: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit'
-            }));
-          }
-        } else {
-          console.warn("API failed, using fallback rate");
-        }
-      } catch (err) {
-        console.warn("Exchange rate API error, using fallback", err);
-      }
-
-      // Fetch employee data
-      const { data: employeeData, error: employeeError } = await supabase
-        .from('employees')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-
-      if (employeeError) {
-        if (employeeError.code === 'PGRST116') {
-          setAuthError('Employee record not found. Please contact your administrator.');
-        } else {
-          setAuthError(`Error fetching employee data: ${employeeError.message}`);
-        }
-        return;
-      }
-
-      // Set employee data first
-      setEmployee(employeeData);
-
-      // Check for existing salary record for current month
-      const { data: existingRecord, error } = await supabase
-        .from('salaries')
-        .select('*')
-        .eq('employee_id', user.id)
-        .eq('month', `${selectedYear}-${selectedMonth.toString().padStart(2, '0')}`);
-
-      if (error) {
-        console.error('Error fetching salary:', error);
-        return;
-      }
-
-      if (existingRecord && existingRecord.length > 0) {
-        const record = existingRecord[0];
-        setSalaryCalc({
-          basicSalary: record.basic_salary,
-          costOfLiving: record.cost_of_living,
-          shiftAllowance: record.shift_allowance,
-          overtimeHours: record.overtime_hours,
-          manualOvertimeHours: 0,
-          overtimePay: record.overtime_pay,
-          variablePay: record.variable_pay,
-          deduction: record.deduction,
-          totalSalary: record.total_salary,
-          exchangeRate: record.exchange_rate,
-        });
-        toast.success('Loaded saved salary data');
-      } else {
-        // If no record for current month, try to get latest calculation
-        const { data: calcData, error: calcError } = await supabase
-          .from('salary_calculations')
-          .select('*')
-          .eq('employee_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .single();
-
-        if (!calcError && calcData) {
-          setSalaryCalc({
-            basicSalary: calcData.basic_salary,
-            costOfLiving: calcData.cost_of_living,
-            shiftAllowance: calcData.shift_allowance,
-            overtimeHours: calcData.overtime_hours,
-            manualOvertimeHours: calcData.manual_overtime_hours,
-            overtimePay: calcData.overtime_pay,
-            variablePay: calcData.variable_pay,
-            deduction: calcData.deduction,
-            totalSalary: calcData.total_salary,
-            exchangeRate: calcData.exchange_rate,
-          });
-        } else {
-          // Reset to default values if no record exists
-          setSalaryCalc(defaultSalaryCalc);
-        }
-      }
-
-      // Fetch salary history
-      await fetchSalaryHistory();
-
-      // Check if user is admin
-      const { data: adminData, error: adminError } = await supabase
-        .from('employees')
-        .select('is_admin')
-        .eq('id', user.id)
-        .single();
-      
-      if (!adminError && adminData) {
-        setIsAdmin(adminData.is_admin || false);
-      }
-
-    } catch (error) {
-      console.error('Error:', error);
-      toast.error('Failed to load salary data');
-      setAuthError('An unexpected error occurred. Please try again later.');
-    } finally {
-      setLoading(false);
-    }
-  }, [user, selectedYear, selectedMonth]);
-
-  // Function to fetch overtime hours
-  const fetchOvertimeHours = useCallback(async () => {
+  // Function to fetch overtime hours for the selected month
+  const fetchOvertimeHours = async () => {
     if (!user) {
       console.log('No user found, skipping overtime fetch');
       return;
     }
 
     try {
-      const monthDate = `${selectedYear}-${selectedMonth.toString().padStart(2, '0')}`;
+      const monthDate = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-01`;
       console.log('Fetching overtime hours for:', monthDate);
-
-      // Get overtime shifts from shift_overrides
+      
+      // Get overtime shifts from shift_overrides table
       const { data: shifts, error: shiftsError } = await supabase
         .from('shift_overrides')
         .select('*')
         .eq('employee_id', user.id)
         .eq('shift_type', 'Overtime')
-        .gte('date', `${monthDate}-01`)
-        .lt('date', `${selectedYear}-${(selectedMonth + 1).toString().padStart(2, '0')}-01`);
+        .gte('date', monthDate)
+        .lt('date', new Date(selectedYear, selectedMonth, 0).toISOString());
 
       if (shiftsError) {
         console.error('Error fetching overtime shifts:', shiftsError);
-        return;
+        throw shiftsError;
       }
 
-      // Calculate total overtime hours (each shift is 24 hours)
+      // Calculate total overtime hours (24 hours per overtime shift)
       const scheduleHours = (shifts?.length || 0) * 24;
       console.log('Fetched schedule overtime hours:', scheduleHours);
-
-      // Update salary calculation with overtime hours
-      const manualHours = salaryCalc.manualOvertimeHours || 0;
-      const totalOvertimeHours = scheduleHours + manualHours;
-
-      console.log('Updating salary calc with:', { scheduleHours, manualHours, totalOvertimeHours });
-
-      setSalaryCalc(prev => ({
-        ...prev,
-        overtimeHours: totalOvertimeHours
-      }));
+      setScheduleOvertimeHours(scheduleHours);
+      
+      // Update salary calculation with total overtime hours
+      setSalaryCalc(prev => {
+        const basicSalary = prev.basicSalary || 0;
+        const costOfLiving = prev.costOfLiving || 0;
+        const manualHours = prev.manualOvertimeHours || 0;
+        const totalOvertimeHours = scheduleHours + manualHours;
+        
+        console.log('Updating salary calc with:', {
+          scheduleHours,
+          manualHours,
+          totalOvertimeHours
+        });
+        
+        // Calculate overtime pay: ((basic + cost of living) / 210) * overtime hours
+        const overtimePay = ((basicSalary + costOfLiving) / 210) * totalOvertimeHours;
+        
+        // Calculate variable pay
+        const shiftAllowance = prev.shiftAllowance || 0;
+        const variablePay = (basicSalary + costOfLiving + shiftAllowance + overtimePay) * ((exchangeRate / 31) - 1);
+        
+        // Calculate total salary
+        const totalSalary = 
+          basicSalary + 
+          costOfLiving + 
+          shiftAllowance + 
+          overtimePay + 
+          variablePay - 
+          (prev.deduction || 0);
+        
+        return {
+          ...prev,
+          overtimeHours: totalOvertimeHours,
+          overtimePay,
+          variablePay,
+          totalSalary
+        };
+      });
 
       // Update the salaries table with the new overtime hours
       const { error: updateError } = await supabase
@@ -266,24 +164,150 @@ export default function Salary() {
         .upsert({
           employee_id: user.id,
           month: monthDate,
-          overtime_hours: totalOvertimeHours
+          overtime_hours: scheduleHours,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'employee_id,month'
         });
 
       if (updateError) {
-        console.error('Error updating overtime hours:', updateError);
+        console.error('Error updating salary record:', updateError);
       }
+
     } catch (error) {
       console.error('Error fetching overtime hours:', error);
+      toast.error('Failed to fetch overtime data');
     }
-  }, [user, selectedYear, selectedMonth, salaryCalc.manualOvertimeHours]);
+  };
+
+  // Update the handleDateChange function to fetch overtime data
+  const handleDateChange = (year: number, month: number) => {
+    setSelectedYear(year);
+    setSelectedMonth(month);
+    setMonth(`${year}-${String(month).padStart(2, '0')}`);
+    
+    // Look for existing salary record for this month/year
+    if (salaryHistory && salaryHistory.length > 0) {
+      const formattedMonth = `${year}-${String(month).padStart(2, '0')}`;
+      const existingRecord = salaryHistory.find(salary => {
+        const salaryDate = new Date(salary.month);
+        const salaryYear = salaryDate.getFullYear();
+        const salaryMonth = salaryDate.getMonth() + 1;
+        return salaryYear === year && salaryMonth === month;
+      });
+      
+      if (existingRecord) {
+        // Use existing record
+        const scheduleHours = existingRecord.overtime_hours || 0;
+        const manualHours = 0; // Reset manual hours when loading a new record
+        
+        setScheduleOvertimeHours(scheduleHours);
+        setManualOvertimeHours(manualHours);
+        
+        setSalaryCalc({
+          basicSalary: existingRecord.basic_salary,
+          costOfLiving: existingRecord.cost_of_living,
+          shiftAllowance: existingRecord.shift_allowance,
+          overtimeHours: scheduleHours + manualHours, // Total overtime is sum of both
+          manualOvertimeHours: manualHours,
+          overtimePay: existingRecord.overtime_pay,
+          variablePay: existingRecord.variable_pay,
+          deduction: existingRecord.deduction,
+          totalSalary: existingRecord.total_salary,
+          exchangeRate: existingRecord.exchange_rate,
+        });
+        toast.success(`Loaded existing salary record for ${new Date(existingRecord.month).toLocaleDateString('en-US', {month: 'long', year: 'numeric'})}`);
+      } else {
+        // Reset all overtime values for a new record
+        setScheduleOvertimeHours(0);
+        setManualOvertimeHours(0);
+        setSalaryCalc(prev => ({
+          ...prev,
+          overtimeHours: 0,
+          manualOvertimeHours: 0,
+          overtimePay: 0
+        }));
+        toast(`No existing record for ${new Date(year, month-1).toLocaleDateString('en-US', {month: 'long', year: 'numeric'})}. You can create a new one.`);
+      }
+    }
+
+    // Fetch overtime hours for the new month
+    fetchOvertimeHours();
+  };
+
+  // Update the handleInputChange function to handle overtime calculations
+  const handleInputChange = (field: keyof SalaryCalculation, value: number) => {
+    // Create the updated calculation object
+    const newCalc = {
+      ...salaryCalc,
+      [field]: value,
+    };
+    
+    // Handle manual overtime input
+    if (field === 'manualOvertimeHours') {
+      setManualOvertimeHours(value);
+      const totalOvertimeHours = scheduleOvertimeHours + value;
+      newCalc.overtimeHours = totalOvertimeHours;
+      
+      // Calculate overtime pay
+      const basicSalary = newCalc.basicSalary || 0;
+      const costOfLiving = newCalc.costOfLiving || 0;
+      const overtimePay = ((basicSalary + costOfLiving) / 210) * totalOvertimeHours;
+      newCalc.overtimePay = overtimePay;
+      
+      // Calculate variable pay
+      const shiftAllowance = newCalc.shiftAllowance || 0;
+      const variablePay = (basicSalary + costOfLiving + shiftAllowance + overtimePay) * ((exchangeRate / 31) - 1);
+      newCalc.variablePay = variablePay;
+      
+      // Recalculate total salary
+      newCalc.totalSalary = 
+        basicSalary + 
+        costOfLiving + 
+        shiftAllowance + 
+        overtimePay + 
+        variablePay - 
+        (newCalc.deduction || 0);
+    }
+    
+    // Automatically calculate overtime pay when basic salary or cost of living changes
+    if (field === 'basicSalary' || field === 'costOfLiving') {
+      const basicSalary = field === 'basicSalary' ? value : newCalc.basicSalary || 0;
+      const costOfLiving = field === 'costOfLiving' ? value : newCalc.costOfLiving || 0;
+      const totalOvertimeHours = scheduleOvertimeHours + manualOvertimeHours;
+      
+      // Calculate overtime pay based on 210 working hours per month
+      const overtimePay = ((basicSalary + costOfLiving) / 210) * totalOvertimeHours;
+      newCalc.overtimePay = overtimePay;
+      
+      // Calculate variable pay
+      const shiftAllowance = newCalc.shiftAllowance || 0;
+      const variablePay = (basicSalary + costOfLiving + shiftAllowance + overtimePay) * ((exchangeRate / 31) - 1);
+      newCalc.variablePay = variablePay;
+      
+      // Recalculate total salary
+      newCalc.totalSalary = 
+        basicSalary + 
+        costOfLiving + 
+        shiftAllowance + 
+        overtimePay + 
+        variablePay - 
+        (newCalc.deduction || 0);
+    }
+    
+    setSalaryCalc(newCalc);
+    // Save to localStorage with debounce
+    debouncedSaveToLocalStorage(newCalc);
+  };
 
   // Modified useEffects to guarantee localStorage priority
   useEffect(() => {
+    fetchData();
+    // Fetch overtime hours when component mounts
     if (user) {
-      fetchData();
       fetchOvertimeHours();
     }
-  }, [user, fetchData, fetchOvertimeHours]);
+  }, []);
 
   // This separate useEffect ensures localStorage values are applied AFTER 
   // the employee data has been set and database data has loaded
@@ -732,6 +756,137 @@ export default function Salary() {
     }
   };
 
+  // Update the fetchData function to apply localStorage data AFTER database loading
+  const fetchData = async () => {
+    try {
+      setAuthError(null);
+      
+      // Fetch exchange rate from cached endpoint
+      try {
+        console.log("Fetching exchange rate...");
+        const rateResponse = await fetch('/api/exchange-rate');
+        
+        if (rateResponse.ok) {
+          const rateData = await rateResponse.json();
+          if (rateData.rate) {
+            setExchangeRate(rateData.rate);
+            const lastUpdated = new Date(rateData.lastUpdated);
+            setRateLastUpdated(lastUpdated.toLocaleDateString('en-US', {
+              year: 'numeric',
+              month: 'short',
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            }));
+          }
+        } else {
+          console.warn("API failed, using fallback rate");
+        }
+      } catch (err) {
+        console.warn("Exchange rate API error, using fallback", err);
+      }
+
+      // Fetch employee data
+      const { data: userData, error: authError } = await supabase.auth.getUser();
+      
+      if (authError) {
+        setAuthError('Authentication failed. Please try logging in again.');
+        return;
+      }
+
+      if (!userData?.user) {
+        setAuthError('No user found. Please log in.');
+        return;
+      }
+
+      const { data: employeeData, error: employeeError } = await supabase
+        .from('employees')
+        .select('*')
+        .eq('id', userData.user.id)
+        .single();
+
+      if (employeeError) {
+        if (employeeError.code === 'PGRST116') {
+          setAuthError('Employee record not found. Please contact your administrator.');
+        } else {
+          setAuthError(`Error fetching employee data: ${employeeError.message}`);
+        }
+        return;
+      }
+
+      // Set employee data first
+      setEmployee(employeeData);
+
+      // First try to get the latest calculation
+      const { data: calcData, error: calcError } = await supabase
+        .from('salary_calculations')
+        .select('*')
+        .eq('employee_id', userData.user.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (!calcError && calcData) {
+        setSalaryCalc({
+          basicSalary: calcData.basic_salary,
+          costOfLiving: calcData.cost_of_living,
+          shiftAllowance: calcData.shift_allowance,
+          overtimeHours: calcData.overtime_hours,
+          manualOvertimeHours: calcData.manual_overtime_hours,
+          overtimePay: calcData.overtime_pay,
+          variablePay: calcData.variable_pay,
+          deduction: calcData.deduction,
+          totalSalary: calcData.total_salary,
+          exchangeRate: calcData.exchange_rate,
+        });
+      } else {
+        // If no calculation found, try to get from salaries table
+        const { data: salaryData, error: salaryError } = await supabase
+          .from('salaries')
+          .select('*')
+          .eq('employee_id', userData.user.id)
+          .order('month', { ascending: false })
+          .limit(1)
+          .single();
+
+        if (!salaryError && salaryData) {
+          setSalaryCalc({
+            basicSalary: salaryData.basic_salary,
+            costOfLiving: salaryData.cost_of_living,
+            shiftAllowance: salaryData.shift_allowance,
+            overtimeHours: salaryData.overtime_hours,
+            manualOvertimeHours: 0,
+            overtimePay: salaryData.overtime_pay,
+            variablePay: salaryData.variable_pay,
+            deduction: salaryData.deduction,
+            totalSalary: salaryData.total_salary,
+            exchangeRate: salaryData.exchange_rate,
+          });
+        }
+      }
+
+      // Fetch other data like history
+      await fetchSalaryHistory();
+
+      // Check if user is admin
+      const { data: adminData, error: adminError } = await supabase
+        .from('employees')
+        .select('is_admin')
+        .eq('id', userData.user.id)
+        .single();
+      
+      if (!adminError && adminData) {
+        setIsAdmin(adminData.is_admin || false);
+      }
+
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      setAuthError('An unexpected error occurred. Please try again later.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Add near the other functions in the component
   const downloadPDF = (salary: any) => {
     try {
@@ -808,126 +963,6 @@ export default function Salary() {
     const results = testCalculation();
     console.log('Test Calculation Results:', results);
   }, []);
-
-  // Update the handleDateChange function to fetch overtime data
-  const handleDateChange = (year: number, month: number) => {
-    setSelectedYear(year);
-    setSelectedMonth(month);
-    setMonth(`${year}-${String(month).padStart(2, '0')}`);
-    
-    // Look for existing salary record for this month/year
-    if (salaryHistory && salaryHistory.length > 0) {
-      const formattedMonth = `${year}-${String(month).padStart(2, '0')}`;
-      const existingRecord = salaryHistory.find(salary => {
-        const salaryDate = new Date(salary.month);
-        const salaryYear = salaryDate.getFullYear();
-        const salaryMonth = salaryDate.getMonth() + 1;
-        return salaryYear === year && salaryMonth === month;
-      });
-      
-      if (existingRecord) {
-        // Use existing record
-        const scheduleHours = existingRecord.overtime_hours || 0;
-        const manualHours = 0; // Reset manual hours when loading a new record
-        
-        setScheduleOvertimeHours(scheduleHours);
-        setManualOvertimeHours(manualHours);
-        
-        setSalaryCalc({
-          basicSalary: existingRecord.basic_salary,
-          costOfLiving: existingRecord.cost_of_living,
-          shiftAllowance: existingRecord.shift_allowance,
-          overtimeHours: scheduleHours + manualHours, // Total overtime is sum of both
-          manualOvertimeHours: manualHours,
-          overtimePay: existingRecord.overtime_pay,
-          variablePay: existingRecord.variable_pay,
-          deduction: existingRecord.deduction,
-          totalSalary: existingRecord.total_salary,
-          exchangeRate: existingRecord.exchange_rate,
-        });
-        toast.success(`Loaded existing salary record for ${new Date(existingRecord.month).toLocaleDateString('en-US', {month: 'long', year: 'numeric'})}`);
-      } else {
-        // Reset all overtime values for a new record
-        setScheduleOvertimeHours(0);
-        setManualOvertimeHours(0);
-        setSalaryCalc(prev => ({
-          ...prev,
-          overtimeHours: 0,
-          manualOvertimeHours: 0,
-          overtimePay: 0
-        }));
-        toast(`No existing record for ${new Date(year, month-1).toLocaleDateString('en-US', {month: 'long', year: 'numeric'})}. You can create a new one.`);
-      }
-    }
-
-    // Fetch overtime hours for the new month
-    fetchOvertimeHours();
-  };
-
-  // Update the handleInputChange function to handle overtime calculations
-  const handleInputChange = (field: keyof SalaryCalculation, value: number) => {
-    // Create the updated calculation object
-    const newCalc = {
-      ...salaryCalc,
-      [field]: value,
-    };
-    
-    // Handle manual overtime input
-    if (field === 'manualOvertimeHours') {
-      setManualOvertimeHours(value);
-      const totalOvertimeHours = scheduleOvertimeHours + value;
-      newCalc.overtimeHours = totalOvertimeHours;
-      
-      // Calculate overtime pay
-      const basicSalary = newCalc.basicSalary || 0;
-      const costOfLiving = newCalc.costOfLiving || 0;
-      const overtimePay = ((basicSalary + costOfLiving) / 210) * totalOvertimeHours;
-      newCalc.overtimePay = overtimePay;
-      
-      // Calculate variable pay
-      const shiftAllowance = newCalc.shiftAllowance || 0;
-      const variablePay = (basicSalary + costOfLiving + shiftAllowance + overtimePay) * ((exchangeRate / 31) - 1);
-      newCalc.variablePay = variablePay;
-      
-      // Recalculate total salary
-      newCalc.totalSalary = 
-        basicSalary + 
-        costOfLiving + 
-        shiftAllowance + 
-        overtimePay + 
-        variablePay - 
-        (newCalc.deduction || 0);
-    }
-    
-    // Automatically calculate overtime pay when basic salary or cost of living changes
-    if (field === 'basicSalary' || field === 'costOfLiving') {
-      const basicSalary = field === 'basicSalary' ? value : newCalc.basicSalary || 0;
-      const costOfLiving = field === 'costOfLiving' ? value : newCalc.costOfLiving || 0;
-      const totalOvertimeHours = scheduleOvertimeHours + manualOvertimeHours;
-      
-      // Calculate overtime pay based on 210 working hours per month
-      const overtimePay = ((basicSalary + costOfLiving) / 210) * totalOvertimeHours;
-      newCalc.overtimePay = overtimePay;
-      
-      // Calculate variable pay
-      const shiftAllowance = newCalc.shiftAllowance || 0;
-      const variablePay = (basicSalary + costOfLiving + shiftAllowance + overtimePay) * ((exchangeRate / 31) - 1);
-      newCalc.variablePay = variablePay;
-      
-      // Recalculate total salary
-      newCalc.totalSalary = 
-        basicSalary + 
-        costOfLiving + 
-        shiftAllowance + 
-        overtimePay + 
-        variablePay - 
-        (newCalc.deduction || 0);
-    }
-    
-    setSalaryCalc(newCalc);
-    // Save to localStorage with debounce
-    debouncedSaveToLocalStorage(newCalc);
-  };
 
   if (loading) {
     return (
