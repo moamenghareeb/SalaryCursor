@@ -98,8 +98,14 @@ export default function Salary() {
     }
 
     try {
-      const monthDate = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-01`;
-      console.log('Fetching overtime hours for:', monthDate);
+      // Calculate start and end dates for the selected month
+      const startDate = new Date(selectedYear, selectedMonth - 1, 1);
+      const endDate = new Date(selectedYear, selectedMonth, 0); // Last day of the selected month
+      
+      console.log('Fetching overtime hours for period:', {
+        start: startDate.toISOString(),
+        end: endDate.toISOString()
+      });
       
       // Get overtime shifts from shift_overrides table
       const { data: shifts, error: shiftsError } = await supabase
@@ -107,8 +113,8 @@ export default function Salary() {
         .select('*')
         .eq('employee_id', user.id)
         .eq('shift_type', 'Overtime')
-        .gte('date', monthDate)
-        .lt('date', new Date(selectedYear, selectedMonth, 0).toISOString());
+        .gte('date', startDate.toISOString().split('T')[0])
+        .lte('date', endDate.toISOString().split('T')[0]);
 
       if (shiftsError) {
         console.error('Error fetching overtime shifts:', shiftsError);
@@ -117,7 +123,8 @@ export default function Salary() {
 
       // Calculate total overtime hours (24 hours per overtime shift)
       const scheduleHours = (shifts?.length || 0) * 24;
-      console.log('Fetched schedule overtime hours:', scheduleHours);
+      console.log('Fetched overtime shifts:', shifts);
+      console.log('Calculated schedule overtime hours:', scheduleHours);
       setScheduleOvertimeHours(scheduleHours);
       
       // Update salary calculation with total overtime hours
@@ -163,7 +170,7 @@ export default function Salary() {
         .from('salaries')
         .upsert({
           employee_id: user.id,
-          month: monthDate,
+          month: startDate.toISOString(),
           overtime_hours: scheduleHours,
           updated_at: new Date().toISOString()
         }, {
@@ -172,6 +179,7 @@ export default function Salary() {
 
       if (updateError) {
         console.error('Error updating salary record:', updateError);
+        toast.error('Failed to update salary record');
       }
 
     } catch (error) {
