@@ -1111,8 +1111,9 @@ export default function Salary() {
                         </svg>
                         <span className="text-sm font-medium">No saved record for this month yet</span>
                       </div>
-                }
-              </div>
+                  }
+                </div>
+              )}
             </div>
 
             {/* Salary Form */}
