@@ -173,6 +173,14 @@ const ShiftEditModal: React.FC<ShiftEditModalProps> = ({
                 focus:outline-none focus:ring-2 focus:ring-gray-500"
               rows={3}
             ></textarea>
+            <button
+              type="button"
+              onClick={() => setNotes('')}
+              disabled={isLoading}
+              className="px-4 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-red-600 hover:bg-red-700 text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+            >
+              Clear Notes
+            </button>
           </div>
           
           {/* Holiday indicator */}
