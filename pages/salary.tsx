@@ -107,7 +107,9 @@ export default function Salary() {
         month: selectedMonth,
         start: startDate.toISOString().split('T')[0],
         end: endDate.toISOString().split('T')[0],
-        employeeId: user.id
+        employeeId: user.id,
+        startDateObj: startDate,
+        endDateObj: endDate
       });
       
       // First, let's check all shifts for debugging
@@ -116,12 +118,14 @@ export default function Salary() {
         .select('*')
         .eq('employee_id', user.id)
         .gte('date', startDate.toISOString().split('T')[0])
-        .lte('date', endDate.toISOString().split('T')[0]);
+        .lte('date', endDate.toISOString().split('T')[0])
+        .order('date', { ascending: true });
         
       console.log('All shifts found:', allShifts?.length || 0);
       console.log('All shifts:', allShifts?.map(s => ({
         date: s.date,
-        type: s.shift_type
+        type: s.shift_type,
+        id: s.id
       })));
       console.log('Shift types found:', Array.from(new Set(allShifts?.map(s => s.shift_type) || [])));
       
@@ -130,7 +134,7 @@ export default function Salary() {
         .from('shift_overrides')
         .select('*')
         .eq('employee_id', user.id)
-        .or('shift_type.eq.Overtime,shift_type.eq.OVERTIME,shift_type.eq.overtime')
+        .eq('shift_type', 'Overtime')
         .gte('date', startDate.toISOString().split('T')[0])
         .lte('date', endDate.toISOString().split('T')[0])
         .order('date', { ascending: true });
@@ -198,13 +202,12 @@ export default function Salary() {
         basic_salary: salaryCalc.basicSalary || 0,
         cost_of_living: salaryCalc.costOfLiving || 0,
         shift_allowance: salaryCalc.shiftAllowance || 0,
-        overtime_hours: scheduleHours + (manualOvertimeHours || 0), // Combine both into single field
+        overtime_hours: scheduleHours + (manualOvertimeHours || 0),
         overtime_pay: salaryCalc.overtimePay || 0,
         variable_pay: salaryCalc.variablePay || 0,
         deduction: salaryCalc.deduction || 0,
         total_salary: salaryCalc.totalSalary || 0,
-        exchange_rate: exchangeRate,
-        created_at: new Date().toISOString()
+        exchange_rate: exchangeRate
       };
 
       console.log('Upserting salary record:', salaryRecord);
@@ -597,8 +600,7 @@ export default function Salary() {
         variable_pay: salaryCalc.variablePay || 0,
         deduction: salaryCalc.deduction || 0,
         total_salary: salaryCalc.totalSalary || 0,
-        exchange_rate: exchangeRate,
-        created_at: new Date().toISOString()
+        exchange_rate: exchangeRate
       };
       
       console.log('Saving salary record:', salaryData);
