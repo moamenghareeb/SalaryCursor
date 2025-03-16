@@ -13,6 +13,7 @@ import UpcomingShifts, { UpcomingShift } from '../components/dashboard/UpcomingS
 import { format, addDays, getDay } from 'date-fns';
 import { ShiftType } from '../lib/types/schedule';
 import { supabase } from '../lib/supabase';
+import { useTheme } from '../lib/themeContext';
 
 // Import skeleton components
 import { 
@@ -47,6 +48,7 @@ const getShiftTimes = (type: ShiftType): { start: string, end: string } => {
 export default function Dashboard() {
   const router = useRouter();
   const [pdfLoading, setPdfLoading] = useState(false);
+  const { isDarkMode } = useTheme();
   
   // Year selection states
   const currentYear = new Date().getFullYear();
