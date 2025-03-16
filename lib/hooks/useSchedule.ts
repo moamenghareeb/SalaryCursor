@@ -519,25 +519,69 @@ export function useSchedule({
       // Handle overtime calculation
       if (shiftType === 'Overtime') {
         try {
-          await updateUserOvertime(date, 24, authUser);
+          // Add 24 hours of overtime
+          const { data: currentSalary, error: fetchError } = await supabase
+            .from('salaries')
+            .select('overtime_hours')
+            .eq('employee_id', authUser)
+            .eq('month', new Date(date).toISOString().substring(0, 7) + '-01')
+            .maybeSingle();
+
+          if (fetchError && fetchError.code !== 'PGRST116') {
+            console.error('Failed to fetch current overtime:', fetchError);
+          }
+
+          const currentHours = currentSalary?.overtime_hours || 0;
+          const newHours = currentHours + 24;
+
+          const { error: overtimeError } = await supabase
+            .from('salaries')
+            .upsert({
+              employee_id: authUser,
+              month: new Date(date).toISOString().substring(0, 7) + '-01',
+              overtime_hours: newHours,
+              updated_at: new Date().toISOString()
+            }, {
+              onConflict: 'employee_id,month'
+            });
+
+          if (overtimeError) {
+            console.error('Failed to update overtime:', overtimeError);
+          }
         } catch (error) {
-          // If overtime update fails, don't block the shift update
           console.error('Failed to update overtime:', error);
         }
       } else {
         try {
-          // If changing from overtime to another shift type, remove overtime record
-          const { error: deleteError } = await supabase
+          // If changing from overtime to another shift type, get current overtime hours
+          const { data: currentSalary, error: fetchError } = await supabase
             .from('salaries')
-            .update({
-              overtime_hours: 0,
-              updated_at: new Date().toISOString()
-            })
+            .select('overtime_hours')
             .eq('employee_id', authUser)
-            .eq('month', new Date(date).toISOString().substring(0, 7) + '-01');
+            .eq('month', new Date(date).toISOString().substring(0, 7) + '-01')
+            .maybeSingle();
 
-          if (deleteError) {
-            console.error('Failed to clear overtime:', deleteError);
+          if (fetchError && fetchError.code !== 'PGRST116') {
+            console.error('Failed to fetch current overtime:', fetchError);
+          }
+
+          // Subtract 24 hours from current overtime (minimum 0)
+          const currentHours = currentSalary?.overtime_hours || 0;
+          const newHours = Math.max(0, currentHours - 24);
+
+          const { error: clearError } = await supabase
+            .from('salaries')
+            .upsert({
+              employee_id: authUser,
+              month: new Date(date).toISOString().substring(0, 7) + '-01',
+              overtime_hours: newHours,
+              updated_at: new Date().toISOString()
+            }, {
+              onConflict: 'employee_id,month'
+            });
+
+          if (clearError) {
+            console.error('Failed to clear overtime:', clearError);
           }
         } catch (error) {
           console.error('Failed to clear overtime:', error);

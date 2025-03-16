@@ -94,6 +94,7 @@ export default function Salary() {
     try {
       const monthDate = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-01`;
       
+      // Get overtime hours from salaries table
       const { data, error } = await supabase
         .from('salaries')
         .select('overtime_hours')
@@ -103,11 +104,35 @@ export default function Salary() {
 
       if (error) throw error;
 
-      if (data) {
-        setOvertimeHours(data.overtime_hours || 0);
-        // Update the salary calculation with the new overtime hours
-        handleInputChange('overtimeHours', data.overtime_hours || 0);
-      }
+      // Set overtime hours and update salary calculation
+      const hours = data?.overtime_hours || 0;
+      setOvertimeHours(hours);
+      
+      // Update salary calculation with overtime hours
+      setSalaryCalc(prev => {
+        const basicSalary = prev.basicSalary || 0;
+        const costOfLiving = prev.costOfLiving || 0;
+        
+        // Calculate overtime pay: (basic + cost of living) / 240 * 1.5 * overtime hours
+        const hourlyRate = (basicSalary + costOfLiving) / 240;
+        const overtimePay = hourlyRate * 1.5 * hours;
+        
+        // Calculate total salary
+        const totalSalary = 
+          basicSalary + 
+          costOfLiving + 
+          (prev.shiftAllowance || 0) + 
+          overtimePay + 
+          (prev.variablePay || 0) - 
+          (prev.deduction || 0);
+        
+        return {
+          ...prev,
+          overtimeHours: hours,
+          overtimePay,
+          totalSalary
+        };
+      });
     } catch (error) {
       console.error('Error fetching overtime hours:', error);
       toast.error('Failed to fetch overtime data');
