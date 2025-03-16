@@ -99,10 +99,7 @@ export function calculateSalary(params: SalaryCalculation): SalaryCalculation {
     const allowances = {
       costOfLiving: validatedParams.costOfLiving,
       shiftAllowance: validatedParams.shiftAllowance,
-      variablePay: validatedParams.variablePay,
-      transportation: validatedParams.transportation,
-      housing: validatedParams.housing,
-      meals: validatedParams.meals
+      variablePay: validatedParams.variablePay
     };
 
     // Calculate total allowances

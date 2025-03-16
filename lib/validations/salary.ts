@@ -29,15 +29,12 @@ export const salaryCalculationSchema = z.object({
   employeeId: z.string().min(1, 'Employee ID is required'),
   month: z.string().regex(/^\d{4}-\d{2}$/, 'Month must be in YYYY-MM format'),
   
-  // Allowances (merged from salaryAllowancesSchema)
+  // Allowances (simplified)
   costOfLiving: z.number().min(0).default(0),
   shiftAllowance: z.number().min(0).default(0),
   variablePay: z.number().min(0).default(0),
-  transportation: z.number().min(0).default(0),
-  housing: z.number().min(0).default(0),
-  meals: z.number().min(0).default(0),
 
-  // Deductions (merged from salaryDeductionsSchema)
+  // Deductions
   pensionPlan: z.number().min(0).default(0),
   premiumCardDeduction: z.number().min(0).default(0),
   mobileDeduction: z.number().min(0).default(0),
@@ -64,10 +61,7 @@ export const salaryCalculationSchema = z.object({
     allowances: data.allowances ?? {
       costOfLiving: data.costOfLiving,
       shiftAllowance: data.shiftAllowance,
-      variablePay: data.variablePay,
-      transportation: data.transportation,
-      housing: data.housing,
-      meals: data.meals
+      variablePay: data.variablePay
     }
   };
 });

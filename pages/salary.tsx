@@ -62,6 +62,7 @@ export default function Salary() {
     costOfLiving: number;
     shiftAllowance: number;
     overtimeHours: number;
+    manualOvertimeHours: number;
     overtimePay: number;
     variablePay: number;
     deduction: number;
@@ -75,6 +76,7 @@ export default function Salary() {
     costOfLiving: 0,
     shiftAllowance: 0,
     overtimeHours: 0,
+    manualOvertimeHours: 0,
     overtimePay: 0,
     variablePay: 0,
     deduction: 0,
@@ -85,7 +87,8 @@ export default function Salary() {
   const [salaryCalc, setSalaryCalc] = useState<SalaryCalculation>(defaultSalaryCalc);
 
   // Add state for overtime data
-  const [overtimeHours, setOvertimeHours] = useState(0);
+  const [scheduleOvertimeHours, setScheduleOvertimeHours] = useState(0);
+  const [manualOvertimeHours, setManualOvertimeHours] = useState(0);
 
   // Function to fetch overtime hours for the selected month
   const fetchOvertimeHours = async () => {
@@ -94,7 +97,7 @@ export default function Salary() {
     try {
       const monthDate = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-01`;
       
-      // Get overtime hours from salaries table
+      // Get overtime hours from salaries table (schedule overtime)
       const { data, error } = await supabase
         .from('salaries')
         .select('overtime_hours')
@@ -104,32 +107,38 @@ export default function Salary() {
 
       if (error) throw error;
 
-      // Set overtime hours and update salary calculation
+      // Set schedule overtime hours
       const hours = data?.overtime_hours || 0;
-      setOvertimeHours(hours);
+      setScheduleOvertimeHours(hours);
       
-      // Update salary calculation with overtime hours
+      // Update salary calculation with total overtime hours
       setSalaryCalc(prev => {
         const basicSalary = prev.basicSalary || 0;
         const costOfLiving = prev.costOfLiving || 0;
+        const totalOvertimeHours = hours + (prev.manualOvertimeHours || 0);
         
-        // Calculate overtime pay: (basic + cost of living) / 240 * 1.5 * overtime hours
-        const hourlyRate = (basicSalary + costOfLiving) / 240;
-        const overtimePay = hourlyRate * 1.5 * hours;
+        // Calculate overtime pay: ((basic + cost of living) / 210) * overtime hours
+        const overtimePay = ((basicSalary + costOfLiving) / 210) * totalOvertimeHours;
+        
+        // Calculate variable pay
+        const shiftAllowance = prev.shiftAllowance || 0;
+        const variablePay = (basicSalary + costOfLiving + shiftAllowance + overtimePay) * ((exchangeRate / 31) - 1);
         
         // Calculate total salary
         const totalSalary = 
           basicSalary + 
           costOfLiving + 
-          (prev.shiftAllowance || 0) + 
+          shiftAllowance + 
           overtimePay + 
-          (prev.variablePay || 0) - 
+          variablePay - 
           (prev.deduction || 0);
         
         return {
           ...prev,
-          overtimeHours: hours,
+          overtimeHours: totalOvertimeHours,
+          manualOvertimeHours: prev.manualOvertimeHours || 0,
           overtimePay,
+          variablePay,
           totalSalary
         };
       });
@@ -162,6 +171,7 @@ export default function Salary() {
           costOfLiving: existingRecord.cost_of_living,
           shiftAllowance: existingRecord.shift_allowance,
           overtimeHours: existingRecord.overtime_hours,
+          manualOvertimeHours: 0,
           overtimePay: existingRecord.overtime_pay,
           variablePay: existingRecord.variable_pay,
           deduction: existingRecord.deduction,
@@ -187,28 +197,38 @@ export default function Salary() {
       [field]: value,
     };
     
+    // Handle manual overtime input
+    if (field === 'manualOvertimeHours') {
+      setManualOvertimeHours(value);
+      const totalOvertimeHours = scheduleOvertimeHours + value;
+      newCalc.overtimeHours = totalOvertimeHours;
+    }
+    
     // Automatically calculate overtime pay when overtime hours or related fields change
-    if (field === 'overtimeHours' || field === 'basicSalary' || field === 'costOfLiving') {
-      // Calculate overtime pay: (basic + cost of living) / 240 * 1.5 * overtime hours
+    if (field === 'overtimeHours' || field === 'basicSalary' || field === 'costOfLiving' || field === 'manualOvertimeHours') {
+      // Calculate overtime pay: ((basic + cost of living) / 210) * overtime hours
       const basicSalary = field === 'basicSalary' ? value : newCalc.basicSalary || 0;
       const costOfLiving = field === 'costOfLiving' ? value : newCalc.costOfLiving || 0;
-      const overtimeHours = field === 'overtimeHours' ? value : newCalc.overtimeHours || 0;
+      const totalOvertimeHours = newCalc.overtimeHours || 0;
       
-      // Calculate hourly rate based on 240 working hours per month
-      const hourlyRate = (basicSalary + costOfLiving) / 240;
-      // Calculate overtime pay at 1.5x rate
-      const overtimePay = hourlyRate * 1.5 * overtimeHours;
+      // Calculate overtime pay based on 210 working hours per month
+      const overtimePay = ((basicSalary + costOfLiving) / 210) * totalOvertimeHours;
       
       // Update overtime pay
       newCalc.overtimePay = overtimePay;
       
       // Calculate variable pay
-      const variablePay = calculateVariablePay(basicSalary);
+      const shiftAllowance = newCalc.shiftAllowance || 0;
+      const variablePay = (basicSalary + costOfLiving + shiftAllowance + overtimePay) * ((exchangeRate / 31) - 1);
       newCalc.variablePay = variablePay;
       
       // Recalculate total salary
       newCalc.totalSalary = 
-        basicSalary + costOfLiving + (newCalc.shiftAllowance || 0) + overtimePay + variablePay - 
+        basicSalary + 
+        costOfLiving + 
+        shiftAllowance + 
+        overtimePay + 
+        variablePay - 
         (newCalc.deduction || 0);
     }
     
@@ -347,16 +367,19 @@ export default function Salary() {
     const overtimeHours = salaryCalc.overtimeHours || 0;
     const deduction = salaryCalc.deduction || 0;
     
-    // Calculate overtime pay: (basic + cost of living) / 240 * 1.5 * overtime hours
-    const overtimeRate = (basicSalary + costOfLiving) / 240 * 1.5;
-    const overtimePay = overtimeRate * overtimeHours;
+    // Calculate overtime pay: ((basic + cost of living) / 210) * overtime hours
+    const overtimePay = ((basicSalary + costOfLiving) / 210) * overtimeHours;
     
-    // Calculate variable pay for each formula segment
-    const variablePay = calculateVariablePay(basicSalary);
+    // Calculate variable pay
+    const variablePay = (basicSalary + costOfLiving + shiftAllowance + overtimePay) * ((exchangeRate / 31) - 1);
     
-    // Calculate total salary with simplified deductions
+    // Calculate total salary
     const totalSalary = 
-      basicSalary + costOfLiving + shiftAllowance + overtimePay + variablePay - 
+      basicSalary + 
+      costOfLiving + 
+      shiftAllowance + 
+      overtimePay + 
+      variablePay - 
       deduction;
     
     const newCalc = {
@@ -372,7 +395,6 @@ export default function Salary() {
     // Save inputs to localStorage whenever calculation happens
     saveInputsToLocalStorage(newCalc);
     
-    // Don't save calculation automatically after calculating
     setCalculationLoading(false);
   };
 
@@ -555,6 +577,7 @@ export default function Salary() {
             costOfLiving: existingRecord.cost_of_living,
             shiftAllowance: existingRecord.shift_allowance,
             overtimeHours: existingRecord.overtime_hours,
+            manualOvertimeHours: 0,
             overtimePay: existingRecord.overtime_pay,
             variablePay: existingRecord.variable_pay,
             deduction: existingRecord.deduction,
@@ -745,6 +768,7 @@ export default function Salary() {
           costOfLiving: calcData.cost_of_living,
           shiftAllowance: calcData.shift_allowance,
           overtimeHours: calcData.overtime_hours,
+          manualOvertimeHours: calcData.manual_overtime_hours,
           overtimePay: calcData.overtime_pay,
           variablePay: calcData.variable_pay,
           deduction: calcData.deduction,
@@ -767,6 +791,7 @@ export default function Salary() {
             costOfLiving: salaryData.cost_of_living,
             shiftAllowance: salaryData.shift_allowance,
             overtimeHours: salaryData.overtime_hours,
+            manualOvertimeHours: 0,
             overtimePay: salaryData.overtime_pay,
             variablePay: salaryData.variable_pay,
             deduction: salaryData.deduction,
@@ -841,6 +866,40 @@ export default function Salary() {
     }
   };
 
+  // Add test calculation function
+  const testCalculation = () => {
+    const basicSalary = 23517;
+    const costOfLiving = 6300;
+    const shiftAllowance = 2200;
+    const overtimeHours = 96;
+    const deductions = 98.35;
+    const exchangeRate = 50.6;
+
+    // Calculate overtime pay
+    const overtimePay = ((basicSalary + costOfLiving) / 210) * overtimeHours;
+    console.log('Overtime Pay:', overtimePay);
+
+    // Calculate variable pay
+    const variablePay = (basicSalary + costOfLiving + shiftAllowance + overtimePay) * ((exchangeRate / 31) - 1);
+    console.log('Variable Pay:', variablePay);
+
+    // Calculate total salary
+    const totalSalary = basicSalary + costOfLiving + shiftAllowance + overtimePay + variablePay - deductions;
+    console.log('Total Salary:', totalSalary);
+
+    return {
+      overtimePay,
+      variablePay,
+      totalSalary
+    };
+  };
+
+  // Call test calculation
+  useEffect(() => {
+    const results = testCalculation();
+    console.log('Test Calculation Results:', results);
+  }, []);
+
   if (loading) {
     return (
       <Layout>
@@ -892,7 +951,7 @@ export default function Salary() {
         {/* Main content grid */}
         <div className="grid gap-6 lg:grid-cols-3">
           {/* Salary Calculator Card */}
-          <div className="lg:col-span-2 bg-white dark:bg-dark-surface rounded-apple shadow-apple-card dark:shadow-dark-card p-6">
+          <div className="lg:col-span-2 bg-white dark:bg-dark-surface rounded-apple shadow-apple card dark:shadow-dark-card p-6">
             <div className="flex justify-between items-start mb-6">
               <h2 className="text-lg font-medium text-apple-gray-dark dark:text-dark-text-primary">Salary Calculator</h2>
               <div className="flex items-center space-x-2">
@@ -1033,15 +1092,50 @@ export default function Salary() {
 
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-apple-gray-dark dark:text-dark-text-primary mb-1">
+                  <label htmlFor="overtimeHours" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                     Overtime Hours
                   </label>
-                  <input
-                    type="number"
-                    value={salaryCalc.overtimeHours || ''}
-                    onChange={(e) => handleInputChange('overtimeHours', parseFloat(e.target.value) || 0)}
-                    className="w-full px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 focus:border-apple-blue dark:focus:border-blue-600 focus:ring-1 focus:ring-apple-blue dark:focus:ring-blue-600 outline-none transition-colors"
-                  />
+                  <div className="mt-1 space-y-2">
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="number"
+                        id="scheduleOvertimeHours"
+                        name="scheduleOvertimeHours"
+                        value={scheduleOvertimeHours}
+                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
+                        readOnly
+                      />
+                      <span className="text-sm text-gray-500 dark:text-gray-400">
+                        (From Schedule)
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="number"
+                        id="manualOvertimeHours"
+                        name="manualOvertimeHours"
+                        value={manualOvertimeHours}
+                        onChange={(e) => handleInputChange('manualOvertimeHours', Number(e.target.value))}
+                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
+                      />
+                      <span className="text-sm text-gray-500 dark:text-gray-400">
+                        (Additional Hours)
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="number"
+                        id="overtimeHours"
+                        name="overtimeHours"
+                        value={salaryCalc.overtimeHours}
+                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
+                        readOnly
+                      />
+                      <span className="text-sm text-gray-500 dark:text-gray-400">
+                        (Total)
+                      </span>
+                    </div>
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-apple-gray-dark dark:text-dark-text-primary mb-1">
@@ -1098,7 +1192,7 @@ export default function Salary() {
           </div>
 
           {/* Results Card */}
-          <div className="bg-white dark:bg-dark-surface rounded-apple shadow-apple-card dark:shadow-dark-card p-6">
+          <div className="bg-white dark:bg-dark-surface rounded-apple shadow-apple card dark:shadow-dark-card p-6">
             <h2 className="text-lg font-medium text-apple-gray-dark dark:text-dark-text-primary mb-6">Calculation Results</h2>
             
             {salaryCalc.totalSalary > 0 && (
@@ -1196,7 +1290,7 @@ export default function Salary() {
         </div>
 
         {/* Salary History Section */}
-        <div className="mt-8 bg-white dark:bg-dark-surface rounded-apple shadow-apple-card dark:shadow-dark-card p-6">
+        <div className="mt-8 bg-white dark:bg-dark-surface rounded-apple shadow-apple card dark:shadow-dark-card p-6">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-lg font-medium text-apple-gray-dark dark:text-dark-text-primary">Salary History</h2>
             <button
@@ -1278,6 +1372,7 @@ export default function Salary() {
                                     costOfLiving: salary.cost_of_living,
                                     shiftAllowance: salary.shift_allowance,
                                     overtimeHours: salary.overtime_hours,
+                                    manualOvertimeHours: 0,
                                     overtimePay: salary.overtime_pay,
                                     variablePay: salary.variable_pay,
                                     deduction: salary.deduction,

@@ -55,9 +55,6 @@ export interface SalaryAllowances {
   costOfLiving: number;
   shiftAllowance: number;
   variablePay: number;
-  transportation: number;
-  housing: number;
-  meals: number;
 }
 
 export interface SalaryCalculation {
@@ -72,9 +69,6 @@ export interface SalaryCalculation {
   costOfLiving: number;
   shiftAllowance: number;
   variablePay: number;
-  transportation: number;
-  housing: number;
-  meals: number;
 
   // Deductions
   pensionPlan: number;
