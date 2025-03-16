@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { CalendarDay, ShiftType } from '../../lib/types/schedule';
-import { updateUserOvertime } from '../lib/overtime';
+import { updateUserOvertime } from '../../lib/overtime';
 
 interface ShiftEditModalProps {
   day: CalendarDay | null;
