@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Layout from '../components/Layout';
 import { supabase } from '../lib/supabase';
-import { SalaryCalculation, Employee } from '../types';
+import { Employee } from '../types';
 import { PDFDownloadLink, Document, Page, Text, View, StyleSheet, BlobProvider, PDFViewer, pdf } from '@react-pdf/renderer';
 import { Font } from '@react-pdf/renderer';
 import SalaryPDF from '../components/SalaryPDF';
@@ -10,6 +10,10 @@ import Head from 'next/head';
 import { useTheme } from '../lib/themeContext';
 import toast from 'react-hot-toast';
 import { FiRefreshCw, FiCalendar } from 'react-icons/fi';
+import { useAuth } from '@/lib/hooks/useAuth';
+import { SalaryForm } from '@/components/salary/SalaryForm';
+import { SalarySummary } from '@/components/salary/SalarySummary';
+import { SalaryCalculation as SalaryCalculator } from '@/lib/calculations/salary';
 
 // Register fonts - use direct font import
 Font.register({
@@ -29,6 +33,7 @@ Font.register({
 
 export default function Salary() {
   const { isDarkMode } = useTheme();
+  const { user } = useAuth();
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [loading, setLoading] = useState(true);
   const [calculationLoading, setCalculationLoading] = useState(false);

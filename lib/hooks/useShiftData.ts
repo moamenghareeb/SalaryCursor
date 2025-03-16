@@ -64,7 +64,7 @@ export function useShiftData(userId?: string, month?: Date) {
       
       shiftsData?.forEach(shift => {
         if (shift.shift_type === 'Overtime') {
-          overtimeHours += 4; // Assuming 4 hours per overtime shift
+          overtimeHours += 24; // Each overtime shift counts as 24 hours
         }
       });
       

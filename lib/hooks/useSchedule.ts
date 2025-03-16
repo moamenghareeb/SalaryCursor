@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format, addMonths, subMonths, parseISO } from 'date-fns';
 import { supabase } from '../supabase';
 import { toast } from 'react-hot-toast';
+import { updateUserOvertime } from '../overtime';
 
 import { 
   ShiftGroup,
@@ -512,6 +513,22 @@ export function useSchedule({
         } catch (inLieuError) {
           console.error('Exception when handling in-lieu record:', inLieuError);
           // Don't fail the whole operation if in-lieu record creation fails
+        }
+      }
+      
+      // Handle overtime calculation
+      if (shiftType === 'Overtime') {
+        await updateUserOvertime(date, 24, authUser);
+      } else {
+        // If changing from overtime to another shift type, remove overtime record
+        const { error: deleteError } = await supabase
+          .from('overtime')
+          .delete()
+          .eq('employee_id', authUser)
+          .eq('date', date);
+
+        if (deleteError) {
+          throw deleteError;
         }
       }
       
