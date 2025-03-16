@@ -103,11 +103,25 @@ export default function Salary() {
       const endDate = new Date(selectedYear, selectedMonth, 0); // Last day of the selected month
       
       console.log('Fetching overtime hours for period:', {
-        start: startDate.toISOString(),
-        end: endDate.toISOString()
+        year: selectedYear,
+        month: selectedMonth,
+        start: startDate.toISOString().split('T')[0],
+        end: endDate.toISOString().split('T')[0],
+        employeeId: user.id
       });
       
-      // Get overtime shifts from shift_overrides table
+      // First, let's check all shifts for debugging
+      const { data: allShifts, error: allShiftsError } = await supabase
+        .from('shift_overrides')
+        .select('*')
+        .eq('employee_id', user.id)
+        .gte('date', startDate.toISOString().split('T')[0])
+        .lte('date', endDate.toISOString().split('T')[0]);
+        
+      console.log('All shifts found:', allShifts?.length || 0);
+      console.log('Shift types found:', Array.from(new Set(allShifts?.map(s => s.shift_type) || [])));
+      
+      // Now get overtime shifts
       const { data: shifts, error: shiftsError } = await supabase
         .from('shift_overrides')
         .select('*')
@@ -123,7 +137,11 @@ export default function Salary() {
 
       // Calculate total overtime hours (24 hours per overtime shift)
       const scheduleHours = (shifts?.length || 0) * 24;
-      console.log('Fetched overtime shifts:', shifts);
+      console.log('Overtime shifts details:', shifts?.map(s => ({
+        date: s.date,
+        type: s.shift_type
+      })));
+      console.log('Total overtime shifts found:', shifts?.length || 0);
       console.log('Calculated schedule overtime hours:', scheduleHours);
       setScheduleOvertimeHours(scheduleHours);
       
@@ -137,7 +155,9 @@ export default function Salary() {
         console.log('Updating salary calc with:', {
           scheduleHours,
           manualHours,
-          totalOvertimeHours
+          totalOvertimeHours,
+          basicSalary,
+          costOfLiving
         });
         
         // Calculate overtime pay: ((basic + cost of living) / 210) * overtime hours
@@ -170,9 +190,10 @@ export default function Salary() {
         .from('salaries')
         .upsert({
           employee_id: user.id,
-          month: startDate.toISOString(),
+          month: startDate.toISOString().split('T')[0],
           overtime_hours: scheduleHours,
-          updated_at: new Date().toISOString()
+          // Remove updated_at as it's not in the schema
+          // updated_at: new Date().toISOString()
         }, {
           onConflict: 'employee_id,month'
         });
