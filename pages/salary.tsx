@@ -119,16 +119,21 @@ export default function Salary() {
         .lte('date', endDate.toISOString().split('T')[0]);
         
       console.log('All shifts found:', allShifts?.length || 0);
+      console.log('All shifts:', allShifts?.map(s => ({
+        date: s.date,
+        type: s.shift_type
+      })));
       console.log('Shift types found:', Array.from(new Set(allShifts?.map(s => s.shift_type) || [])));
       
-      // Now get overtime shifts
+      // Now get overtime shifts with case-insensitive comparison
       const { data: shifts, error: shiftsError } = await supabase
         .from('shift_overrides')
         .select('*')
         .eq('employee_id', user.id)
-        .eq('shift_type', 'Overtime')
+        .or('shift_type.eq.Overtime,shift_type.eq.OVERTIME,shift_type.eq.overtime')
         .gte('date', startDate.toISOString().split('T')[0])
-        .lte('date', endDate.toISOString().split('T')[0]);
+        .lte('date', endDate.toISOString().split('T')[0])
+        .order('date', { ascending: true });
 
       if (shiftsError) {
         console.error('Error fetching overtime shifts:', shiftsError);
@@ -139,7 +144,8 @@ export default function Salary() {
       const scheduleHours = (shifts?.length || 0) * 24;
       console.log('Overtime shifts details:', shifts?.map(s => ({
         date: s.date,
-        type: s.shift_type
+        type: s.shift_type,
+        id: s.id
       })));
       console.log('Total overtime shifts found:', shifts?.length || 0);
       console.log('Calculated schedule overtime hours:', scheduleHours);
@@ -189,25 +195,42 @@ export default function Salary() {
       const salaryRecord = {
         employee_id: user.id,
         month: `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-01`,
-        overtime_hours: scheduleHours,
-        manual_overtime_hours: manualOvertimeHours || 0,
-        total_overtime_hours: scheduleHours + (manualOvertimeHours || 0),
         basic_salary: salaryCalc.basicSalary || 0,
         cost_of_living: salaryCalc.costOfLiving || 0,
         shift_allowance: salaryCalc.shiftAllowance || 0,
+        overtime_hours: scheduleHours,
+        manual_overtime_hours: manualOvertimeHours || 0,
+        total_overtime_hours: scheduleHours + (manualOvertimeHours || 0),
         overtime_pay: salaryCalc.overtimePay || 0,
         variable_pay: salaryCalc.variablePay || 0,
         deduction: salaryCalc.deduction || 0,
         total_salary: salaryCalc.totalSalary || 0,
-        exchange_rate: exchangeRate
+        exchange_rate: exchangeRate,
+        created_at: new Date().toISOString()
       };
 
       console.log('Upserting salary record:', salaryRecord);
 
+      // First try to get existing record
+      const { data: existingRecord, error: existingError } = await supabase
+        .from('salaries')
+        .select('id')
+        .eq('employee_id', user.id)
+        .eq('month', salaryRecord.month)
+        .single();
+
+      if (existingError && existingError.code !== 'PGRST116') {
+        console.error('Error checking existing record:', existingError);
+        toast.error('Failed to check existing salary record');
+        return;
+      }
+
+      // Update or insert based on existence
       const { error: updateError } = await supabase
         .from('salaries')
         .upsert(salaryRecord, {
-          onConflict: 'employee_id,month'
+          onConflict: 'employee_id,month',
+          ignoreDuplicates: false
         });
 
       if (updateError) {
