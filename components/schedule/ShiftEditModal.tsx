@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { CalendarDay, ShiftType } from '../../lib/types/schedule';
 import { updateUserOvertime } from '../../lib/overtime';
+import { useAuth } from '../../lib/hooks/useAuth';
 
 interface ShiftEditModalProps {
   day: CalendarDay | null;
@@ -27,6 +28,7 @@ const ShiftEditModal: React.FC<ShiftEditModalProps> = ({
   onSave,
   isLoading
 }) => {
+  const { user } = useAuth();
   // Form state
   const [selectedShift, setSelectedShift] = useState<ShiftType>('Off');
   const [notes, setNotes] = useState<string>('');
@@ -50,7 +52,7 @@ const ShiftEditModal: React.FC<ShiftEditModalProps> = ({
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (day && !isLoading) {
+    if (day && !isLoading && user) {
       // Update the shift and notes
       onSave(day.date, selectedShift, notes === '' ? undefined : notes);
       
@@ -58,7 +60,7 @@ const ShiftEditModal: React.FC<ShiftEditModalProps> = ({
       if (selectedShift === 'Overtime') {
         const overtimeHours = 24;
         // Call the function to update the user's overtime
-        updateUserOvertime(day.date, overtimeHours);
+        updateUserOvertime(day.date, overtimeHours, user.id);
       }
     }
   };
