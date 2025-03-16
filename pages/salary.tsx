@@ -101,21 +101,22 @@ export default function Salary() {
       const monthDate = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-01`;
       console.log('Fetching overtime hours for:', monthDate);
       
-      // Get overtime hours from salaries table (schedule overtime)
-      const { data, error } = await supabase
-        .from('salaries')
-        .select('overtime_hours')
+      // Get overtime shifts from shift_overrides table
+      const { data: shifts, error: shiftsError } = await supabase
+        .from('shift_overrides')
+        .select('*')
         .eq('employee_id', user.id)
-        .eq('month', monthDate)
-        .maybeSingle();
+        .eq('shift_type', 'Overtime')
+        .gte('date', monthDate)
+        .lt('date', new Date(selectedYear, selectedMonth, 0).toISOString());
 
-      if (error) {
-        console.error('Error fetching overtime:', error);
-        throw error;
+      if (shiftsError) {
+        console.error('Error fetching overtime shifts:', shiftsError);
+        throw shiftsError;
       }
 
-      // Set schedule overtime hours
-      const scheduleHours = data?.overtime_hours || 0;
+      // Calculate total overtime hours (24 hours per overtime shift)
+      const scheduleHours = (shifts?.length || 0) * 24;
       console.log('Fetched schedule overtime hours:', scheduleHours);
       setScheduleOvertimeHours(scheduleHours);
       
@@ -156,6 +157,23 @@ export default function Salary() {
           totalSalary
         };
       });
+
+      // Update the salaries table with the new overtime hours
+      const { error: updateError } = await supabase
+        .from('salaries')
+        .upsert({
+          employee_id: user.id,
+          month: monthDate,
+          overtime_hours: scheduleHours,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'employee_id,month'
+        });
+
+      if (updateError) {
+        console.error('Error updating salary record:', updateError);
+      }
+
     } catch (error) {
       console.error('Error fetching overtime hours:', error);
       toast.error('Failed to fetch overtime data');
@@ -180,12 +198,18 @@ export default function Salary() {
       
       if (existingRecord) {
         // Use existing record
+        const scheduleHours = existingRecord.overtime_hours || 0;
+        const manualHours = 0; // Reset manual hours when loading a new record
+        
+        setScheduleOvertimeHours(scheduleHours);
+        setManualOvertimeHours(manualHours);
+        
         setSalaryCalc({
           basicSalary: existingRecord.basic_salary,
           costOfLiving: existingRecord.cost_of_living,
           shiftAllowance: existingRecord.shift_allowance,
-          overtimeHours: existingRecord.overtime_hours,
-          manualOvertimeHours: 0,
+          overtimeHours: scheduleHours + manualHours, // Total overtime is sum of both
+          manualOvertimeHours: manualHours,
           overtimePay: existingRecord.overtime_pay,
           variablePay: existingRecord.variable_pay,
           deduction: existingRecord.deduction,
@@ -194,7 +218,15 @@ export default function Salary() {
         });
         toast.success(`Loaded existing salary record for ${new Date(existingRecord.month).toLocaleDateString('en-US', {month: 'long', year: 'numeric'})}`);
       } else {
-        // Keep current form values for a new record
+        // Reset all overtime values for a new record
+        setScheduleOvertimeHours(0);
+        setManualOvertimeHours(0);
+        setSalaryCalc(prev => ({
+          ...prev,
+          overtimeHours: 0,
+          manualOvertimeHours: 0,
+          overtimePay: 0
+        }));
         toast(`No existing record for ${new Date(year, month-1).toLocaleDateString('en-US', {month: 'long', year: 'numeric'})}. You can create a new one.`);
       }
     }
