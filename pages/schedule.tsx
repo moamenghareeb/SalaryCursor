@@ -355,7 +355,7 @@ const SchedulePage: React.FC = () => {
   
   return (
     <Layout>
-      <div className="container mx-auto px-4 py-8">
+      <div className={`container mx-auto ${!isMobileView ? 'px-4 py-8' : 'px-1 py-2'}`}>
         {isUpdating ? (
           <div className="flex justify-center items-center h-64">
             <LoadingSpinner />
@@ -368,7 +368,7 @@ const SchedulePage: React.FC = () => {
           // Current month view
           <div className="space-y-5">
             {/* Month Navigation - Moved to top */}
-            <div className="bg-gray-800 shadow-lg rounded-lg p-3 flex items-center justify-between">
+            <div className={`bg-gray-800 shadow-lg rounded-lg ${isMobileView ? 'p-2' : 'p-3'} flex items-center justify-between`}>
               <div className="flex items-center space-x-3">
                 <button
                   onClick={goToPreviousMonth}
@@ -400,7 +400,7 @@ const SchedulePage: React.FC = () => {
             </div>
             
             {/* Calendar component - moved to top */}
-            <div className="bg-gray-800 shadow-lg rounded-lg overflow-hidden">
+            <div className={`bg-gray-800 shadow-lg rounded-lg overflow-hidden ${isMobileView ? 'mx-0 p-0' : ''}`}>
               {isMobileView ? (
                 monthData && (
                   <MobileScheduleView 
@@ -419,7 +419,8 @@ const SchedulePage: React.FC = () => {
             </div>
             
             {/* Controls section - moved below calendar */}
-            <div className="bg-gray-900 rounded-lg shadow-lg p-4">              
+            <div className={`bg-gray-900 rounded-lg shadow-lg ${isMobileView ? 'p-3' : 'p-4'}`}>
+              
               <div className="flex flex-col space-y-4">
                 {/* View mode toggle - more refined buttons */}
                 <div className="grid grid-cols-2 gap-2 bg-gray-800 p-1.5 rounded-lg self-center">

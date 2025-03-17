@@ -15,6 +15,18 @@ export default function Layout({ children }: LayoutProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [isPageTransitioning, setIsPageTransitioning] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Detect mobile screens
+  useEffect(() => {
+    const checkIfMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    checkIfMobile();
+    window.addEventListener('resize', checkIfMobile);
+    return () => window.removeEventListener('resize', checkIfMobile);
+  }, []);
 
   // Handle scroll effect for transparent to solid nav transition
   useEffect(() => {
@@ -59,6 +71,8 @@ export default function Layout({ children }: LayoutProps) {
     );
   }
 
+  const isSchedulePage = router.pathname === '/schedule';
+
   return (
     <div className="min-h-screen bg-apple-gray-light dark:bg-dark-bg font-sans text-apple-gray-dark dark:text-dark-text-primary transition-colors duration-200">
       {isPageTransitioning && (
@@ -74,7 +88,7 @@ export default function Layout({ children }: LayoutProps) {
             : 'bg-apple-gray-light dark:bg-dark-bg'
         }`}
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">
           <div className="flex justify-between h-12 items-center">
             <div className="flex items-center">
               <Link href="/salary" className="text-lg sm:text-xl font-medium text-apple-gray-dark dark:text-dark-text-primary">
@@ -205,7 +219,9 @@ export default function Layout({ children }: LayoutProps) {
           </div>
         </div>
       </nav>
-      <main className="pt-16 pb-8 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto animate-fadeIn">{children}</main>
+      <main className={`pt-16 ${isMobile && isSchedulePage ? 'pb-2 px-0' : 'pb-8 px-4 sm:px-6 lg:px-8'} max-w-7xl mx-auto animate-fadeIn`}>
+        {children}
+      </main>
     </div>
   );
 } 
