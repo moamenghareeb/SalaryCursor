@@ -78,6 +78,51 @@ const SchedulePage: React.FC = () => {
   // Mobile detection state
   const [isMobileView, setIsMobileView] = useState(false);
   
+  // Modal states
+  const [selectedDay, setSelectedDay] = useState<CalendarDay | null>(null);
+  const [isShiftModalOpen, setIsShiftModalOpen] = useState(false);
+  const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
+  
+  // Date navigation state
+  // Use separate type to fix comparisons
+  type ViewMode = 'current' | 'future';
+  const [viewMode, setViewMode] = useState<ViewMode>('current');
+  const [futureMonths, setFutureMonths] = useState<{year: number; month: number}[]>([]);
+  
+  // Add state for tracking initialization status
+  const [isInitializingPreferences, setIsInitializingPreferences] = useState(false);
+  
+  // Use our custom hook for schedule data
+  const {
+    currentDate,
+    employeeGroup,
+    scheduleType,
+    monthData,
+    employeeData,
+    isLoading,
+    goToPreviousMonth,
+    goToNextMonth,
+    goToToday,
+    updateShift,
+    updateGroup,
+    updateScheduleType,
+    isUpdatingShift,
+    isUpdatingGroup,
+    isUpdatingScheduleType,
+    refreshData
+  } = useSchedule();
+  
+  // Force update the calendar with correct Group - moved to top level with other hooks
+  const forceCalendarUpdate = useCallback(() => {
+    console.log('Forcing calendar update after group change');
+    if (refreshData) {
+      refreshData();
+    }
+  }, [refreshData]);
+  
+  // Combined loading state
+  const isUpdating = isLoading || isUpdatingShift || isUpdatingGroup || isUpdatingScheduleType;
+  
   // Initialize mobile detection on mount
   useEffect(() => {
     // Check if the screen is mobile sized
@@ -116,40 +161,6 @@ const SchedulePage: React.FC = () => {
     checkAuth();
   }, [router]);
   
-  // Modal states
-  const [selectedDay, setSelectedDay] = useState<CalendarDay | null>(null);
-  const [isShiftModalOpen, setIsShiftModalOpen] = useState(false);
-  const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
-  
-  // Date navigation state
-  // Use separate type to fix comparisons
-  type ViewMode = 'current' | 'future';
-  const [viewMode, setViewMode] = useState<ViewMode>('current');
-  const [futureMonths, setFutureMonths] = useState<{year: number; month: number}[]>([]);
-  
-  // Use our custom hook for schedule data
-  const {
-    currentDate,
-    employeeGroup,
-    scheduleType,
-    monthData,
-    employeeData,
-    isLoading,
-    goToPreviousMonth,
-    goToNextMonth,
-    goToToday,
-    updateShift,
-    updateGroup,
-    updateScheduleType,
-    isUpdatingShift,
-    isUpdatingGroup,
-    isUpdatingScheduleType,
-    refreshData
-  } = useSchedule();
-  
-  // Combined loading state
-  const isUpdating = isLoading || isUpdatingShift || isUpdatingGroup || isUpdatingScheduleType;
-  
   // Generate future months data on component mount
   useEffect(() => {
     if (currentDate) {
@@ -184,9 +195,6 @@ const SchedulePage: React.FC = () => {
       window.removeEventListener('refresh-schedule', handleRefreshEvent);
     };
   }, [refreshData]);
-  
-  // Add state for tracking initialization status
-  const [isInitializingPreferences, setIsInitializingPreferences] = useState(false);
   
   // Add a function to handle initializing preferences  
   const handleInitializePreferences = async () => {
@@ -241,18 +249,9 @@ const SchedulePage: React.FC = () => {
   
   // Handle group change button click
   const handleGroupChangeClick = () => {
-    if (scheduleType === 'shift') {
-      setIsGroupModalOpen(true);
-    }
+    // Removing conditional for compliance with React hooks rules
+    setIsGroupModalOpen(true);
   };
-  
-  // Force update the calendar with correct Group
-  const forceCalendarUpdate = useCallback(() => {
-    console.log('Forcing calendar update after group change');
-    if (refreshData) {
-      refreshData();
-    }
-  }, [refreshData]);
   
   // Handle save group change
   const handleSaveGroupChange = (group: ShiftGroup, effectiveDate: string) => {
@@ -674,20 +673,22 @@ const SchedulePage: React.FC = () => {
         />
         
         {/* Add a section to show current group */}
-        <div className="fixed bottom-4 left-4 right-4 bg-gray-800 text-white p-3 rounded-lg shadow-lg flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <span className="text-gray-400">Your Group:</span>
-            <span className="bg-blue-600 px-3 py-1 rounded-md font-medium">
-              Group {employeeGroup}
-            </span>
+        {scheduleType === 'shift' && (
+          <div className="fixed bottom-4 left-4 right-4 bg-gray-800 text-white p-3 rounded-lg shadow-lg flex justify-between items-center">
+            <div className="flex items-center gap-2">
+              <span className="text-gray-400">Your Group:</span>
+              <span className="bg-blue-600 px-3 py-1 rounded-md font-medium">
+                Group {employeeGroup}
+              </span>
+            </div>
+            <button 
+              onClick={handleGroupChangeClick}
+              className="bg-blue-600 text-white px-3 py-1 rounded-md text-sm"
+            >
+              Change
+            </button>
           </div>
-          <button 
-            onClick={handleGroupChangeClick}
-            className="bg-blue-600 text-white px-3 py-1 rounded-md text-sm"
-          >
-            Change
-          </button>
-        </div>
+        )}
       </div>
     </Layout>
   );
