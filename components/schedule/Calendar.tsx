@@ -26,22 +26,22 @@ const Calendar: React.FC<CalendarProps> = ({
   return (
     <div className="calendar w-full">
       {/* Calendar header */}
-      <div className="text-xl font-semibold mb-4 text-center text-gray-800 dark:text-gray-200">
+      <div className="text-2xl font-bold mb-6 text-center text-gray-800 dark:text-gray-100">
         {name} {year}
       </div>
       
       {/* Calendar grid */}
-      <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+      <div className="border-0 rounded-xl overflow-hidden bg-gray-50/30 dark:bg-gray-800/20 shadow-lg">
         {/* Days of week header */}
-        <div className="grid grid-cols-7">
+        <div className="grid grid-cols-7 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
           {weekdayLabels.map((day, index) => (
             <div 
               key={day} 
               className={`
-                py-2 font-semibold text-center text-sm
+                py-3 font-medium text-center text-sm
                 ${index === 0 || index === 6 
-                  ? 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300' 
-                  : 'bg-gray-50 text-gray-800 dark:bg-gray-800/60 dark:text-gray-200'}
+                  ? 'text-gray-700 dark:text-gray-300' 
+                  : 'text-gray-800 dark:text-gray-200'}
               `}
             >
               {day}
@@ -49,17 +49,30 @@ const Calendar: React.FC<CalendarProps> = ({
           ))}
         </div>
         
-        {weeks.map((week, weekIndex) => (
-          <div key={weekIndex} className={`${weekIndex > 0 ? 'border-t border-gray-800' : ''}`}> 
-            {week.map((day) => (
-              <DayCell 
-                key={day.date.toString()} 
-                day={day} 
-                onClick={() => onDayClick && onDayClick(day)} 
-                ariaLabel={`Select ${new Date(day.date).toDateString()}`} 
-                title={`Select ${new Date(day.date).toDateString()}`} 
-              />
-            ))}
+        {/* Calendar grid */}
+        <div className="grid grid-cols-7 gap-1 p-2 bg-gray-100/50 dark:bg-gray-800/40">
+          {weeks.map((week, weekIndex) => (
+            <React.Fragment key={weekIndex}>
+              {week.map((day) => (
+                <DayCell 
+                  key={day.date.toString()} 
+                  day={day} 
+                  onClick={() => onDayClick && onDayClick(day)} 
+                  ariaLabel={`Select ${new Date(day.date).toDateString()}`} 
+                  title={`Select ${new Date(day.date).toDateString()}`} 
+                />
+              ))}
+            </React.Fragment>
+          ))}
+        </div>
+      </div>
+      
+      {/* Legend */}
+      <div className="mt-6 flex flex-wrap gap-3 justify-center">
+        {Object.entries(ShiftLegendItems).map(([type, item]) => (
+          <div key={type} className="flex items-center">
+            <span className={`w-4 h-4 rounded-sm mr-2 ${item.colorClass}`}></span>
+            <span className="text-sm text-gray-700 dark:text-gray-300">{item.label}</span>
           </div>
         ))}
       </div>

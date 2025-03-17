@@ -25,6 +25,30 @@ const TodayIcon = () => (
   </svg>
 );
 
+const GroupIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+    <circle cx="9" cy="7" r="4"></circle>
+    <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+    <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+  </svg>
+);
+
+const ScheduleIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+    <line x1="16" y1="2" x2="16" y2="6"></line>
+    <line x1="8" y1="2" x2="8" y2="6"></line>
+    <line x1="3" y1="10" x2="21" y2="10"></line>
+    <path d="M8 14h.01"></path>
+    <path d="M12 14h.01"></path>
+    <path d="M16 14h.01"></path>
+    <path d="M8 18h.01"></path>
+    <path d="M12 18h.01"></path>
+    <path d="M16 18h.01"></path>
+  </svg>
+);
+
 interface CalendarControlsProps {
   currentDate: Date;
   employeeGroup: ShiftGroup;
@@ -62,80 +86,85 @@ const CalendarControls: React.FC<CalendarControlsProps> = ({
   };
   
   return (
-    <div className="flex flex-col space-y-4 sm:space-y-0 sm:flex-row sm:justify-between sm:items-center mb-6">
-      {/* Left side - Navigation */}
-      <div className="flex items-center space-x-2">
+    <div className="mb-8 space-y-4">
+      {/* Month navigation */}
+      <div className="flex items-center justify-between bg-white dark:bg-gray-800 rounded-xl shadow-sm p-3 border border-gray-100 dark:border-gray-700">
         <button
           onClick={onPrevMonth}
           disabled={isUpdating}
-          className="p-2 rounded-md bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition"
+          className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition-colors"
           aria-label="Previous month"
         >
           <ChevronLeftIcon />
         </button>
         
-        <span className="text-lg font-medium text-gray-800 dark:text-gray-200 min-w-[120px] text-center">
+        <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 tracking-wide">
           {currentMonthLabel}
-        </span>
+        </h2>
         
         <button
           onClick={onNextMonth}
           disabled={isUpdating}
-          className="p-2 rounded-md bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition"
+          className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition-colors"
           aria-label="Next month"
         >
           <ChevronRightIcon />
         </button>
-        
+      </div>
+      
+      {/* Actions and filters */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {/* Today button */}
         <button
           onClick={onToday}
           disabled={isUpdating}
-          className="ml-2 px-3 py-1 rounded-md bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-800/50 text-blue-700 dark:text-blue-300 flex items-center space-x-1 transition"
+          className={`
+            flex items-center justify-center gap-2 p-3 rounded-xl
+            bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-800/50
+            text-blue-700 dark:text-blue-300 font-medium transition-colors
+            ${isUpdating ? 'opacity-50 cursor-not-allowed' : ''}
+          `}
           aria-label="Go to today"
         >
           <TodayIcon />
-          <span className="hidden sm:inline">Today</span>
+          <span>Today</span>
         </button>
-      </div>
-      
-      {/* Right side - Filters */}
-      <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
+        
         {/* Group selector */}
         {scheduleType === 'shift' && (
-          <div className="flex items-center space-x-2">
-            <label className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-              Shift Group:
-            </label>
-            <button
-              onClick={onGroupChange}
-              disabled={isUpdating}
-              className={`
-                px-3 py-1 rounded-md border border-gray-300 dark:border-gray-600
-                bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200
-                hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center
-                ${isUpdating ? 'opacity-50 cursor-not-allowed' : ''}
-              `}
-            >
-              Group {employeeGroup} <span className="ml-2 text-xs text-blue-600 dark:text-blue-400">Change</span>
-            </button>
-          </div>
+          <button
+            onClick={onGroupChange}
+            disabled={isUpdating}
+            className={`
+              flex items-center justify-center gap-2 p-3 rounded-xl
+              bg-green-50 hover:bg-green-100 dark:bg-green-900/30 dark:hover:bg-green-800/50
+              text-green-700 dark:text-green-300 font-medium transition-colors
+              ${isUpdating ? 'opacity-50 cursor-not-allowed' : ''}
+            `}
+            aria-label="Change group"
+          >
+            <GroupIcon />
+            <span>Group {employeeGroup}</span>
+          </button>
         )}
         
         {/* Schedule type selector */}
-        <div className="flex items-center space-x-2">
-          <label htmlFor="schedule-type-selector" className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-            Schedule Type:
-          </label>
+        <div className={`
+          flex items-center gap-2 p-3 rounded-xl
+          bg-purple-50 dark:bg-purple-900/30
+          text-purple-700 dark:text-purple-300 transition-colors
+        `}>
+          <ScheduleIcon />
           <select
             id="schedule-type-selector"
             value={scheduleType}
             onChange={handleScheduleTypeChange}
             disabled={isUpdating}
             className={`
-              px-3 py-1 rounded-md border border-gray-300 dark:border-gray-600 
-              bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200
+              flex-1 bg-transparent border-none outline-none font-medium
               ${isUpdating ? 'opacity-50 cursor-not-allowed' : ''}
             `}
+            aria-label="Select schedule type"
           >
             {SCHEDULE_TYPE_OPTIONS.map(option => (
               <option key={option.value} value={option.value}>{option.label}</option>
