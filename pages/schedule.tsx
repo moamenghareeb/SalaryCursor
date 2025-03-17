@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import { format, addMonths, subMonths } from 'date-fns';
 import { toast } from 'react-hot-toast';
 import { supabase } from '../lib/supabase';
+import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 
 // Components
 import Layout from '../components/Layout';
@@ -60,6 +61,12 @@ const DEFAULT_SHIFT_HOURS: ShiftWorkHours = {
   day: { start: '7:00 AM', end: '7:00 PM' },
   night: { start: '7:00 PM', end: '7:00 AM' }
 };
+
+// Define schedule type options
+const SCHEDULE_TYPE_OPTIONS = [
+  { value: 'shift' as ScheduleType, label: 'Shift-Based Schedule' },
+  { value: 'regular' as ScheduleType, label: 'Regular Working Hours' }
+];
 
 const SchedulePage: React.FC = () => {
   // Router
@@ -137,6 +144,9 @@ const SchedulePage: React.FC = () => {
     isUpdatingScheduleType,
     refreshData
   } = useSchedule();
+  
+  // Combined loading state
+  const isUpdating = isLoading || isUpdatingShift || isUpdatingGroup || isUpdatingScheduleType;
   
   // Generate future months data on component mount
   useEffect(() => {
@@ -344,35 +354,101 @@ const SchedulePage: React.FC = () => {
   return (
     <Layout>
       <div className="container mx-auto px-4 py-8">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Work Schedule</h1>
-          
-          {/* View mode toggle */}
-          <div className="mt-4 md:mt-0 flex items-center space-x-2">
-            <button
-              onClick={() => setViewMode('current')}
-              className={`px-3 py-1 rounded-md text-sm ${
-                viewMode === 'current' 
-                  ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300'
-                  : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300'
-              }`}
-            >
-              Current Month
-            </button>
-            <button
-              onClick={() => setViewMode('future')}
-              className={`px-3 py-1 rounded-md text-sm ${
-                viewMode === 'future' 
-                  ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300'
-                  : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300'
-              }`}
-            >
-              Future Months
-            </button>
+        <div className="flex flex-col space-y-4">
+          {/* Header Section */}
+          <div className="bg-white dark:bg-gray-800 shadow-sm rounded-lg p-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              {/* Left side - Title and Navigation */}
+              <div className="flex items-center space-x-4">
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Work Schedule</h1>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => setViewMode('current')}
+                    className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
+                      viewMode === 'current'
+                        ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                        : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700/30'
+                    }`}
+                  >
+                    Current
+                  </button>
+                  <button
+                    onClick={() => setViewMode('future')}
+                    className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
+                      viewMode === 'future'
+                        ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                        : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700/30'
+                    }`}
+                  >
+                    Future
+                  </button>
+                </div>
+              </div>
+
+              {/* Right side - Settings */}
+              <div className="flex flex-wrap items-center gap-3">
+                {scheduleType === 'shift' && (
+                  <div className="flex items-center">
+                    <span className="text-sm text-gray-600 dark:text-gray-400 mr-2">Group {employeeGroup}</span>
+                    <button
+                      onClick={handleGroupChangeClick}
+                      disabled={isUpdating}
+                      className="text-blue-600 dark:text-blue-400 text-sm hover:underline disabled:opacity-50"
+                    >
+                      Change
+                    </button>
+                  </div>
+                )}
+                <select
+                  value={scheduleType}
+                  onChange={(e) => updateScheduleType(e.target.value as ScheduleType)}
+                  disabled={isUpdating}
+                  className="text-sm px-2 py-1 rounded border border-gray-300 dark:border-gray-600 
+                    bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200
+                    disabled:opacity-50"
+                >
+                  {SCHEDULE_TYPE_OPTIONS.map(option => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
           </div>
+
+          {/* Month Navigation - Only show for current view */}
+          {viewMode === 'current' && (
+            <div className="bg-white dark:bg-gray-800 shadow-sm rounded-lg p-3 flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={goToPreviousMonth}
+                  disabled={isUpdating}
+                  className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700/30 disabled:opacity-50"
+                >
+                  <ChevronLeftIcon className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                </button>
+                <span className="text-lg font-medium text-gray-800 dark:text-gray-200">
+                  {format(currentDate, 'MMMM yyyy')}
+                </span>
+                <button
+                  onClick={goToNextMonth}
+                  disabled={isUpdating}
+                  className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700/30 disabled:opacity-50"
+                >
+                  <ChevronRightIcon className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                </button>
+              </div>
+              <button
+                onClick={goToToday}
+                disabled={isUpdating}
+                className="text-sm text-blue-600 dark:text-blue-400 hover:underline disabled:opacity-50"
+              >
+                Today
+              </button>
+            </div>
+          )}
         </div>
         
-        {isLoading ? (
+        {isUpdating ? (
           <div className="flex justify-center items-center h-64">
             <LoadingSpinner />
           </div>
@@ -393,7 +469,7 @@ const SchedulePage: React.FC = () => {
               onToday={goToToday}
               onGroupChange={handleGroupChangeClick}
               onScheduleTypeChange={updateScheduleType}
-              isUpdating={isLoading || isUpdatingGroup || isUpdatingScheduleType}
+              isUpdating={isUpdating}
             />
             
             {/* Toggle between desktop and mobile view */}
