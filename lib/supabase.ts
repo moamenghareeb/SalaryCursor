@@ -21,6 +21,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
   }
 }
 
+// Create Supabase client with enhanced configuration
 export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '', {
   auth: {
     persistSession: true,
@@ -32,10 +33,10 @@ export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '', {
         if (typeof window !== 'undefined') {
           try {
             const storedValue = window.localStorage.getItem(key);
-            logger.debug(`Storage: retrieving key ${key}`, storedValue ? 'found' : 'not found');
+            logger.debug(`Storage: retrieving key ${key} - ${storedValue ? 'found' : 'not found'}`);
             return storedValue;
           } catch (error) {
-            logger.error(`Error retrieving key ${key} from localStorage`, error);
+            logger.error(`Error retrieving key ${key} from localStorage:`, error);
             return null;
           }
         }
@@ -46,20 +47,23 @@ export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '', {
           try {
             logger.debug(`Storage: setting key ${key}`);
             window.localStorage.setItem(key, value);
-            // Also set the shorter version for compatibility
+            
+            // Set both token formats for compatibility
             if (key === 'supabase-auth-token') {
               try {
                 const parsed = JSON.parse(value);
-                const token = parsed[0]?.token || parsed[0];
+                const token = parsed?.access_token || parsed[0]?.access_token || parsed[0];
                 if (token) {
                   window.localStorage.setItem('sb-access-token', token);
+                  // Also set as a cookie for API routes
+                  document.cookie = `sb-access-token=${token}; path=/; max-age=3600; SameSite=Strict`;
                 }
               } catch (e) {
-                logger.error('Failed to parse auth token for compatibility storage', e);
+                logger.error('Failed to parse auth token for compatibility storage:', e);
               }
             }
           } catch (error) {
-            logger.error(`Error setting key ${key} in localStorage`, error);
+            logger.error(`Error setting key ${key} in localStorage:`, error);
           }
         }
       },
@@ -68,12 +72,13 @@ export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '', {
           try {
             logger.debug(`Storage: removing key ${key}`);
             window.localStorage.removeItem(key);
-            // Also remove the shorter version for compatibility
             if (key === 'supabase-auth-token') {
               window.localStorage.removeItem('sb-access-token');
+              // Remove the cookie as well
+              document.cookie = 'sb-access-token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
             }
           } catch (error) {
-            logger.error(`Error removing key ${key} from localStorage`, error);
+            logger.error(`Error removing key ${key} from localStorage:`, error);
           }
         }
       },
@@ -90,6 +95,13 @@ export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '', {
 if (typeof window !== 'undefined') {
   supabase.auth.onAuthStateChange((event, session) => {
     logger.info(`Auth event: ${event}`, { userId: session?.user?.id });
+    
+    // Update the auth token cookie on session changes
+    if (session?.access_token) {
+      document.cookie = `sb-access-token=${session.access_token}; path=/; max-age=3600; SameSite=Strict`;
+    } else if (event === 'SIGNED_OUT') {
+      document.cookie = 'sb-access-token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+    }
   });
 }
 
@@ -123,13 +135,13 @@ export const getAuthToken = async (): Promise<string | null> => {
     if (fullTokenStorage) {
       try {
         const parsed = JSON.parse(fullTokenStorage);
-        const token = parsed[0]?.token || parsed[0];
+        const token = parsed?.access_token || parsed[0]?.access_token || parsed[0];
         if (token) {
           logger.info('Using token from parsed full localStorage');
           return token;
         }
       } catch (e) {
-        logger.error('Failed to parse full token storage', e);
+        logger.error('Failed to parse full token storage:', e);
       }
     }
     

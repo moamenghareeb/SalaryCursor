@@ -83,9 +83,15 @@ function isRateLimited(ip: string, now: number): boolean {
  */
 function addSecurityHeaders(response: NextResponse): void {
   // Set Content Security Policy with all required domains and features allowed
+  const isDevelopment = process.env.NODE_ENV === 'development';
+  
+  const scriptSrc = isDevelopment
+    ? "'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' https://cdn.jsdelivr.net"
+    : "'self' 'unsafe-inline' 'wasm-unsafe-eval' https://cdn.jsdelivr.net";
+
   response.headers.set(
     'Content-Security-Policy',
-    "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://*.supabase.co https://*.supabase.in https://supabase.com data:; worker-src 'self' blob:"
+    `default-src 'self'; script-src ${scriptSrc}; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://*.supabase.co https://*.supabase.in https://supabase.com data:; worker-src 'self' blob:`
   );
   
   // Prevent MIME type sniffing

@@ -168,18 +168,27 @@ export async function get30DayAverageRate() {
 // Save the rate to database and cache
 export async function saveExchangeRate(rate: number): Promise<boolean> {
   try {
-    // Save to database
-    const { data, error } = await supabase
-      .from('exchange_rates')
-      .insert([
-        {
-          rate: rate,
-          created_at: new Date().toISOString()
-        }
-      ]);
+    // Get the current session
+    const { data: { session }, error: authError } = await supabase.auth.getSession();
+    
+    if (authError || !session) {
+      console.error('Authentication error:', authError);
+      return false;
+    }
 
-    if (error) {
-      console.error('Error saving rate to database:', error);
+    // Use the admin API endpoint to save the rate
+    const response = await fetch('/api/admin/update-exchange-rate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`
+      },
+      body: JSON.stringify({ rate })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('Error saving rate:', errorData);
       return false;
     }
 

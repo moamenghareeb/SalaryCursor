@@ -13,7 +13,19 @@ import { FiRefreshCw, FiCalendar } from 'react-icons/fi';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { SalaryForm } from '@/components/salary/SalaryForm';
 import { SalarySummary } from '@/components/salary/SalarySummary';
-import { SalaryCalculation as SalaryCalculator } from '@/lib/calculations/salary';
+import { 
+  BasicSalaryCalculation, 
+  defaultSalaryCalc,
+  calculateOvertimePay,
+  calculateVariablePay,
+  calculateTotalSalary,
+  testCalculation 
+} from '@/lib/calculations/salary';
+import {
+  saveInputsToLocalStorage,
+  loadInputsFromLocalStorage,
+  clearSavedInputs
+} from '@/lib/storage/salary';
 
 // Register fonts - use direct font import
 Font.register({
@@ -30,6 +42,21 @@ Font.register({
     }
   ]
 });
+
+// Add the debounce hook
+const useDebounce = (func: (...args: any[]) => void, delay: number) => {
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  return (...args: any[]) => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+    
+    timeoutRef.current = setTimeout(() => {
+      func(...args);
+    }, delay);
+  };
+};
 
 export default function Salary() {
   const { isDarkMode } = useTheme();
@@ -54,137 +81,130 @@ export default function Salary() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [pdfModalOpen, setPdfModalOpen] = useState(false);
-  const [calculationResults, setCalculationResults] = useState<SalaryCalculation | null>(null);
+  const [calculationResults, setCalculationResults] = useState<BasicSalaryCalculation | null>(null);
 
-  // Update the SalaryCalculation interface
-  interface SalaryCalculation {
-    basicSalary: number;
-    costOfLiving: number;
-    shiftAllowance: number;
-    overtimeHours: number;
-    manualOvertimeHours: number;
-    overtimePay: number;
-    variablePay: number;
-    deduction: number;
-    totalSalary: number;
-    exchangeRate: number;
-  }
-
-  // Update default calculation values
-  const defaultSalaryCalc: SalaryCalculation = {
-    basicSalary: 0,
-    costOfLiving: 0,
-    shiftAllowance: 0,
-    overtimeHours: 0,
-    manualOvertimeHours: 0,
-    overtimePay: 0,
-    variablePay: 0,
-    deduction: 0,
-    totalSalary: 0,
-    exchangeRate: 0,
-  };
-
-  const [salaryCalc, setSalaryCalc] = useState<SalaryCalculation>(defaultSalaryCalc);
+  const [salaryCalc, setSalaryCalc] = useState<BasicSalaryCalculation>(defaultSalaryCalc);
 
   // Add state for overtime data
   const [scheduleOvertimeHours, setScheduleOvertimeHours] = useState(0);
   const [manualOvertimeHours, setManualOvertimeHours] = useState(0);
 
+  // Create a debounced version of the save function with 1 second delay
+  const debouncedSaveToLocalStorage = useDebounce((data: BasicSalaryCalculation) => {
+    if (employee?.id) {
+      saveInputsToLocalStorage(data, employee.id);
+    }
+  }, 1000);
+
   // Function to fetch overtime hours for the selected month
   const fetchOvertimeHours = async () => {
-    if (!user) {
-      console.log('No user found, skipping overtime fetch');
+    if (!employee) {
+      console.log('No employee data, skipping overtime fetch');
       return;
     }
 
     try {
       // Calculate start and end dates for the selected month
       const startDate = new Date(selectedYear, selectedMonth - 1, 1);
-      const endDate = new Date(selectedYear, selectedMonth, 0); // Last day of the selected month
+      startDate.setHours(0, 0, 0, 0);  // Set to beginning of day
       
-      console.log('Fetching overtime hours for period:', {
+      const endDate = new Date(selectedYear, selectedMonth, 0); // Last day of the month
+      endDate.setHours(23, 59, 59, 999);  // Set to end of day
+      
+      console.log('Date range calculation (with time):', {
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString(),
+        startDateString: startDate.toISOString().split('T')[0],
+        endDateString: endDate.toISOString().split('T')[0],
         year: selectedYear,
-        month: selectedMonth,
-        start: startDate.toISOString().split('T')[0],
-        end: endDate.toISOString().split('T')[0],
-        employeeId: user.id,
-        startDateObj: startDate,
-        endDateObj: endDate
+        month: selectedMonth
       });
-      
-      // First, let's check all shifts for debugging
-      const { data: allShifts, error: allShiftsError } = await supabase
-        .from('shift_overrides')
-        .select('*')
-        .eq('employee_id', user.id)
-        .gte('date', startDate.toISOString().split('T')[0])
-        .lte('date', endDate.toISOString().split('T')[0])
-        .order('date', { ascending: true });
-        
-      console.log('All shifts found:', allShifts?.length || 0);
-      console.log('All shifts:', allShifts?.map(s => ({
-        date: s.date,
-        type: s.shift_type,
-        id: s.id
-      })));
-      console.log('Shift types found:', Array.from(new Set(allShifts?.map(s => s.shift_type) || [])));
-      
-      // Now get overtime shifts with case-insensitive comparison
+
+      // Fetch all shifts for the month
       const { data: shifts, error: shiftsError } = await supabase
         .from('shift_overrides')
         .select('*')
-        .eq('employee_id', user.id)
-        .eq('shift_type', 'Overtime')
+        .eq('employee_id', employee.id)
         .gte('date', startDate.toISOString().split('T')[0])
         .lte('date', endDate.toISOString().split('T')[0])
         .order('date', { ascending: true });
 
       if (shiftsError) {
-        console.error('Error fetching overtime shifts:', shiftsError);
-        throw shiftsError;
+        console.error('Error fetching shifts:', shiftsError);
+        return;
       }
 
-      // Calculate total overtime hours (24 hours per overtime shift)
-      const scheduleHours = (shifts?.length || 0) * 24;
-      console.log('Overtime shifts details:', shifts?.map(s => ({
+      console.log('Fetching shifts with params:', {
+        employee_id: employee.id,
+        start_date: startDate.toISOString().split('T')[0],
+        end_date: endDate.toISOString().split('T')[0],
+        query: 'gte start_date AND lte end_date'
+      });
+      
+      console.log('All shifts found:', shifts?.length);
+      console.log('Raw shifts data:', shifts);
+
+      // Log detailed shift information
+      console.log('Detailed shift information:', shifts?.map(s => ({
         date: s.date,
         type: s.shift_type,
-        id: s.id
+        notes: s.notes
       })));
-      console.log('Total overtime shifts found:', shifts?.length || 0);
-      console.log('Calculated schedule overtime hours:', scheduleHours);
-      setScheduleOvertimeHours(scheduleHours);
+
+      // Get unique shift types
+      const shiftTypes = Array.from(new Set(shifts?.map(s => s.shift_type) || []));
+      console.log('Shift types found:', shiftTypes);
+
+      // Log all shifts with their types for debugging
+      console.log('Shifts by type:', shifts?.reduce((acc, shift) => {
+        const type = shift.shift_type || 'unknown';
+        acc[type] = (acc[type] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>));
+
+      // Filter overtime shifts - only count actual overtime shifts
+      const overtimeShifts = shifts?.filter(s => {
+        const type = (s.shift_type || '').toLowerCase().trim();
+        console.log('Checking shift type:', { original: s.shift_type, normalized: type });
+        return type === 'overtime';
+      }) || [];
       
-      // Update salary calculation with total overtime hours
+      console.log('Overtime shifts details:', overtimeShifts);
+      console.log('Total overtime shifts found:', overtimeShifts.length);
+
+      // Calculate total overtime hours (24 hours per shift)
+      const scheduleOvertimeHours = overtimeShifts.length * 24;
+      console.log('Calculated schedule overtime hours:', scheduleOvertimeHours);
+
+      // Update the salary calculation with new overtime hours
+      setScheduleOvertimeHours(scheduleOvertimeHours);
       setSalaryCalc(prev => {
+        const totalOvertimeHours = scheduleOvertimeHours + (manualOvertimeHours || 0);
         const basicSalary = prev.basicSalary || 0;
         const costOfLiving = prev.costOfLiving || 0;
-        const manualHours = prev.manualOvertimeHours || 0;
-        const totalOvertimeHours = scheduleHours + manualHours;
         
-        console.log('Updating salary calc with:', {
-          scheduleHours,
-          manualHours,
-          totalOvertimeHours,
-          basicSalary,
-          costOfLiving
-        });
-        
-        // Calculate overtime pay: ((basic + cost of living) / 210) * overtime hours
-        const overtimePay = ((basicSalary + costOfLiving) / 210) * totalOvertimeHours;
+        // Calculate overtime pay
+        const overtimePay = calculateOvertimePay(basicSalary, costOfLiving, totalOvertimeHours);
         
         // Calculate variable pay
         const shiftAllowance = prev.shiftAllowance || 0;
-        const variablePay = (basicSalary + costOfLiving + shiftAllowance + overtimePay) * ((exchangeRate / 31) - 1);
+        const variablePay = calculateVariablePay(
+          basicSalary,
+          costOfLiving,
+          shiftAllowance,
+          overtimePay,
+          exchangeRate
+        );
         
         // Calculate total salary
-        const totalSalary = 
-          basicSalary + 
-          costOfLiving + 
-          shiftAllowance + 
-          overtimePay + 
-          variablePay - 
-          (prev.deduction || 0);
+        const totalSalary = calculateTotalSalary(
+          basicSalary,
+          costOfLiving,
+          shiftAllowance,
+          overtimePay,
+          variablePay,
+          prev.deduction || 0
+        );
         
         return {
           ...prev,
@@ -195,55 +215,8 @@ export default function Salary() {
         };
       });
 
-      // Update the salaries table with the new overtime hours
-      const salaryRecord = {
-        employee_id: user.id,
-        month: `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-01`,
-        basic_salary: salaryCalc.basicSalary || 0,
-        cost_of_living: salaryCalc.costOfLiving || 0,
-        shift_allowance: salaryCalc.shiftAllowance || 0,
-        overtime_hours: scheduleHours + (manualOvertimeHours || 0),
-        overtime_pay: salaryCalc.overtimePay || 0,
-        variable_pay: salaryCalc.variablePay || 0,
-        deduction: salaryCalc.deduction || 0,
-        total_salary: salaryCalc.totalSalary || 0,
-        exchange_rate: exchangeRate
-      };
-
-      console.log('Upserting salary record:', salaryRecord);
-
-      // First try to get existing record
-      const { data: existingRecord, error: existingError } = await supabase
-        .from('salaries')
-        .select('id')
-        .eq('employee_id', user.id)
-        .eq('month', salaryRecord.month)
-        .single();
-
-      if (existingError && existingError.code !== 'PGRST116') {
-        console.error('Error checking existing record:', existingError);
-        toast.error('Failed to check existing salary record');
-        return;
-      }
-
-      // Update or insert based on existence
-      const { error: updateError } = await supabase
-        .from('salaries')
-        .upsert(salaryRecord, {
-          onConflict: 'employee_id,month'
-        });
-
-      if (updateError) {
-        console.error('Error updating salary record:', updateError);
-        toast.error('Failed to update salary record');
-      } else {
-        console.log('Successfully updated salary record');
-        toast.success('Salary record updated successfully');
-      }
-
     } catch (error) {
-      console.error('Error fetching overtime hours:', error);
-      toast.error('Failed to fetch overtime data');
+      console.error('Error in fetchOvertimeHours:', error);
     }
   };
 
@@ -266,7 +239,7 @@ export default function Salary() {
       if (existingRecord) {
         // Use existing record
         const scheduleHours = existingRecord.overtime_hours || 0;
-        const manualHours = 0; // Reset manual hours when loading a new record
+        const manualHours = existingRecord.manual_overtime_hours || 0; // Keep manual hours from record
         
         setScheduleOvertimeHours(scheduleHours);
         setManualOvertimeHours(manualHours);
@@ -284,17 +257,6 @@ export default function Salary() {
           exchangeRate: existingRecord.exchange_rate,
         });
         toast.success(`Loaded existing salary record for ${new Date(existingRecord.month).toLocaleDateString('en-US', {month: 'long', year: 'numeric'})}`);
-      } else {
-        // Reset all overtime values for a new record
-        setScheduleOvertimeHours(0);
-        setManualOvertimeHours(0);
-        setSalaryCalc(prev => ({
-          ...prev,
-          overtimeHours: 0,
-          manualOvertimeHours: 0,
-          overtimePay: 0
-        }));
-        toast(`No existing record for ${new Date(year, month-1).toLocaleDateString('en-US', {month: 'long', year: 'numeric'})}. You can create a new one.`);
       }
     }
 
@@ -302,8 +264,8 @@ export default function Salary() {
     fetchOvertimeHours();
   };
 
-  // Update the handleInputChange function to handle overtime calculations
-  const handleInputChange = (field: keyof SalaryCalculation, value: number) => {
+  // Update the handleInputChange function to use the imported calculation functions
+  const handleInputChange = (field: keyof BasicSalaryCalculation, value: number) => {
     // Create the updated calculation object
     const newCalc = {
       ...salaryCalc,
@@ -317,54 +279,35 @@ export default function Salary() {
       newCalc.overtimeHours = totalOvertimeHours;
       
       // Calculate overtime pay
-      const basicSalary = newCalc.basicSalary || 0;
-      const costOfLiving = newCalc.costOfLiving || 0;
-      const overtimePay = ((basicSalary + costOfLiving) / 210) * totalOvertimeHours;
+      const overtimePay = calculateOvertimePay(newCalc.basicSalary || 0, newCalc.costOfLiving || 0, totalOvertimeHours);
       newCalc.overtimePay = overtimePay;
       
       // Calculate variable pay
-      const shiftAllowance = newCalc.shiftAllowance || 0;
-      const variablePay = (basicSalary + costOfLiving + shiftAllowance + overtimePay) * ((exchangeRate / 31) - 1);
+      const variablePay = calculateVariablePay(
+        newCalc.basicSalary || 0,
+        newCalc.costOfLiving || 0,
+        newCalc.shiftAllowance || 0,
+        overtimePay,
+        exchangeRate
+      );
       newCalc.variablePay = variablePay;
       
       // Recalculate total salary
-      newCalc.totalSalary = 
-        basicSalary + 
-        costOfLiving + 
-        shiftAllowance + 
-        overtimePay + 
-        variablePay - 
-        (newCalc.deduction || 0);
-    }
-    
-    // Automatically calculate overtime pay when basic salary or cost of living changes
-    if (field === 'basicSalary' || field === 'costOfLiving') {
-      const basicSalary = field === 'basicSalary' ? value : newCalc.basicSalary || 0;
-      const costOfLiving = field === 'costOfLiving' ? value : newCalc.costOfLiving || 0;
-      const totalOvertimeHours = scheduleOvertimeHours + manualOvertimeHours;
-      
-      // Calculate overtime pay based on 210 working hours per month
-      const overtimePay = ((basicSalary + costOfLiving) / 210) * totalOvertimeHours;
-      newCalc.overtimePay = overtimePay;
-      
-      // Calculate variable pay
-      const shiftAllowance = newCalc.shiftAllowance || 0;
-      const variablePay = (basicSalary + costOfLiving + shiftAllowance + overtimePay) * ((exchangeRate / 31) - 1);
-      newCalc.variablePay = variablePay;
-      
-      // Recalculate total salary
-      newCalc.totalSalary = 
-        basicSalary + 
-        costOfLiving + 
-        shiftAllowance + 
-        overtimePay + 
-        variablePay - 
-        (newCalc.deduction || 0);
+      newCalc.totalSalary = calculateTotalSalary(
+        newCalc.basicSalary || 0,
+        newCalc.costOfLiving || 0,
+        newCalc.shiftAllowance || 0,
+        overtimePay,
+        variablePay,
+        newCalc.deduction || 0
+      );
     }
     
     setSalaryCalc(newCalc);
     // Save to localStorage with debounce
-    debouncedSaveToLocalStorage(newCalc);
+    if (employee?.id) {
+      debouncedSaveToLocalStorage(newCalc);
+    }
   };
 
   // Modified useEffects to guarantee localStorage priority
@@ -411,146 +354,10 @@ export default function Salary() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [employee?.id, selectedYear, selectedMonth]); // Add selectedYear and selectedMonth as dependencies
 
-  // Enhanced localStorage functions with debugging
-  const saveInputsToLocalStorage = (data: SalaryCalculation) => {
-    if (typeof window !== 'undefined' && employee?.id) {
-      const storageKey = `salary_inputs_${employee.id}`;
-      try {
-        // Store only user input fields, not calculated values
-        const inputsToSave = {
-          basicSalary: data.basicSalary || 0,
-          costOfLiving: data.costOfLiving || 0,
-          shiftAllowance: data.shiftAllowance || 0,
-          overtimeHours: data.overtimeHours || 0,
-          deduction: data.deduction || 0,
-        };
-        localStorage.setItem(storageKey, JSON.stringify(inputsToSave));
-        console.log('✅ Saved salary inputs to localStorage:', inputsToSave);
-      } catch (error) {
-        console.error('Error saving to localStorage:', error);
-      }
-    }
-  };
-
-  // Enhanced loading function with better debugging
-  const loadInputsFromLocalStorage = () => {
-    if (typeof window !== 'undefined' && employee?.id) {
-      try {
-        const storageKey = `salary_inputs_${employee.id}`;
-        console.log('Looking for localStorage data with key:', storageKey);
-        
-        const savedData = localStorage.getItem(storageKey);
-        if (savedData) {
-          const parsedData = JSON.parse(savedData);
-          console.log('✅ Found and loaded salary inputs from localStorage:', parsedData);
-          return {
-            basicSalary: parsedData.basicSalary || 0,
-            costOfLiving: parsedData.costOfLiving || 0,
-            shiftAllowance: parsedData.shiftAllowance || 0,
-            overtimeHours: parsedData.overtimeHours || 0,
-            deduction: parsedData.deduction || 0,
-          };
-        } else {
-          console.log('No saved inputs found in localStorage');
-        }
-      } catch (error) {
-        console.error('Error loading saved inputs:', error);
-      }
-    }
-    return null;
-  };
-
-  // Add a function to debounce localStorage saves to avoid excessive storage operations
-  const useDebounce = (func: (...args: any[]) => void, delay: number) => {
-    const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-    
-    return (...args: any[]) => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-      
-      timeoutRef.current = setTimeout(() => {
-        func(...args);
-      }, delay);
-    };
-  };
-  
-  // Create a debounced version of the save function with 1 second delay
-  const debouncedSaveToLocalStorage = useDebounce((data: SalaryCalculation) => {
-    saveInputsToLocalStorage(data);
-  }, 1000);
-
-  // Function to calculate variable pay based on basic salary
-  const calculateVariablePay = (basicSalary: number): number => {
-    // Calculate variable pay: E = ((A+B+C+D)*((exchangeRate/31)-1)
-    // All values are already in EGP
-    return (basicSalary + salaryCalc.costOfLiving + salaryCalc.shiftAllowance + salaryCalc.overtimePay) * 
-      ((exchangeRate / 31) - 1);
-  };
-
-  const calculateSalary = async () => {
-    setCalculationLoading(true);
-    
-    // Extract values from state - all in EGP
-    const basicSalary = salaryCalc.basicSalary || 0;
-    const costOfLiving = salaryCalc.costOfLiving || 0;
-    const shiftAllowance = salaryCalc.shiftAllowance || 0;
-    const overtimeHours = salaryCalc.overtimeHours || 0;
-    const deduction = salaryCalc.deduction || 0;
-    
-    // Calculate overtime pay: ((basic + cost of living) / 210) * overtime hours
-    const overtimePay = ((basicSalary + costOfLiving) / 210) * overtimeHours;
-    
-    // Calculate variable pay
-    const variablePay = (basicSalary + costOfLiving + shiftAllowance + overtimePay) * ((exchangeRate / 31) - 1);
-    
-    // Calculate total salary
-    const totalSalary = 
-      basicSalary + 
-      costOfLiving + 
-      shiftAllowance + 
-      overtimePay + 
-      variablePay - 
-      deduction;
-    
-    const newCalc = {
-      ...salaryCalc,
-      overtimePay,
-      variablePay,
-      totalSalary,
-      exchangeRate,
-    };
-    
-    setSalaryCalc(newCalc);
-    
-    // Save inputs to localStorage whenever calculation happens
-    saveInputsToLocalStorage(newCalc);
-    
-    setCalculationLoading(false);
-  };
-
-  // Modify the clear function to provide better feedback
-  const clearSavedInputs = () => {
-    if (typeof window !== 'undefined' && employee?.id) {
-      try {
-        const storageKey = `salary_inputs_${employee.id}`;
-        localStorage.removeItem(storageKey);
-        setSalaryCalc(defaultSalaryCalc);
-        alert('Form reset to default values. Your saved inputs have been cleared.');
-        console.log('✅ Cleared localStorage data for key:', storageKey);
-      } catch (error) {
-        console.error('Error clearing localStorage:', error);
-        alert('Error clearing saved data. Please try again.');
-      }
-    } else {
-      alert('Cannot clear saved data: Employee information not available');
-    }
-  };
-
   // Add a function to apply localStorage data with priority
   const applyLocalStorageData = () => {
     if (employee?.id) {
-      const savedInputs = loadInputsFromLocalStorage();
+      const savedInputs = loadInputsFromLocalStorage(employee.id);
       if (savedInputs) {
         console.log('Applying localStorage data with priority');
         setSalaryCalc(prev => {
@@ -613,32 +420,23 @@ export default function Salary() {
         .eq('month', `${month}-01`)
         .limit(1);
       
-      let result;
-      
       if (existingError) {
         throw new Error(`Error checking for existing records: ${existingError.message}`);
       }
       
-      if (existingData && existingData.length > 0) {
-        // Update existing record
-        const { data, error } = await supabase
-          .from('salaries')
-          .update(salaryData)
-          .eq('id', existingData[0].id)
-          .select();
-          
-        if (error) throw error;
-        result = data;
-      } else {
-        // Insert new record
-        const { data, error } = await supabase
-          .from('salaries')
-          .insert(salaryData)
-          .select();
-          
-        if (error) throw error;
-        result = data;
-      }
+      // Upsert the record
+      const { data, error } = await supabase
+        .from('salaries')
+        .upsert(salaryData, {
+          onConflict: 'employee_id,month',
+          ignoreDuplicates: false
+        })
+        .select();
+      
+      if (error) throw error;
+      
+      // Force a schema cache refresh
+      await supabase.rpc('refresh_schema_cache');
       
       toast.success('Salary saved successfully!');
       
@@ -960,7 +758,8 @@ export default function Salary() {
               variablePay: salary?.variable_pay || 0,
               deduction: salary?.deduction || 0,
               totalSalary: salary?.total_salary || 0,
-              exchangeRate: salary?.exchange_rate || exchangeRate
+              exchangeRate: salary?.exchange_rate || exchangeRate,
+              manualOvertimeHours: salary?.overtime_hours || 0
             }}
             employee={employee as Employee}
             month={salary.month}
@@ -988,39 +787,77 @@ export default function Salary() {
     }
   };
 
-  // Add test calculation function
-  const testCalculation = () => {
-    const basicSalary = 23517;
-    const costOfLiving = 6300;
-    const shiftAllowance = 2200;
-    const overtimeHours = 96;
-    const deductions = 98.35;
-    const exchangeRate = 50.6;
-
-    // Calculate overtime pay
-    const overtimePay = ((basicSalary + costOfLiving) / 210) * overtimeHours;
-    console.log('Overtime Pay:', overtimePay);
-
-    // Calculate variable pay
-    const variablePay = (basicSalary + costOfLiving + shiftAllowance + overtimePay) * ((exchangeRate / 31) - 1);
-    console.log('Variable Pay:', variablePay);
-
-    // Calculate total salary
-    const totalSalary = basicSalary + costOfLiving + shiftAllowance + overtimePay + variablePay - deductions;
-    console.log('Total Salary:', totalSalary);
-
-    return {
-      overtimePay,
-      variablePay,
-      totalSalary
-    };
-  };
-
   // Call test calculation
   useEffect(() => {
     const results = testCalculation();
     console.log('Test Calculation Results:', results);
   }, []);
+
+  // Add the calculate salary function
+  const calculateSalary = async () => {
+    setCalculationLoading(true);
+    
+    // Extract values from state - all in EGP
+    const basicSalary = salaryCalc.basicSalary || 0;
+    const costOfLiving = salaryCalc.costOfLiving || 0;
+    const shiftAllowance = salaryCalc.shiftAllowance || 0;
+    const overtimeHours = salaryCalc.overtimeHours || 0;
+    const deduction = salaryCalc.deduction || 0;
+    
+    // Calculate overtime pay
+    const overtimePay = calculateOvertimePay(basicSalary, costOfLiving, overtimeHours);
+    
+    // Calculate variable pay
+    const variablePay = calculateVariablePay(
+      basicSalary,
+      costOfLiving,
+      shiftAllowance,
+      overtimePay,
+      exchangeRate
+    );
+    
+    // Calculate total salary
+    const totalSalary = calculateTotalSalary(
+      basicSalary,
+      costOfLiving,
+      shiftAllowance,
+      overtimePay,
+      variablePay,
+      deduction
+    );
+    
+    const newCalc = {
+      ...salaryCalc,
+      overtimePay,
+      variablePay,
+      totalSalary,
+      exchangeRate,
+    };
+    
+    setSalaryCalc(newCalc);
+    
+    // Save inputs to localStorage whenever calculation happens
+    if (employee?.id) {
+      saveInputsToLocalStorage(newCalc, employee.id);
+    }
+    
+    setCalculationLoading(false);
+  };
+
+  // Update the clear function to handle React events
+  const handleClearSavedInputs = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    if (employee?.id) {
+      if (clearSavedInputs(employee.id)) {
+        setSalaryCalc(defaultSalaryCalc);
+        alert('Form reset to default values. Your saved inputs have been cleared.');
+      } else {
+        alert('Error clearing saved data. Please try again.');
+      }
+    } else {
+      alert('Cannot clear saved data: Employee information not available');
+    }
+  };
 
   if (loading) {
     return (
@@ -1078,7 +915,7 @@ export default function Salary() {
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
                 <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">Salary Calculator</h2>
                 <button
-                  onClick={clearSavedInputs}
+                  onClick={handleClearSavedInputs}
                   className="w-full sm:w-auto px-3 py-1.5 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                 >
                   Clear

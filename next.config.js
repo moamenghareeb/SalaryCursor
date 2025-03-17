@@ -16,11 +16,9 @@ const nextConfig = {
 
   // Performance optimizations
   experimental: {
-    outputFileTracingRoot: process.env.NODE_ENV === 'production' ? undefined : __dirname,
     optimizeCss: true,
     scrollRestoration: true,
-    legacyBrowsers: false,
-    browsersListForSwc: true,
+    outputFileTracingRoot: process.env.NODE_ENV === 'production' ? undefined : __dirname,
   },
 
   // Webpack optimizations
