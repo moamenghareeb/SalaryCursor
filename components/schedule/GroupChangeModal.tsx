@@ -13,7 +13,7 @@ interface GroupChangeModalProps {
 const GROUP_OPTIONS: { value: ShiftGroup; label: string; recommended?: boolean }[] = [
   { value: 'A', label: 'Group A' },
   { value: 'B', label: 'Group B' },
-  { value: 'C', label: 'Group C', recommended: true },
+  { value: 'C', label: 'Group C' },
   { value: 'D', label: 'Group D' }
 ];
 
@@ -106,10 +106,7 @@ const GroupChangeModal: React.FC<GroupChangeModalProps> = ({
                     ))}
                   </div>
                   <p className="mt-2 text-sm text-blue-600">
-                    {selectedGroup === 'C' ? 
-                      'Recommended - This will maintain your personal schedule.' :
-                      'Note: Your schedule may not display correctly if you use a group other than Group C.'
-                    }
+                    Select the shift group that matches your work schedule.
                   </p>
                 </div>
 

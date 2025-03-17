@@ -631,15 +631,14 @@ export function useSchedule({
         throw new Error('User not authenticated');
       }
       
-      // Force group to be 'C' regardless of what was passed
-      const effectiveGroup: ShiftGroup = 'C';
-      console.log(`Group change requested: ${group}, forcing to: ${effectiveGroup}`);
+      // Allow any valid group selection
+      console.log(`Group change requested to: ${group}, effective from: ${effectiveDate}`);
       
       // First, update the employee record
       const { error: updateError } = await supabase
         .from('employees')
         .update({
-          shift_group: effectiveGroup
+          shift_group: group
         })
         .eq('id', authUser);
         
@@ -651,7 +650,7 @@ export function useSchedule({
         .insert({
           employee_id: authUser,
           old_group: employeeGroup,
-          new_group: effectiveGroup,
+          new_group: group,
           effective_date: effectiveDate,
           request_date: new Date().toISOString(),
           status: 'approved' // Auto-approve changes
@@ -661,12 +660,12 @@ export function useSchedule({
       
       return { success: true };
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       // Show success message
-      toast.success('Your shift group has been set to Group C');
+      toast.success(`Your shift group has been set to Group ${variables.group}`);
       
       // Update local state immediately
-      setEmployeeGroup('C');
+      setEmployeeGroup(variables.group);
       
       // Invalidate relevant queries
       queryClient.invalidateQueries({ queryKey: ['employee', authUser] });

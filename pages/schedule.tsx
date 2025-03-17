@@ -215,25 +215,6 @@ const SchedulePage: React.FC = () => {
     }
   };
   
-  // Ensure the user's group is set to 'C'
-  useEffect(() => {
-    // Only run this once when we have employee data
-    if (employeeData && employeeGroup !== 'C') {
-      console.log(`Current group is ${employeeGroup}, updating to C`);
-      updateGroup('C');
-      toast.success('Your group has been set to Group C');
-    }
-  }, [employeeData, employeeGroup]);
-
-  // Add group verification on page load
-  useEffect(() => {
-    if (monthData && employeeGroup !== 'C') {
-      console.log('Group C verification failed:', employeeGroup);
-    } else if (monthData) {
-      console.log('Group C verification passed:', employeeGroup);
-    }
-  }, [monthData, employeeGroup]);
-  
   // Show loading state while checking auth
   if (isAuthChecking) {
     return (
@@ -247,10 +228,9 @@ const SchedulePage: React.FC = () => {
   
   // Handle day click to open edit modal
   const handleDayClick = (day: CalendarDay) => {
-    if (day.isCurrentMonth) {
-      setSelectedDay(day);
-      setIsShiftModalOpen(true);
-    }
+    // Allow editing any date, not just current month days
+    setSelectedDay(day);
+    setIsShiftModalOpen(true);
   };
   
   // Handle save shift override
@@ -266,9 +246,9 @@ const SchedulePage: React.FC = () => {
     }
   };
   
-  // Force update the calendar with correct Group C
+  // Force update the calendar with correct Group
   const forceCalendarUpdate = useCallback(() => {
-    console.log('Forcing calendar update for Group C');
+    console.log('Forcing calendar update after group change');
     if (refreshData) {
       refreshData();
     }
@@ -276,12 +256,11 @@ const SchedulePage: React.FC = () => {
   
   // Handle save group change
   const handleSaveGroupChange = (group: ShiftGroup, effectiveDate: string) => {
-    // Always set to Group C regardless of what was selected
-    const effectiveGroup: ShiftGroup = 'C';
-    console.log(`Group change requested to: ${group}, forcing to: ${effectiveGroup}`);
+    // Update the group in the database with the selected group
+    console.log(`Group change requested to: ${group}, effective: ${effectiveDate}`);
     
     // Update the group in the database
-    updateGroup(effectiveGroup, effectiveDate);
+    updateGroup(group, effectiveDate);
     setIsGroupModalOpen(false);
     
     // Force a calendar refresh
@@ -694,12 +673,12 @@ const SchedulePage: React.FC = () => {
           isLoading={isUpdatingGroup}
         />
         
-        {/* Add a debugging section to show current group */}
+        {/* Add a section to show current group */}
         <div className="fixed bottom-4 left-4 right-4 bg-gray-800 text-white p-3 rounded-lg shadow-lg flex justify-between items-center">
           <div className="flex items-center gap-2">
             <span className="text-gray-400">Your Group:</span>
             <span className="bg-blue-600 px-3 py-1 rounded-md font-medium">
-              Group C
+              Group {employeeGroup}
             </span>
           </div>
           <button 
