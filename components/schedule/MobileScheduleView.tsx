@@ -137,34 +137,45 @@ const MobileScheduleView: React.FC<MobileScheduleViewProps> = ({
   }
   
   return (
-    <div className={`${isDarkMode ? 'bg-black' : 'bg-gray-100'} px-0 py-0`}>
-      {/* Month title */}
-      <div className="flex items-center justify-between p-4">
-        <h1 className={`text-4xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-          {monthData.name}
-        </h1>
+    <div className="bg-black min-h-screen">
+      {/* Navigation row (pre-existing from app) */}
+      <div className="flex items-center justify-between rounded-lg bg-gray-800/40 mx-4 my-6 p-2">
+        <button className="w-12 h-12 flex items-center justify-center rounded-full bg-blue-600 text-white">
+          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
         
-        <div className="flex space-x-3">
-          <button className={`p-2 rounded-lg ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+        <div className="text-xl font-medium text-white">
+          March 2025
+        </div>
+        
+        <div className="flex space-x-2">
+          <button className="w-12 h-12 flex items-center justify-center rounded-full bg-blue-600 text-white">
             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
           </button>
           
-          <button className={`p-2 rounded-lg ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
+          <button className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium">
+            Today
           </button>
         </div>
       </div>
       
-      {/* Calendar grid */}
-      <div className={`mt-2 ${isDarkMode ? 'bg-[#121212]' : 'bg-white'} rounded-t-xl overflow-hidden`}>
+      {/* Calendar container */}
+      <div className="bg-black mx-4 rounded-lg overflow-hidden">
+        {/* Calendar header */}
+        <div className="flex items-center justify-between p-4 pb-2">
+          <h1 className="text-5xl font-bold text-white">
+            March
+          </h1>
+        </div>
+        
         {/* Day of week headers */}
-        <div className="grid grid-cols-7 text-center">
+        <div className="grid grid-cols-7 text-center border-b border-gray-800">
           {['S', 'S', 'M', 'T', 'W', 'T', 'F'].map((dayLabel, i) => (
-            <div key={i} className={`py-3 text-sm font-medium ${isDarkMode ? 'text-gray-400' : 'text-gray-500'} ${i > 0 && i % 2 === 1 ? 'border-l border-l-gray-700/20' : ''}`}>
+            <div key={i} className="py-2 text-sm font-medium text-gray-400">
               {dayLabel}
             </div>
           ))}
@@ -172,7 +183,7 @@ const MobileScheduleView: React.FC<MobileScheduleViewProps> = ({
         
         {/* Calendar weeks */}
         {weekRows.map((week, weekIndex) => (
-          <div key={`week-${weekIndex}`} className={`${weekIndex > 0 ? 'border-t border-t-gray-700/20' : ''}`}>
+          <div key={`week-${weekIndex}`} className={`${weekIndex > 0 ? 'border-t border-gray-800' : ''}`}>
             <div className="grid grid-cols-7">
               {week.map((day, dayIndex) => {
                 const isSelected = selectedDayIndex === monthData.days.findIndex(d => d.date === day.date);
@@ -180,46 +191,31 @@ const MobileScheduleView: React.FC<MobileScheduleViewProps> = ({
                 const shiftType = day.personalShift.type;
                 const shiftStyle = shiftConfig[shiftType];
                 
-                // Background colors
-                let bgColor = isOutsideMonth 
-                  ? (isDarkMode ? '#1e1e1e' : '#f3f4f6') 
-                  : (isDarkMode ? '#232323' : 'white');
-                
-                if (isSelected) {
-                  bgColor = isDarkMode ? '#333333' : 'white';
-                }
-                
-                const holidayName = day.holiday?.name;
-                const hasHoliday = !!holidayName;
-                
                 return (
                   <div
                     key={`${weekIndex}-${dayIndex}`}
                     className={`
-                      relative ${dayIndex > 0 && dayIndex % 2 === 1 ? 'border-l border-l-gray-700/20' : ''}
-                      ${isSelected ? (isDarkMode ? 'bg-[#333333]' : 'bg-white') : ''}
+                      relative border-r border-gray-800 last:border-r-0
+                      ${isSelected ? 'bg-gray-800' : ''}
                       ${isOutsideMonth ? 'opacity-40' : ''}
-                      h-32 min-h-[128px]
+                      min-h-[100px]
                     `}
-                    style={{
-                      backgroundColor: bgColor
-                    }}
                     onClick={() => handleDaySelect(monthData.days.findIndex(d => d.date === day.date))}
                   >
                     {/* Day number */}
-                    <div className="py-2 px-3">
-                      <span className={`text-2xl font-medium ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
+                    <div className="py-2 px-2">
+                      <span className={`text-2xl font-medium ${isOutsideMonth ? 'text-gray-600' : 'text-white'}`}>
                         {day.dayOfMonth}
                       </span>
                     </div>
                     
-                    {/* Shift type button */}
+                    {/* Shift type pill */}
                     {!isOutsideMonth && (
                       <div className="px-2">
                         <div 
-                          className="py-2 px-1 rounded-md text-center"
+                          className="py-1 px-2 rounded-md text-center"
                           style={{
-                            backgroundColor: isDarkMode ? shiftStyle.bgColor : shiftStyle.lightBgColor,
+                            backgroundColor: shiftStyle.bgColor,
                             color: shiftStyle.textColor
                           }}
                         >
@@ -229,11 +225,11 @@ const MobileScheduleView: React.FC<MobileScheduleViewProps> = ({
                     )}
                     
                     {/* Holiday indicator at bottom */}
-                    {hasHoliday && (
-                      <div className="absolute bottom-2 left-2 flex items-center">
-                        <div className={`w-2 h-2 rounded-full ${isDarkMode ? 'bg-green-500' : 'bg-green-600'} mr-1`}></div>
-                        <span className={`text-xs ${isDarkMode ? 'text-green-400' : 'text-green-600'}`}>
-                          {holidayName}
+                    {day.holiday && (
+                      <div className="absolute bottom-1 left-2 flex items-center">
+                        <div className="w-2 h-2 rounded-full bg-green-500 mr-1"></div>
+                        <span className="text-xs text-green-400 truncate">
+                          {day.holiday.name}
                         </span>
                       </div>
                     )}
