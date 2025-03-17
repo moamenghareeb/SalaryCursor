@@ -31,7 +31,7 @@ const shiftConfig: Record<ShiftType, {
   'Leave': { 
     bgColor: '#d97706',
     textColor: 'white',
-    label: 'Leav'
+    label: 'Leave'
   },
   'Public': { 
     bgColor: '#7c3aed',
@@ -67,20 +67,20 @@ const DayCell: React.FC<DayCellProps> = ({ day, isSelected, onClick }) => {
         relative border-r border-b border-gray-800/90
         ${isSelected ? 'bg-gray-800/50' : ''}
         ${isOutsideMonth ? 'opacity-50' : ''}
-        aspect-square
+        h-14 md:h-auto md:aspect-square
       `}
       onClick={onClick}
     >
       {/* Day number */}
       <div className="p-1.5">
-        <span className={`text-2xl font-normal ${isOutsideMonth ? 'text-gray-600' : 'text-white'}`}>
+        <span className={`text-xl md:text-2xl font-normal ${isOutsideMonth ? 'text-gray-600' : 'text-white'}`}>
           {day.dayOfMonth}
         </span>
       </div>
       
       {/* Shift type pill */}
       {!isOutsideMonth && (
-        <div className="absolute bottom-1.5 left-0 right-0 flex justify-center">
+        <div className="absolute bottom-1 left-0 right-0 flex justify-center">
           <div 
             className="py-0.5 px-2 rounded-md text-center text-sm"
             style={{
@@ -149,12 +149,12 @@ const MobileScheduleView: React.FC<MobileScheduleViewProps> = ({
   }
   
   return (
-    <div className="bg-black">
+    <div className="bg-black max-h-screen">
       {/* Calendar container with dark card background */}
-      <div className="rounded-xl overflow-hidden bg-[#0a0a0a] mx-4">
+      <div className="rounded-xl overflow-hidden bg-[#0a0a0a] mx-2 md:mx-4">
         {/* Calendar header */}
-        <div className="p-4 pb-2">
-          <h1 className="text-6xl font-bold text-white">
+        <div className="p-3 pb-1 md:p-4 md:pb-2">
+          <h1 className="text-5xl md:text-6xl font-bold text-white">
             March
           </h1>
         </div>
@@ -162,7 +162,7 @@ const MobileScheduleView: React.FC<MobileScheduleViewProps> = ({
         {/* Day of week headers */}
         <div className="grid grid-cols-7 text-center border-b border-gray-800/90">
           {['S', 'S', 'M', 'T', 'W', 'T', 'F'].map((dayLabel, i) => (
-            <div key={i} className="py-2 text-sm font-normal text-gray-400">
+            <div key={i} className="py-1 md:py-2 text-sm font-normal text-gray-400">
               {dayLabel}
             </div>
           ))}
@@ -188,9 +188,9 @@ const MobileScheduleView: React.FC<MobileScheduleViewProps> = ({
       {/* Floating edit button - positioned in bottom right of screen */}
       <button 
         onClick={() => onDayClick && onDayClick(visibleDays[selectedDayIndex])}
-        className="fixed bottom-36 right-6 w-14 h-14 rounded-full bg-blue-600 flex items-center justify-center shadow-lg"
+        className="fixed bottom-24 right-6 w-12 h-12 md:w-14 md:h-14 rounded-full bg-blue-600 flex items-center justify-center shadow-lg"
       >
-        <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg className="w-5 h-5 md:w-6 md:h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
         </svg>
       </button>
