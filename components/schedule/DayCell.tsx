@@ -13,49 +13,41 @@ interface DayCellProps {
 const shiftColors: Record<ShiftType, { 
   bg: string; 
   text: string; 
-  icon?: string;
   border?: string;
 }> = {
   'Day': { 
     bg: 'bg-blue-500/90', 
     text: 'text-white',
-    icon: '☀️',
     border: 'border-blue-600'
   },
   'Night': { 
     bg: 'bg-green-500/90', 
     text: 'text-white',
-    icon: '🌙',
     border: 'border-green-600'
   },
   'Off': { 
     bg: 'bg-red-500/90', 
     text: 'text-white',
-    icon: '⛔',
     border: 'border-red-600'
   },
   'Leave': { 
     bg: 'bg-amber-500/90', 
     text: 'text-white',
-    icon: '✈️',
     border: 'border-amber-600'
   },
   'Public': { 
     bg: 'bg-orange-500/90', 
     text: 'text-white',
-    icon: '🏛️',
     border: 'border-orange-600'
   },
   'Overtime': { 
     bg: 'bg-pink-500/90', 
     text: 'text-white',
-    icon: '⏱️',
     border: 'border-pink-600'
   },
   'InLieu': {
     bg: 'bg-purple-500/90',
     text: 'text-white',
-    icon: '🔄',
     border: 'border-purple-600'
   }
 };
@@ -136,17 +128,16 @@ const DayCell: React.FC<DayCellProps> = ({ day, onClick, ariaLabel, title }) => 
         )}
       </div>
       
-      {/* Shift badge - improved with icon and better styling */}
+      {/* Shift badge - without icon */}
       <div className={`
         py-1.5 px-2 rounded-md text-center font-medium
         ${shiftColor.bg} ${shiftColor.text} ${shiftColor.border ? `border ${shiftColor.border}` : ''}
-        flex items-center justify-center gap-1.5 shadow-sm
+        flex items-center justify-center shadow-sm
         ${personalShift.isOverridden ? 'border-l-2 border-white dark:border-l-gray-200' : ''}
       `}>
-        {shiftColor.icon && <span>{shiftColor.icon}</span>}
         <span>{personalShift.type}</span>
         {personalShift.shiftNumber && (
-          <span className="font-bold">({personalShift.shiftNumber})</span>
+          <span className="ml-1 font-bold">({personalShift.shiftNumber})</span>
         )}
       </div>
       

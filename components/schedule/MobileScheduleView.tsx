@@ -11,50 +11,42 @@ interface MobileScheduleViewProps {
 const shiftConfig: Record<ShiftType, { 
   bgColor: string,
   textColor: string,
-  label: string,
-  icon?: string
+  label: string
 }> = {
   'Day': { 
     bgColor: '#3b82f6', // Brighter blue for better visibility
     textColor: 'white',
-    label: 'Day',
-    icon: '☀️'
+    label: 'Day'
   },
   'Night': { 
     bgColor: '#10b981', // More vibrant green
     textColor: 'white',
-    label: 'Night',
-    icon: '🌙'
+    label: 'Night'
   },
   'Off': { 
     bgColor: '#ef4444', // Brighter red
     textColor: 'white',
-    label: 'Off',
-    icon: '⛔'
+    label: 'Off'
   },
   'Leave': { 
     bgColor: '#f59e0b', // More vibrant orange/amber
     textColor: 'white',
-    label: 'Leave',
-    icon: '✈️'
+    label: 'Leave'
   },
   'Public': { 
     bgColor: '#8b5cf6', // More vibrant purple
     textColor: 'white',
-    label: 'Public',
-    icon: '🏛️'
+    label: 'Public'
   },
   'Overtime': { 
     bgColor: '#ec4899', // Brighter pink
     textColor: 'white',
-    label: 'OT',
-    icon: '⏱️'
+    label: 'OT'
   },
   'InLieu': { 
     bgColor: '#6366f1', // More vibrant indigo
     textColor: 'white',
-    label: 'InLieu',
-    icon: '🔄'
+    label: 'InLieu'
   }
 };
 
@@ -95,17 +87,16 @@ const DayCell: React.FC<DayCellProps> = ({ day, isSelected, onClick, currentMont
         </span>
       </div>
       
-      {/* Shift type indicator with icon */}
+      {/* Shift type indicator without icon */}
       {!isOutsideMonth && (
         <div className="flex justify-center">
           <div 
-            className="py-0.5 px-1 rounded-md text-center flex items-center justify-center gap-1 shadow-sm"
+            className="py-0.5 px-1 rounded-md text-center flex items-center justify-center shadow-sm"
             style={{
               backgroundColor: shiftStyle.bgColor,
               color: shiftStyle.textColor
             }}
           >
-            <span className="text-xs">{shiftStyle.icon}</span>
             <span className="text-xs font-medium">{shiftStyle.label}</span>
           </div>
         </div>
@@ -238,15 +229,12 @@ const MobileScheduleView: React.FC<MobileScheduleViewProps> = ({
           {selectedShiftConfig && (
             <div className="mb-2">
               <div 
-                className="py-1.5 px-2 rounded-lg flex items-center gap-2"
+                className="py-1.5 px-2 rounded-lg flex items-center"
                 style={{
                   backgroundColor: selectedShiftConfig.bgColor,
                   color: selectedShiftConfig.textColor
                 }}
               >
-                {selectedShiftConfig.icon && (
-                  <span className="text-lg">{selectedShiftConfig.icon}</span>
-                )}
                 <span className="font-medium">{selectedShift.type} Shift</span>
               </div>
               
