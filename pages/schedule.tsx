@@ -364,7 +364,7 @@ const SchedulePage: React.FC = () => {
           <div className="bg-yellow-50 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-300 p-4 rounded-lg">
             Loading your schedule...
           </div>
-        ) : viewMode === 'current' ? (
+        ) : viewMode === ('current' as ViewMode) ? (
           // Current month view
           <div className="space-y-4">
             {/* Header section */}
@@ -377,7 +377,7 @@ const SchedulePage: React.FC = () => {
                   <button
                     onClick={() => setViewMode('current')}
                     className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                      viewMode === 'current' 
+                      viewMode === ('current' as ViewMode) 
                         ? 'bg-blue-600 text-white' 
                         : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                     }`}
@@ -387,7 +387,7 @@ const SchedulePage: React.FC = () => {
                   <button
                     onClick={() => setViewMode('future')}
                     className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                      viewMode === 'future' 
+                      viewMode === ('future' as ViewMode) 
                         ? 'bg-blue-600 text-white' 
                         : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                     }`}
@@ -543,7 +543,7 @@ const SchedulePage: React.FC = () => {
                   <button
                     onClick={() => setViewMode('current')}
                     className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                      viewMode === 'current' 
+                      viewMode === ('current' as ViewMode) 
                         ? 'bg-blue-600 text-white' 
                         : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                     }`}
@@ -553,7 +553,7 @@ const SchedulePage: React.FC = () => {
                   <button
                     onClick={() => setViewMode('future')}
                     className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                      viewMode === 'future' 
+                      viewMode === ('future' as ViewMode) 
                         ? 'bg-blue-600 text-white' 
                         : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                     }`}
