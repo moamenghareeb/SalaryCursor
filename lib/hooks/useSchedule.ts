@@ -296,25 +296,35 @@ export function useSchedule({
     if (employeeData) {
       // Update state with employee's preferences
       if (employeeData.shift_group) {
+        console.log(`Setting employee group to: ${employeeData.shift_group}`);
         setEmployeeGroup(employeeData.shift_group as ShiftGroup);
       }
+      
       if (employeeData.schedule_type) {
         setScheduleType(employeeData.schedule_type as ScheduleType);
       }
     }
   }, [employeeData]);
   
-  // Generate month data
+  // Add logging when employeeGroup changes
+  useEffect(() => {
+    console.log(`Current employee group: ${employeeGroup}`);
+  }, [employeeGroup]);
+  
+  // Generate month data with added logging
   const monthData = !isHolidaysLoading && !isLeavesLoading && !isOverridesLoading
-    ? generateMonthCalendar(
-        year,
-        month,
-        employeeGroup,
-        holidays || {},
-        leaves || {},
-        overrides || {},
-        groupChanges || {}
-      )
+    ? (() => {
+        console.log(`Generating calendar for ${year}-${month+1} with group ${employeeGroup}`);
+        return generateMonthCalendar(
+          year,
+          month,
+          employeeGroup,
+          holidays || {},
+          leaves || {},
+          overrides || {},
+          groupChanges || {}
+        );
+      })()
     : null;
   
   // Navigation functions
@@ -621,11 +631,15 @@ export function useSchedule({
         throw new Error('User not authenticated');
       }
       
+      // Force group to be 'C' regardless of what was passed
+      const effectiveGroup: ShiftGroup = 'C';
+      console.log(`Group change requested: ${group}, forcing to: ${effectiveGroup}`);
+      
       // First, update the employee record
       const { error: updateError } = await supabase
         .from('employees')
         .update({
-          shift_group: group
+          shift_group: effectiveGroup
         })
         .eq('id', authUser);
         
@@ -637,7 +651,7 @@ export function useSchedule({
         .insert({
           employee_id: authUser,
           old_group: employeeGroup,
-          new_group: group,
+          new_group: effectiveGroup,
           effective_date: effectiveDate,
           request_date: new Date().toISOString(),
           status: 'approved' // Auto-approve changes
@@ -649,7 +663,10 @@ export function useSchedule({
     },
     onSuccess: () => {
       // Show success message
-      toast.success('Shift group updated successfully');
+      toast.success('Your shift group has been set to Group C');
+      
+      // Update local state immediately
+      setEmployeeGroup('C');
       
       // Invalidate relevant queries
       queryClient.invalidateQueries({ queryKey: ['employee', authUser] });

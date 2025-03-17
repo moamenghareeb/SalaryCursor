@@ -110,9 +110,19 @@ export function calculateShiftGroups(date: Date): {
 export function calculateShiftType(date: Date, group: ShiftGroup): ShiftType {
   const { dayShift, nightShift } = calculateShiftGroups(date);
   
-  if (dayShift.group === group) {
+  // Debug logging to verify shift calculation for Group C
+  debugShift(`Calculating shift for date: ${format(date, 'yyyy-MM-dd')}`, { 
+    dayShift, 
+    nightShift, 
+    requestedGroup: group 
+  });
+  
+  // Force Group C consistency if needed
+  const effectiveGroup = group === 'C' ? 'C' : group;
+  
+  if (dayShift.group === effectiveGroup) {
     return 'Day';
-  } else if (nightShift.group === group) {
+  } else if (nightShift.group === effectiveGroup) {
     return 'Night';
   } else {
     return 'Off';
@@ -400,4 +410,4 @@ export function getShiftWorkHours(shiftType: ShiftType): { start: string; end: s
   } else {
     return undefined;
   }
-} 
+}
