@@ -367,11 +367,60 @@ const SchedulePage: React.FC = () => {
         ) : viewMode === ('current' as ViewMode) ? (
           // Current month view
           <div className="space-y-5">
-            {/* Refined header section */}
-            <div className="bg-gray-900 rounded-lg shadow-lg p-4">
-              <h1 className="text-2xl font-bold text-white text-center sm:text-left">Work Schedule</h1>
-              
-              <div className="mt-4 flex flex-col space-y-4">
+            {/* Month Navigation - Moved to top */}
+            <div className="bg-gray-800 shadow-lg rounded-lg p-3 flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <button
+                  onClick={goToPreviousMonth}
+                  disabled={isUpdating}
+                  className="p-2.5 rounded-full bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                  aria-label="Previous month"
+                >
+                  <ChevronLeftIcon className="w-5 h-5" />
+                </button>
+                <span className="text-lg font-medium text-white">
+                  {format(currentDate, 'MMMM yyyy')}
+                </span>
+                <button
+                  onClick={goToNextMonth}
+                  disabled={isUpdating}
+                  className="p-2.5 rounded-full bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                  aria-label="Next month"
+                >
+                  <ChevronRightIcon className="w-5 h-5" />
+                </button>
+              </div>
+              <button
+                onClick={goToToday}
+                disabled={isUpdating}
+                className="px-4 py-1.5 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
+              >
+                Today
+              </button>
+            </div>
+            
+            {/* Calendar component - moved to top */}
+            <div className="bg-gray-800 shadow-lg rounded-lg overflow-hidden">
+              {isMobileView ? (
+                monthData && (
+                  <MobileScheduleView 
+                    monthData={monthData}
+                    onDayClick={handleDayClick}
+                  />
+                )
+              ) : (
+                monthData && (
+                  <Calendar 
+                    monthData={monthData}
+                    onDayClick={handleDayClick}
+                  />
+                )
+              )}
+            </div>
+            
+            {/* Controls section - moved below calendar */}
+            <div className="bg-gray-900 rounded-lg shadow-lg p-4">              
+              <div className="flex flex-col space-y-4">
                 {/* View mode toggle - more refined buttons */}
                 <div className="grid grid-cols-2 gap-2 bg-gray-800 p-1.5 rounded-lg self-center">
                   <button
@@ -426,57 +475,6 @@ const SchedulePage: React.FC = () => {
                   </select>
                 </div>
               </div>
-            </div>
-            
-            {/* Improved Month Navigation */}
-            <div className="bg-gray-800 shadow-lg rounded-lg p-3 flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <button
-                  onClick={goToPreviousMonth}
-                  disabled={isUpdating}
-                  className="p-2.5 rounded-full bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 transition-colors"
-                  aria-label="Previous month"
-                >
-                  <ChevronLeftIcon className="w-5 h-5" />
-                </button>
-                <span className="text-lg font-medium text-white">
-                  {format(currentDate, 'MMMM yyyy')}
-                </span>
-                <button
-                  onClick={goToNextMonth}
-                  disabled={isUpdating}
-                  className="p-2.5 rounded-full bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 transition-colors"
-                  aria-label="Next month"
-                >
-                  <ChevronRightIcon className="w-5 h-5" />
-                </button>
-              </div>
-              <button
-                onClick={goToToday}
-                disabled={isUpdating}
-                className="px-4 py-1.5 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
-              >
-                Today
-              </button>
-            </div>
-            
-            {/* Calendar component - simplified container */}
-            <div className="bg-gray-800 shadow-lg rounded-lg overflow-hidden">
-              {isMobileView ? (
-                monthData && (
-                  <MobileScheduleView 
-                    monthData={monthData}
-                    onDayClick={handleDayClick}
-                  />
-                )
-              ) : (
-                monthData && (
-                  <Calendar 
-                    monthData={monthData}
-                    onDayClick={handleDayClick}
-                  />
-                )
-              )}
             </div>
             
             {/* Schedule information - refined card */}
@@ -543,12 +541,55 @@ const SchedulePage: React.FC = () => {
           </div>
         ) : (
           // Future months view - updated for consistency
-          <div className="space-y-5">
-            {/* Refined header section */}
-            <div className="bg-gray-900 rounded-lg shadow-lg p-4">
-              <h1 className="text-2xl font-bold text-white text-center sm:text-left">Work Schedule</h1>
-              
-              <div className="mt-4 flex flex-col space-y-4">
+          <div className="space-y-5">            
+            {/* Future months grid - improved styling */}
+            <div className="bg-gray-800 rounded-lg shadow-lg p-5">
+              <h2 className="text-xl font-bold text-white mb-5">
+                Future Schedule (Next 11 Months)
+              </h2>
+            
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {futureMonths.map((month, index) => (
+                  <div 
+                    key={`${month.year}-${month.month}`}
+                    className="p-4 bg-gray-700 rounded-lg shadow transition-all duration-150 hover:shadow-xl"
+                  >
+                    <h3 className="text-lg font-bold text-white mb-2">
+                      {format(new Date(month.year, month.month, 1), 'MMMM yyyy')}
+                    </h3>
+                    
+                    <div className="flex items-center mb-3">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
+                      <p className="text-sm text-gray-300">
+                        Group {employeeGroup}
+                      </p>
+                    </div>
+                    
+                    <div className="flex justify-between items-center mt-4">
+                      <div className="text-gray-400 text-sm">
+                        {index + 1} month{index > 0 ? 's' : ''} from now
+                      </div>
+                      <button
+                        onClick={() => {
+                          // Navigate to this month
+                          for (let i = 0; i <= index; i++) {
+                            goToNextMonth();
+                          }
+                          setViewMode('current');
+                        }}
+                        className="px-3 py-1.5 rounded text-sm bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                      >
+                        View
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            {/* Controls section - moved below content */}
+            <div className="bg-gray-900 rounded-lg shadow-lg p-4">              
+              <div className="flex flex-col space-y-4">
                 {/* View mode toggle - more refined buttons */}
                 <div className="grid grid-cols-2 gap-2 bg-gray-800 p-1.5 rounded-lg self-center">
                   <button
@@ -602,51 +643,6 @@ const SchedulePage: React.FC = () => {
                     ))}
                   </select>
                 </div>
-              </div>
-            </div>
-            
-            {/* Future months grid - improved styling */}
-            <div className="bg-gray-800 rounded-lg shadow-lg p-5">
-              <h2 className="text-xl font-bold text-white mb-5">
-                Future Schedule (Next 11 Months)
-              </h2>
-            
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {futureMonths.map((month, index) => (
-                  <div 
-                    key={`${month.year}-${month.month}`}
-                    className="p-4 bg-gray-700 rounded-lg shadow transition-all duration-150 hover:shadow-xl"
-                  >
-                    <h3 className="text-lg font-bold text-white mb-2">
-                      {format(new Date(month.year, month.month, 1), 'MMMM yyyy')}
-                    </h3>
-                    
-                    <div className="flex items-center mb-3">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
-                      <p className="text-sm text-gray-300">
-                        Group {employeeGroup}
-                      </p>
-                    </div>
-                    
-                    <div className="flex justify-between items-center mt-4">
-                      <div className="text-gray-400 text-sm">
-                        {index + 1} month{index > 0 ? 's' : ''} from now
-                      </div>
-                      <button
-                        onClick={() => {
-                          // Navigate to this month
-                          for (let i = 0; i <= index; i++) {
-                            goToNextMonth();
-                          }
-                          setViewMode('current');
-                        }}
-                        className="px-3 py-1.5 rounded text-sm bg-blue-600 text-white hover:bg-blue-700 transition-colors"
-                      >
-                        View
-                      </button>
-                    </div>
-                  </div>
-                ))}
               </div>
             </div>
           </div>
