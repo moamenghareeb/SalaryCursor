@@ -8,25 +8,49 @@ interface MobileScheduleViewProps {
 }
 
 // Define color mapping for different shift types
-const shiftColorMap: Record<ShiftType, string> = {
-  'Day': 'bg-blue-500',
-  'Night': 'bg-green-500',
-  'Off': 'bg-red-500',
-  'Leave': 'bg-yellow-500',
-  'Public': 'bg-orange-500',
-  'Overtime': 'bg-pink-500',
-  'InLieu': 'bg-purple-500'
-};
-
-// Text colors for shift types
-const shiftTextColorMap: Record<ShiftType, string> = {
-  'Day': 'text-blue-400',
-  'Night': 'text-green-400',
-  'Off': 'text-red-400',
-  'Leave': 'text-yellow-400',
-  'Public': 'text-orange-400',
-  'Overtime': 'text-pink-400',
-  'InLieu': 'text-purple-400'
+const shiftColorMap: Record<ShiftType, { bg: string, dot: string, text: string, icon: string }> = {
+  'Day': { 
+    bg: 'bg-blue-600', 
+    dot: 'bg-blue-400', 
+    text: 'text-blue-400',
+    icon: '☀️'
+  },
+  'Night': { 
+    bg: 'bg-green-600', 
+    dot: 'bg-green-400', 
+    text: 'text-green-400',
+    icon: '🌙'
+  },
+  'Off': { 
+    bg: 'bg-red-600', 
+    dot: 'bg-red-400', 
+    text: 'text-red-400',
+    icon: '⭕'
+  },
+  'Leave': { 
+    bg: 'bg-yellow-600', 
+    dot: 'bg-yellow-400', 
+    text: 'text-yellow-400',
+    icon: '🏖️'
+  },
+  'Public': { 
+    bg: 'bg-orange-600', 
+    dot: 'bg-orange-400', 
+    text: 'text-orange-400',
+    icon: '🏛️'
+  },
+  'Overtime': { 
+    bg: 'bg-pink-600', 
+    dot: 'bg-pink-400', 
+    text: 'text-pink-400',
+    icon: '⏱️'
+  },
+  'InLieu': { 
+    bg: 'bg-purple-600', 
+    dot: 'bg-purple-400', 
+    text: 'text-purple-400',
+    icon: '🔄'
+  }
 };
 
 const MobileScheduleView: React.FC<MobileScheduleViewProps> = ({ 
@@ -121,6 +145,11 @@ const MobileScheduleView: React.FC<MobileScheduleViewProps> = ({
               {week.map((day, dayIndex) => {
                 const isSelected = selectedDayIndex === monthData.days.findIndex(d => d.date === day.date);
                 const isOutsideMonth = !day.isCurrentMonth;
+                const shiftType = day.personalShift.type;
+                const shiftColor = shiftColorMap[shiftType];
+                
+                // Base background color based on shift for current month days
+                const bgColor = isOutsideMonth ? 'bg-gray-800' : shiftColor.bg;
                 
                 return (
                   <button
@@ -130,33 +159,29 @@ const MobileScheduleView: React.FC<MobileScheduleViewProps> = ({
                       relative h-14 p-0 m-0.5
                       ${isOutsideMonth ? 'opacity-40' : ''}
                       ${isSelected ? 'ring-2 ring-white z-10' : ''}
+                      ${bgColor}
                       rounded-md overflow-hidden
-                      transition-all duration-150
+                      transition-all duration-150 hover:brightness-110
                     `}
                     disabled={isOutsideMonth}
                   >
-                    {/* Background color - vivid blue */}
-                    <div className={`absolute inset-0 ${isOutsideMonth ? 'bg-blue-900' : 'bg-blue-600'}`}></div>
-                    
-                    {/* White box for selected day */}
-                    {isSelected && (
-                      <div className="absolute inset-0 border-2 border-white z-10"></div>
-                    )}
-                    
-                    {/* Day number */}
+                    {/* Day number at top */}
                     <div className="absolute top-1 left-0 right-0 flex justify-center">
                       <span className={`
                         text-sm font-medium text-white
-                        ${day.isToday ? 'bg-blue-500 rounded-full w-6 h-6 flex items-center justify-center' : ''}
+                        ${day.isToday ? 'bg-white bg-opacity-20 w-6 h-6 rounded-full flex items-center justify-center' : ''}
                       `}>
                         {day.dayOfMonth}
                       </span>
                     </div>
                     
-                    {/* Shift indicator dot */}
-                    <div className="absolute bottom-1.5 left-0 right-0 flex justify-center">
-                      <span className={`w-2 h-2 rounded-full ${shiftColorMap[day.personalShift.type]}`}></span>
+                    {/* Shift indicator icon */}
+                    <div className="absolute bottom-1 left-0 right-0 flex justify-center">
+                      <span className="text-xs">{shiftColor.icon}</span>
                     </div>
+                    
+                    {/* Gradient overlay for better text contrast */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent"></div>
                   </button>
                 );
               })}
@@ -188,9 +213,10 @@ const MobileScheduleView: React.FC<MobileScheduleViewProps> = ({
           </button>
         </div>
         
-        {/* Shift status */}
-        <div className="mb-4 py-2 px-3 bg-gray-900 rounded-md inline-block">
-          <span className={`font-medium ${shiftTextColorMap[selectedDay.personalShift.type]}`}>
+        {/* Shift status with enhanced visibility */}
+        <div className={`mb-4 py-2 px-3 rounded-md flex items-center space-x-2 ${shiftColorMap[selectedDay.personalShift.type].bg} bg-opacity-30`}>
+          <span className="text-lg">{shiftColorMap[selectedDay.personalShift.type].icon}</span>
+          <span className={`font-medium ${shiftColorMap[selectedDay.personalShift.type].text}`}>
             {selectedDay.personalShift.type}
             {selectedDay.personalShift.shiftNumber && (
               <span className="ml-1 text-xs text-gray-400">({selectedDay.personalShift.shiftNumber})</span>
@@ -208,7 +234,7 @@ const MobileScheduleView: React.FC<MobileScheduleViewProps> = ({
             {/* Day shift groups */}
             {selectedDay.groupAssignments.dayShift.length > 0 && (
               <div className="flex items-start">
-                <span className="w-3 h-3 rounded-full bg-blue-500 mt-1 mr-2 flex-shrink-0"></span>
+                <span className="text-lg mr-2 flex-shrink-0">☀️</span>
                 <div>
                   <span className="text-sm font-medium text-gray-300">Day:</span>{' '}
                   <span className="text-sm text-gray-400">
@@ -221,7 +247,7 @@ const MobileScheduleView: React.FC<MobileScheduleViewProps> = ({
             {/* Night shift groups */}
             {selectedDay.groupAssignments.nightShift.length > 0 && (
               <div className="flex items-start">
-                <span className="w-3 h-3 rounded-full bg-green-500 mt-1 mr-2 flex-shrink-0"></span>
+                <span className="text-lg mr-2 flex-shrink-0">🌙</span>
                 <div>
                   <span className="text-sm font-medium text-gray-300">Night:</span>{' '}
                   <span className="text-sm text-gray-400">
@@ -264,12 +290,12 @@ const MobileScheduleView: React.FC<MobileScheduleViewProps> = ({
         )}
       </div>
       
-      {/* Shift legend */}
+      {/* Shift legend with icons */}
       <div className="bg-gray-800 rounded-lg p-3 border border-gray-700 shadow-sm">
-        <div className="flex flex-wrap gap-x-4 gap-y-2">
+        <div className="grid grid-cols-2 gap-x-4 gap-y-2">
           {Object.entries(shiftColorMap).slice(0, 4).map(([type, color]) => (
             <div key={type} className="flex items-center">
-              <div className={`w-3 h-3 rounded-full ${color} mr-1.5`}></div>
+              <span className="text-lg mr-1.5">{color.icon}</span>
               <span className="text-xs text-gray-300">{type}</span>
             </div>
           ))}
