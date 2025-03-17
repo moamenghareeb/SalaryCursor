@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { format, addDays, isSameDay } from 'date-fns';
+import { format, isSameDay } from 'date-fns';
 import { CalendarDay, MonthData, ShiftType } from '../../lib/types/schedule';
 
 interface MobileScheduleViewProps {
@@ -7,62 +7,46 @@ interface MobileScheduleViewProps {
   onDayClick?: (day: CalendarDay) => void;
 }
 
-// Define color mapping for different shift types - optimized for both dark and light modes
-const shiftColorMap: Record<ShiftType, { 
-  bg: string, 
-  bgLight: string,
-  text: string, 
-  textLight: string,
-  icon: string 
+// Modern shift theme configuration
+const shiftTheme: Record<ShiftType, { 
+  color: string,
+  gradient: string,
+  icon: React.ReactNode
 }> = {
-  'Day': { 
-    bg: 'bg-blue-600', 
-    bgLight: 'bg-blue-500',
-    text: 'text-blue-400',
-    textLight: 'text-blue-700',
-    icon: '☀️'
+  'Day': {
+    color: 'var(--color-day)',
+    gradient: 'var(--gradient-day)',
+    icon: <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
   },
-  'Night': { 
-    bg: 'bg-green-600', 
-    bgLight: 'bg-green-500',
-    text: 'text-green-400',
-    textLight: 'text-green-700',
-    icon: '🌙'
+  'Night': {
+    color: 'var(--color-night)',
+    gradient: 'var(--gradient-night)',
+    icon: <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current"><path d="M12 3a9 9 0 109 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 01-4.4-2.28 5.389 5.389 0 01-1.14-5.26A9.017 9.017 0 0012 3z"/></svg>
   },
-  'Off': { 
-    bg: 'bg-red-600', 
-    bgLight: 'bg-red-500',
-    text: 'text-red-400',
-    textLight: 'text-red-700',
-    icon: '⭕'
+  'Off': {
+    color: 'var(--color-off)',
+    gradient: 'var(--gradient-off)',
+    icon: <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8 0-1.85.63-3.55 1.69-4.9L16.9 18.31A7.902 7.902 0 0112 20zm6.31-3.1L7.1 5.69A7.902 7.902 0 0112 4c4.42 0 8 3.58 8 8 0 1.85-.63 3.55-1.69 4.9z"/></svg>
   },
-  'Leave': { 
-    bg: 'bg-yellow-600',
-    bgLight: 'bg-yellow-500', 
-    text: 'text-yellow-400',
-    textLight: 'text-yellow-700',
-    icon: '🏖️'
+  'Leave': {
+    color: 'var(--color-leave)',
+    gradient: 'var(--gradient-leave)',
+    icon: <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current"><path d="M17.66 17.66L12 23.31l-5.66-5.65M12 20.35V12"/><path d="M9.17 14.83L14.83 14.83M4 9.77h16M2 5.5h20"/></svg>
   },
-  'Public': { 
-    bg: 'bg-orange-600',
-    bgLight: 'bg-orange-500', 
-    text: 'text-orange-400',
-    textLight: 'text-orange-700',
-    icon: '🏛️'
+  'Public': {
+    color: 'var(--color-public)',
+    gradient: 'var(--gradient-public)',
+    icon: <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
   },
-  'Overtime': { 
-    bg: 'bg-pink-600',
-    bgLight: 'bg-pink-500', 
-    text: 'text-pink-400',
-    textLight: 'text-pink-700',
-    icon: '⏱️'
+  'Overtime': {
+    color: 'var(--color-overtime)',
+    gradient: 'var(--gradient-overtime)',
+    icon: <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
   },
-  'InLieu': { 
-    bg: 'bg-purple-600',
-    bgLight: 'bg-purple-500', 
-    text: 'text-purple-400',
-    textLight: 'text-purple-700',
-    icon: '🔄'
+  'InLieu': {
+    color: 'var(--color-inlieu)',
+    gradient: 'var(--gradient-inlieu)',
+    icon: <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current"><path d="M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9h2c0 3.87 3.13 7 7 7s7-3.13 7-7-3.13-7-7-7c-1.93 0-3.68.79-4.94 2.06L11 9H3V1l3.89 3.89C8.37 3.34 10.69 2 13.5 2c4.97 0 9 4.03 9 9z"/></svg>
   }
 };
 
@@ -75,14 +59,14 @@ const MobileScheduleView: React.FC<MobileScheduleViewProps> = ({
   const [selectedDayIndex, setSelectedDayIndex] = useState<number>(0);
   const [isDarkMode, setIsDarkMode] = useState<boolean>(true);
   
-  // Check for system color scheme preference
+  // System theme detection
   useEffect(() => {
-    // Check if dark mode is preferred
     if (typeof window !== 'undefined') {
+      // Initial check
       const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
       setIsDarkMode(prefersDark);
       
-      // Listen for changes in color scheme preference
+      // Listen for changes
       const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
       const handleChange = (e: MediaQueryListEvent) => {
         setIsDarkMode(e.matches);
@@ -93,10 +77,9 @@ const MobileScheduleView: React.FC<MobileScheduleViewProps> = ({
     }
   }, []);
   
-  // Initialize with today or current month
+  // Initialize with today's date
   useEffect(() => {
-    if (monthData && monthData.days) {
-      // Find today in month data or default to first day of current month
+    if (monthData?.days) {
       const today = new Date();
       const todayIndex = monthData.days.findIndex(day => 
         day.isCurrentMonth && isSameDay(new Date(day.date), today)
@@ -106,7 +89,6 @@ const MobileScheduleView: React.FC<MobileScheduleViewProps> = ({
         setSelectedDayIndex(todayIndex);
         setSelectedDate(new Date(monthData.days[todayIndex].date));
       } else {
-        // Default to first day of current month
         const currentMonthFirstDayIndex = monthData.days.findIndex(day => day.isCurrentMonth);
         if (currentMonthFirstDayIndex >= 0) {
           setSelectedDayIndex(currentMonthFirstDayIndex);
@@ -114,25 +96,21 @@ const MobileScheduleView: React.FC<MobileScheduleViewProps> = ({
         }
       }
       
-      // Get visible days (all days in the month data)
       setVisibleDays(monthData.days);
     }
   }, [monthData]);
   
-  // Handle day selection
   const handleDaySelect = (index: number) => {
     setSelectedDayIndex(index);
     setSelectedDate(new Date(visibleDays[index].date));
   };
   
-  // Handle day click (for edit)
   const handleDayClick = () => {
     if (onDayClick && visibleDays.length > 0) {
       onDayClick(visibleDays[selectedDayIndex]);
     }
   };
   
-  // Get detailed info for selected day
   const getSelectedDay = () => {
     if (!visibleDays.length || selectedDayIndex >= visibleDays.length) return null;
     return visibleDays[selectedDayIndex];
@@ -140,7 +118,7 @@ const MobileScheduleView: React.FC<MobileScheduleViewProps> = ({
   
   const selectedDay = getSelectedDay();
   
-  // Group days into weeks for grid display
+  // Group days into weeks
   const weekRows: CalendarDay[][] = [];
   if (visibleDays.length > 0) {
     for (let i = 0; i < visibleDays.length; i += 7) {
@@ -149,78 +127,163 @@ const MobileScheduleView: React.FC<MobileScheduleViewProps> = ({
   }
   
   if (!selectedDay) {
-    return <div className="p-4 text-center text-gray-800 dark:text-white">Loading schedule...</div>;
+    return <div className="p-4 text-center text-gray-600 dark:text-gray-300">Loading schedule...</div>;
   }
   
-  // Toggle dark mode manually
-  const toggleDarkMode = () => {
+  const toggleTheme = () => {
     setIsDarkMode(!isDarkMode);
   };
   
   return (
-    <div className={`px-2 py-5 ${isDarkMode ? 'dark-theme' : 'light-theme'}`}>
-      {/* Month and year title */}
-      <div className="text-xl font-bold text-center text-gray-800 dark:text-white mb-6">
-        {monthData.name} {monthData.year}
+    <div className={`${isDarkMode ? 'theme-dark' : 'theme-light'} px-4 py-6 transition-colors duration-200`}>
+      <style jsx global>{`
+        .theme-dark {
+          --bg-primary: #121927;
+          --bg-secondary: #1a2133;
+          --bg-tertiary: #242e42;
+          --text-primary: #ffffff;
+          --text-secondary: #a0aec0;
+          --text-tertiary: #64748b;
+          --border-color: rgba(255, 255, 255, 0.1);
+          --calendar-bg: #1a2133;
+          --day-bg: #242e42;
+          --day-outside: #1a2133;
+          --today-indicator: #3b82f6;
+          
+          --color-day: #3b82f6;
+          --color-night: #10b981;
+          --color-off: #ef4444;
+          --color-leave: #f59e0b;
+          --color-public: #8b5cf6;
+          --color-overtime: #ec4899;
+          --color-inlieu: #6366f1;
+          
+          --gradient-day: linear-gradient(135deg, #3b82f6, #2563eb);
+          --gradient-night: linear-gradient(135deg, #10b981, #059669);
+          --gradient-off: linear-gradient(135deg, #ef4444, #dc2626);
+          --gradient-leave: linear-gradient(135deg, #f59e0b, #d97706);
+          --gradient-public: linear-gradient(135deg, #8b5cf6, #7c3aed);
+          --gradient-overtime: linear-gradient(135deg, #ec4899, #db2777);
+          --gradient-inlieu: linear-gradient(135deg, #6366f1, #4f46e5);
+        }
+        
+        .theme-light {
+          --bg-primary: #f7fafc;
+          --bg-secondary: #ffffff;
+          --bg-tertiary: #f1f5f9;
+          --text-primary: #1a202c;
+          --text-secondary: #4a5568;
+          --text-tertiary: #718096;
+          --border-color: rgba(0, 0, 0, 0.1);
+          --calendar-bg: #ffffff;
+          --day-bg: #f1f5f9;
+          --day-outside: #e2e8f0;
+          --today-indicator: #3b82f6;
+          
+          --color-day: #3b82f6;
+          --color-night: #10b981;
+          --color-off: #ef4444;
+          --color-leave: #f59e0b;
+          --color-public: #8b5cf6;
+          --color-overtime: #ec4899;
+          --color-inlieu: #6366f1;
+          
+          --gradient-day: linear-gradient(135deg, #3b82f680, #2563eb80);
+          --gradient-night: linear-gradient(135deg, #10b98180, #05966980);
+          --gradient-off: linear-gradient(135deg, #ef444480, #dc262680);
+          --gradient-leave: linear-gradient(135deg, #f59e0b80, #d9770680);
+          --gradient-public: linear-gradient(135deg, #8b5cf680, #7c3aed80);
+          --gradient-overtime: linear-gradient(135deg, #ec489980, #db277780);
+          --gradient-inlieu: linear-gradient(135deg, #6366f180, #4f46e580);
+        }
+      `}</style>
+      
+      {/* Month navigation */}
+      <div className="flex items-center justify-between mb-8 px-2">
+        <div className="text-xl font-semibold text-[var(--text-primary)]">
+          {monthData.name} {monthData.year}
+        </div>
+        
+        <div className="flex space-x-2">
+          <button 
+            onClick={toggleTheme}
+            className="p-2 rounded-full bg-[var(--bg-tertiary)] text-[var(--text-secondary)]"
+          >
+            {isDarkMode ? (
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+              </svg>
+            ) : (
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+              </svg>
+            )}
+          </button>
+          
+          <button className="px-4 py-2 rounded-full bg-[var(--bg-tertiary)] text-[var(--text-primary)] font-medium text-sm">
+            Today
+          </button>
+        </div>
       </div>
       
       {/* Calendar grid */}
-      <div className="mb-6">
+      <div className="bg-[var(--calendar-bg)] rounded-xl overflow-hidden shadow-sm border border-[var(--border-color)] mb-6">
         {/* Day of week headers */}
-        <div className="grid grid-cols-7 text-center mb-2">
+        <div className="grid grid-cols-7 text-center py-3 border-b border-[var(--border-color)]">
           {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((dayLabel, i) => (
-            <div key={i} className="text-xs font-medium text-gray-500 dark:text-gray-300">
+            <div key={i} className="text-xs font-medium text-[var(--text-tertiary)]">
               {dayLabel}
             </div>
           ))}
         </div>
         
-        {/* Calendar grid */}
-        <div className="rounded-lg overflow-hidden">
+        {/* Calendar days */}
+        <div className="p-2">
           {weekRows.map((week, weekIndex) => (
-            <div key={`week-${weekIndex}`} className="grid grid-cols-7">
+            <div key={`week-${weekIndex}`} className="grid grid-cols-7 gap-1 mb-1">
               {week.map((day, dayIndex) => {
                 const isSelected = selectedDayIndex === monthData.days.findIndex(d => d.date === day.date);
                 const isOutsideMonth = !day.isCurrentMonth;
                 const shiftType = day.personalShift.type;
-                const shiftColor = shiftColorMap[shiftType];
-                
-                // Base background color based on shift for current month days
-                const baseColorClass = isDarkMode ? shiftColor.bg : shiftColor.bgLight;
-                const bgColor = isOutsideMonth ? (isDarkMode ? 'bg-gray-800' : 'bg-gray-200') : baseColorClass;
+                const shiftStyle = shiftTheme[shiftType];
                 
                 return (
                   <button
                     key={`${weekIndex}-${dayIndex}`}
                     onClick={() => handleDaySelect(monthData.days.findIndex(d => d.date === day.date))}
-                    className={`
-                      relative h-14 p-0 m-0.5
-                      ${isOutsideMonth ? 'opacity-40' : ''}
-                      ${isSelected ? 'ring-2 ring-white dark:ring-white ring-opacity-80 z-10' : ''}
-                      ${bgColor}
-                      rounded-md overflow-hidden
-                      transition-all duration-150 hover:brightness-110
-                      ${isDarkMode ? '' : 'shadow-sm'}
-                    `}
                     disabled={isOutsideMonth}
+                    className={`
+                      relative flex flex-col items-center justify-center p-1
+                      aspect-square rounded-lg transition duration-200
+                      ${isOutsideMonth ? 'opacity-40 bg-[var(--day-outside)]' : 'bg-[var(--day-bg)]'}
+                      ${isSelected ? 'ring-2 ring-offset-2 ring-offset-[var(--bg-primary)] ring-[var(--today-indicator)] z-10' : ''}
+                      focus:outline-none hover:bg-opacity-90
+                    `}
                   >
-                    {/* Day number at top */}
-                    <div className="absolute top-1 left-0 right-0 flex justify-center">
-                      <span className={`
-                        text-sm font-medium text-white
-                        ${day.isToday ? 'bg-white bg-opacity-20 w-6 h-6 rounded-full flex items-center justify-center' : ''}
-                      `}>
-                        {day.dayOfMonth}
-                      </span>
-                    </div>
+                    {/* Day number */}
+                    <span className={`
+                      text-sm font-medium mb-0.5
+                      ${isOutsideMonth ? 'text-[var(--text-tertiary)]' : 'text-[var(--text-primary)]'}
+                      ${day.isToday ? 'relative w-7 h-7 flex items-center justify-center' : ''}
+                    `}>
+                      {day.isToday && (
+                        <span className="absolute inset-0 rounded-full bg-[var(--today-indicator)] opacity-20"></span>
+                      )}
+                      {day.dayOfMonth}
+                    </span>
                     
-                    {/* Shift indicator icon */}
-                    <div className="absolute bottom-1 left-0 right-0 flex justify-center">
-                      <span className="text-xs">{shiftColor.icon}</span>
-                    </div>
-                    
-                    {/* Gradient overlay for better text contrast */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent"></div>
+                    {/* Shift indicator */}
+                    {!isOutsideMonth && (
+                      <div 
+                        className="w-4 h-4 rounded-full flex items-center justify-center"
+                        style={{ 
+                          background: shiftStyle.gradient,
+                          color: 'white',
+                        }}
+                      >
+                        {shiftStyle.icon}
+                      </div>
+                    )}
                   </button>
                 );
               })}
@@ -229,22 +292,28 @@ const MobileScheduleView: React.FC<MobileScheduleViewProps> = ({
         </div>
       </div>
       
-      {/* Selected day detail card */}
-      <div className={`${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} rounded-lg shadow-lg p-5 border mb-5`}>
-        {/* Day header with edit button */}
-        <div className="flex justify-between items-start mb-4">
+      {/* Selected day details */}
+      <div className="bg-[var(--bg-secondary)] rounded-xl border border-[var(--border-color)] shadow-sm overflow-hidden mb-6">
+        {/* Header */}
+        <div 
+          className="px-4 py-3 flex justify-between items-center border-b border-[var(--border-color)]"
+          style={{ 
+            background: shiftTheme[selectedDay.personalShift.type].gradient,
+            color: 'white'
+          }}
+        >
           <div>
-            <h3 className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
+            <div className="text-xl font-bold">
               {format(new Date(selectedDay.date), 'EEEE')}
-            </h3>
-            <p className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+            </div>
+            <div className="text-sm opacity-90">
               {format(new Date(selectedDay.date), 'MMMM d, yyyy')}
-            </p>
+            </div>
           </div>
           
           <button 
             onClick={handleDayClick}
-            className={`p-2 rounded-full ${isDarkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-600 hover:bg-gray-100'} transition-colors`}
+            className="p-2 rounded-full bg-white bg-opacity-20 hover:bg-opacity-30 transition-colors"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
@@ -252,107 +321,143 @@ const MobileScheduleView: React.FC<MobileScheduleViewProps> = ({
           </button>
         </div>
         
-        {/* Shift status with enhanced visibility */}
-        <div className={`mb-4 py-2 px-3 rounded-md flex items-center space-x-2 ${isDarkMode ? shiftColorMap[selectedDay.personalShift.type].bg : shiftColorMap[selectedDay.personalShift.type].bgLight} ${isDarkMode ? 'bg-opacity-30' : 'bg-opacity-20'}`}>
-          <span className="text-lg">{shiftColorMap[selectedDay.personalShift.type].icon}</span>
-          <span className={`font-medium ${isDarkMode ? shiftColorMap[selectedDay.personalShift.type].text : shiftColorMap[selectedDay.personalShift.type].textLight}`}>
-            {selectedDay.personalShift.type}
-            {selectedDay.personalShift.shiftNumber && (
-              <span className={`ml-1 text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>({selectedDay.personalShift.shiftNumber})</span>
-            )}
-          </span>
-        </div>
-        
-        {/* Groups on shift section */}
-        <div className="space-y-3">
-          <h4 className={`text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'} mb-2`}>
-            Groups on shift today:
-          </h4>
-          
-          <div className="space-y-2">
-            {/* Day shift groups */}
-            {selectedDay.groupAssignments.dayShift.length > 0 && (
-              <div className="flex items-start">
-                <span className="text-lg mr-2 flex-shrink-0">☀️</span>
-                <div>
-                  <span className={`text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Day:</span>{' '}
-                  <span className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                    {selectedDay.groupAssignments.dayShift.map(g => `Group ${g.group}${g.isFirstDay ? ' (1st)' : ' (2nd)'}`).join(', ')}
-                  </span>
-                </div>
-              </div>
-            )}
-            
-            {/* Night shift groups */}
-            {selectedDay.groupAssignments.nightShift.length > 0 && (
-              <div className="flex items-start">
-                <span className="text-lg mr-2 flex-shrink-0">🌙</span>
-                <div>
-                  <span className={`text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Night:</span>{' '}
-                  <span className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                    {selectedDay.groupAssignments.nightShift.map(g => `Group ${g.group}${g.isFirstNight ? ' (1st)' : ' (2nd)'}`).join(', ')}
-                  </span>
-                </div>
-              </div>
-            )}
-            
-            {selectedDay.groupAssignments.dayShift.length === 0 && selectedDay.groupAssignments.nightShift.length === 0 && (
-              <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>No groups working today</p>
-            )}
-          </div>
-        </div>
-        
-        {/* Additional information */}
-        {(selectedDay.personalShift.isOverridden || selectedDay.personalShift.notes || selectedDay.holiday) && (
-          <div className={`mt-4 pt-4 border-t ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
-            {/* Show override info */}
-            {selectedDay.personalShift.isOverridden && selectedDay.personalShift.originalType && (
-              <div className={`text-xs ${isDarkMode ? 'text-blue-400' : 'text-blue-600'} mb-1.5`}>
-                Changed from {selectedDay.personalShift.originalType}
-              </div>
-            )}
-            
-            {/* Show notes if any */}
-            {selectedDay.personalShift.notes && (
-              <div className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'} mb-1.5`}>
-                <span className="font-medium">Notes:</span> {selectedDay.personalShift.notes}
-              </div>
-            )}
-            
-            {/* Show holiday */}
-            {selectedDay.holiday && (
-              <div className={`text-xs ${isDarkMode ? 'text-orange-400' : 'text-orange-600'}`}>
-                {selectedDay.holiday.name} ({selectedDay.holiday.isOfficial ? 'Official' : 'Unofficial'})
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-      
-      {/* Shift legend with icons */}
-      <div className={`${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} rounded-lg p-3 border shadow-sm`}>
-        <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-          {Object.entries(shiftColorMap).slice(0, 4).map(([type, color]) => (
-            <div key={type} className="flex items-center">
-              <span className="text-lg mr-1.5">{color.icon}</span>
-              <span className={`text-xs ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{type}</span>
+        {/* Shift badge */}
+        <div className="px-4 py-4">
+          <div className="flex items-center mb-4">
+            <div 
+              className="w-10 h-10 rounded-lg mr-3 flex items-center justify-center"
+              style={{ 
+                background: shiftTheme[selectedDay.personalShift.type].gradient,
+                color: 'white' 
+              }}
+            >
+              {shiftTheme[selectedDay.personalShift.type].icon}
             </div>
-          ))}
+            
+            <div>
+              <div className="font-semibold text-[var(--text-primary)]">
+                {selectedDay.personalShift.type} Shift
+                {selectedDay.personalShift.shiftNumber && (
+                  <span className="text-xs ml-1 opacity-75">({selectedDay.personalShift.shiftNumber})</span>
+                )}
+              </div>
+              
+              {selectedDay.personalShift.isOverridden && selectedDay.personalShift.originalType && (
+                <div className="text-xs text-[var(--color-day)]">
+                  Changed from {selectedDay.personalShift.originalType}
+                </div>
+              )}
+            </div>
+          </div>
+          
+          {/* Groups */}
+          <div className="space-y-3">
+            <h4 className="text-sm font-medium text-[var(--text-secondary)]">
+              Groups on shift:
+            </h4>
+            
+            <div className="space-y-3">
+              {/* Day shift groups */}
+              {selectedDay.groupAssignments.dayShift.length > 0 && (
+                <div className="flex items-start">
+                  <div 
+                    className="w-6 h-6 rounded flex items-center justify-center mr-2 flex-shrink-0"
+                    style={{
+                      background: 'var(--gradient-day)',
+                      color: 'white'
+                    }}
+                  >
+                    {shiftTheme['Day'].icon}
+                  </div>
+                  <div>
+                    <div className="text-xs font-medium text-[var(--text-secondary)]">Day:</div>
+                    <div className="text-sm text-[var(--text-primary)]">
+                      {selectedDay.groupAssignments.dayShift.map(g => `Group ${g.group}${g.isFirstDay ? ' (1st)' : ' (2nd)'}`).join(', ')}
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {/* Night shift groups */}
+              {selectedDay.groupAssignments.nightShift.length > 0 && (
+                <div className="flex items-start">
+                  <div 
+                    className="w-6 h-6 rounded flex items-center justify-center mr-2 flex-shrink-0"
+                    style={{
+                      background: 'var(--gradient-night)',
+                      color: 'white'
+                    }}
+                  >
+                    {shiftTheme['Night'].icon}
+                  </div>
+                  <div>
+                    <div className="text-xs font-medium text-[var(--text-secondary)]">Night:</div>
+                    <div className="text-sm text-[var(--text-primary)]">
+                      {selectedDay.groupAssignments.nightShift.map(g => `Group ${g.group}${g.isFirstNight ? ' (1st)' : ' (2nd)'}`).join(', ')}
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {selectedDay.groupAssignments.dayShift.length === 0 && selectedDay.groupAssignments.nightShift.length === 0 && (
+                <div className="text-sm text-[var(--text-tertiary)] italic">
+                  No groups scheduled today
+                </div>
+              )}
+            </div>
+          </div>
+          
+          {/* Notes and holiday info */}
+          {(selectedDay.personalShift.notes || selectedDay.holiday) && (
+            <div className="mt-4 pt-4 border-t border-[var(--border-color)]">
+              {selectedDay.personalShift.notes && (
+                <div className="mb-2">
+                  <div className="text-xs font-medium text-[var(--text-secondary)] mb-1">Notes:</div>
+                  <div className="text-sm text-[var(--text-primary)] bg-[var(--bg-tertiary)] p-2 rounded">
+                    {selectedDay.personalShift.notes}
+                  </div>
+                </div>
+              )}
+              
+              {selectedDay.holiday && (
+                <div className="flex items-center text-[var(--color-public)]">
+                  <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                  </svg>
+                  <span className="text-sm">
+                    {selectedDay.holiday.name} ({selectedDay.holiday.isOfficial ? 'Official' : 'Unofficial'})
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
       
-      {/* Theme toggle button */}
-      <div className="mt-4 text-center">
-        <button 
-          onClick={toggleDarkMode}
-          className={`px-3 py-1 rounded-md text-xs font-medium ${
-            isDarkMode 
-              ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' 
-              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-          }`}
-        >
-          {isDarkMode ? '☀️ Light Mode' : '🌙 Dark Mode'}
-        </button>
+      {/* Shift legend */}
+      <div className="bg-[var(--bg-secondary)] rounded-xl border border-[var(--border-color)] overflow-hidden">
+        <div className="px-4 py-3 border-b border-[var(--border-color)]">
+          <div className="text-sm font-medium text-[var(--text-primary)]">Shift Legend</div>
+        </div>
+        
+        <div className="p-3">
+          <div className="grid grid-cols-2 gap-x-2 gap-y-3">
+            {Object.entries(shiftTheme).map(([type, style]) => (
+              <div key={type} className="flex items-center">
+                <div 
+                  className="w-6 h-6 rounded flex items-center justify-center mr-2"
+                  style={{ 
+                    background: style.gradient,
+                    color: 'white'
+                  }}
+                >
+                  {style.icon}
+                </div>
+                <span className="text-sm text-[var(--text-primary)]">{type}</span>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );
