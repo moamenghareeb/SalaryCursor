@@ -5,6 +5,8 @@ import { ShiftType, ShiftGroup, CalendarDay, GroupShiftInfo } from '../../lib/ty
 interface DayCellProps {
   day: CalendarDay;
   onClick?: (day: CalendarDay) => void;
+  ariaLabel: string;
+  title: string;
 }
 
 // Define color schemes for different shift types
@@ -39,7 +41,7 @@ const shiftColors: Record<ShiftType, { bg: string; text: string }> = {
   }
 };
 
-const DayCell: React.FC<DayCellProps> = ({ day, onClick }) => {
+const DayCell: React.FC<DayCellProps> = ({ day, onClick, ariaLabel, title }) => {
   const { 
     date, 
     dayOfMonth, 
@@ -82,6 +84,8 @@ const DayCell: React.FC<DayCellProps> = ({ day, onClick }) => {
         ${onClick && isCurrentMonth ? 'cursor-pointer' : 'cursor-default'}
       `}
       onClick={handleClick}
+      aria-label={ariaLabel}
+      title={title}
     >
       {/* Date number */}
       <div className={`

@@ -49,23 +49,20 @@ const Calendar: React.FC<CalendarProps> = ({
           ))}
         </div>
         
-        {/* Calendar days */}
-        <div className="grid grid-cols-7">
-          {weeks.map((week, weekIndex) => (
-            <React.Fragment key={`week-${weekIndex}`}>
-              {week.map((day) => (
-                <DayCell 
-                  key={day.date} 
-                  day={day}
-                  onClick={onDayClick}
-                />
-              ))}
-            </React.Fragment>
-          ))}
-        </div>
+        {weeks.map((week, weekIndex) => (
+          <div key={weekIndex} className={`${weekIndex > 0 ? 'border-t border-gray-800' : ''}`}> 
+            {week.map((day) => (
+              <DayCell 
+                key={day.date.toString()} 
+                day={day} 
+                onClick={() => onDayClick && onDayClick(day)} 
+                ariaLabel={`Select ${new Date(day.date).toDateString()}`} 
+                title={`Select ${new Date(day.date).toDateString()}`} 
+              />
+            ))}
+          </div>
+        ))}
       </div>
-      
-      {/* Removed Calendar legend from here - will be displayed in the main schedule page */}
     </div>
   );
 };

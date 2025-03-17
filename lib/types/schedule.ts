@@ -79,6 +79,7 @@ export interface CalendarDay {
   // Shift information
   personalShift: ShiftInfo;
   holiday?: Holiday;
+  shift?: ShiftType;
   
   // Group assignments
   groupAssignments: {
