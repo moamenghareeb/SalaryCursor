@@ -122,7 +122,9 @@ const SchedulePage: React.FC = () => {
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
   
   // Date navigation state
-  const [viewMode, setViewMode] = useState<'current' | 'future'>('current');
+  // Use separate type to fix comparisons
+  type ViewMode = 'current' | 'future';
+  const [viewMode, setViewMode] = useState<ViewMode>('current');
   const [futureMonths, setFutureMonths] = useState<{year: number; month: number}[]>([]);
   
   // Use our custom hook for schedule data
@@ -354,183 +356,6 @@ const SchedulePage: React.FC = () => {
   return (
     <Layout>
       <div className="container mx-auto px-4 py-8">
-        <div className="space-y-4">
-          {/* Completely new header section based on the mockup */}
-          <div className="bg-gray-900 dark:bg-gray-800 rounded-lg shadow-md p-4">
-            <h1 className="text-2xl font-bold text-white mb-4">Work Schedule</h1>
-            
-            <div className="flex flex-col space-y-3">
-              {/* View mode toggle */}
-              <div className="flex space-x-2">
-                <button
-                  onClick={() => setViewMode('current')}
-                  className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                    viewMode === 'current' 
-                      ? 'bg-blue-600 text-white' 
-                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                  }`}
-                >
-                  Current
-                </button>
-                <button
-                  onClick={() => setViewMode('future')}
-                  className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                    viewMode === 'future' 
-                      ? 'bg-blue-600 text-white' 
-                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                  }`}
-                >
-                  Future
-                </button>
-              </div>
-              
-              {/* Schedule settings */}
-              <div className="grid grid-cols-2 gap-3">
-                {scheduleType === 'shift' && (
-                  <div className="flex items-center space-x-2 bg-gray-800 dark:bg-gray-700 rounded-md px-3 py-2">
-                    <span className="text-sm text-gray-300">Group {employeeGroup}</span>
-                    <button
-                      onClick={handleGroupChangeClick}
-                      disabled={isUpdating}
-                      className="text-blue-400 text-sm hover:underline disabled:opacity-50"
-                    >
-                      Change
-                    </button>
-                  </div>
-                )}
-                
-                <select
-                  value={scheduleType}
-                  onChange={(e) => updateScheduleType(e.target.value as ScheduleType)}
-                  disabled={isUpdating}
-                  className="bg-gray-800 dark:bg-gray-700 border border-gray-700 dark:border-gray-600 
-                    text-white rounded-md px-3 py-2 text-sm appearance-none"
-                >
-                  {SCHEDULE_TYPE_OPTIONS.map(option => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          </div>
-          
-          {/* Month Navigation - Only show for current view */}
-          {viewMode === 'current' && (
-            <div className="bg-white dark:bg-gray-800 shadow-sm rounded-lg p-3 flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <button
-                  onClick={goToPreviousMonth}
-                  disabled={isUpdating}
-                  className="p-2 rounded-full text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700/30 disabled:opacity-50"
-                  aria-label="Previous month"
-                >
-                  <ChevronLeftIcon className="w-5 h-5" />
-                </button>
-                <span className="text-lg font-medium text-gray-800 dark:text-gray-200">
-                  {format(currentDate, 'MMMM yyyy')}
-                </span>
-                <button
-                  onClick={goToNextMonth}
-                  disabled={isUpdating}
-                  className="p-2 rounded-full text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700/30 disabled:opacity-50"
-                  aria-label="Next month"
-                >
-                  <ChevronRightIcon className="w-5 h-5" />
-                </button>
-              </div>
-              <button
-                onClick={goToToday}
-                disabled={isUpdating}
-                className="px-3 py-1 bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-md text-sm font-medium"
-              >
-                Today
-              </button>
-            </div>
-          )}
-          
-          {/* Toggle between desktop and mobile view */}
-          <div className="bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-hidden">
-            {isMobileView ? (
-              monthData && (
-                <MobileScheduleView 
-                  monthData={monthData}
-                  onDayClick={handleDayClick}
-                />
-              )
-            ) : (
-              monthData && (
-                <Calendar 
-                  monthData={monthData}
-                  onDayClick={handleDayClick}
-                />
-              )
-            )}
-          </div>
-          
-          {/* Schedule information */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-gray-50 dark:bg-gray-800/50 p-6 rounded-lg">
-            {scheduleInfo}
-            
-            {employeeData?.shift_group && employeeData?.schedule_type && (
-              <div>
-                <h3 className="text-lg font-medium mb-2">Your Schedule Settings</h3>
-                <div className="space-y-2">
-                  <p>
-                    <span className="text-gray-600 dark:text-gray-400">Schedule Type:</span>{' '}
-                    <span className="font-medium">{scheduleType === 'regular' ? 'Regular Work Hours' : 'Shift-Based'}</span>
-                  </p>
-                  {scheduleType === 'shift' && (
-                    <p>
-                      <span className="text-gray-600 dark:text-gray-400">Assigned Group:</span>{' '}
-                      <span className="font-medium">Group {employeeGroup}</span>
-                    </p>
-                  )}
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
-                    You can change these settings using the controls above.
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
-          
-          {/* Color legend key (hidden on mobile - already in mobile view) */}
-          {!isMobileView && (
-            <div className="mt-4 p-4 bg-white dark:bg-gray-800 shadow-sm rounded-lg">
-              <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Legend:</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-y-2 gap-x-4">
-                <div className="flex items-center">
-                  <div className="w-3 h-3 bg-blue-500 mr-2"></div>
-                  <span className="text-xs text-gray-600 dark:text-gray-400">Day Shift</span>
-                </div>
-                <div className="flex items-center">
-                  <div className="w-3 h-3 bg-green-500 mr-2"></div>
-                  <span className="text-xs text-gray-600 dark:text-gray-400">Night Shift</span>
-                </div>
-                <div className="flex items-center">
-                  <div className="w-3 h-3 bg-red-500 mr-2"></div>
-                  <span className="text-xs text-gray-600 dark:text-gray-400">Off Duty</span>
-                </div>
-                <div className="flex items-center">
-                  <div className="w-3 h-3 bg-yellow-500 mr-2"></div>
-                  <span className="text-xs text-gray-600 dark:text-gray-400">On Leave</span>
-                </div>
-                <div className="flex items-center">
-                  <div className="w-3 h-3 bg-orange-500 mr-2"></div>
-                  <span className="text-xs text-gray-600 dark:text-gray-400">Public Holiday</span>
-                </div>
-                <div className="flex items-center">
-                  <div className="w-3 h-3 bg-pink-500 mr-2"></div>
-                  <span className="text-xs text-gray-600 dark:text-gray-400">Overtime</span>
-                </div>
-                <div className="flex items-center">
-                  <div className="w-3 h-3 bg-purple-500 mr-2"></div>
-                  <span className="text-xs text-gray-600 dark:text-gray-400">In-Lieu Time</span>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-        
         {isUpdating ? (
           <div className="flex justify-center items-center h-64">
             <LoadingSpinner />
@@ -541,22 +366,100 @@ const SchedulePage: React.FC = () => {
           </div>
         ) : viewMode === 'current' ? (
           // Current month view
-          <div className="space-y-6">
-            {/* Calendar controls */}
-            <CalendarControls 
-              currentDate={currentDate}
-              employeeGroup={employeeGroup}
-              scheduleType={scheduleType}
-              onPrevMonth={goToPreviousMonth}
-              onNextMonth={goToNextMonth}
-              onToday={goToToday}
-              onGroupChange={handleGroupChangeClick}
-              onScheduleTypeChange={updateScheduleType}
-              isUpdating={isUpdating}
-            />
+          <div className="space-y-4">
+            {/* Header section */}
+            <div className="bg-gray-900 dark:bg-gray-800 rounded-lg shadow-md p-4 mb-4">
+              <h1 className="text-2xl font-bold text-white mb-4">Work Schedule</h1>
+              
+              <div className="flex flex-col space-y-3">
+                {/* View mode toggle */}
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => setViewMode('current')}
+                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                      viewMode === 'current' 
+                        ? 'bg-blue-600 text-white' 
+                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                    }`}
+                  >
+                    Current
+                  </button>
+                  <button
+                    onClick={() => setViewMode('future')}
+                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                      viewMode === 'future' 
+                        ? 'bg-blue-600 text-white' 
+                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                    }`}
+                  >
+                    Future
+                  </button>
+                </div>
+                
+                {/* Schedule settings */}
+                <div className="grid grid-cols-2 gap-3">
+                  {scheduleType === 'shift' && (
+                    <div className="flex items-center space-x-2 bg-gray-800 dark:bg-gray-700 rounded-md px-3 py-2">
+                      <span className="text-sm text-gray-300">Group {employeeGroup}</span>
+                      <button
+                        onClick={handleGroupChangeClick}
+                        disabled={isUpdating}
+                        className="text-blue-400 text-sm hover:underline disabled:opacity-50"
+                      >
+                        Change
+                      </button>
+                    </div>
+                  )}
+                  
+                  <select
+                    value={scheduleType}
+                    onChange={(e) => updateScheduleType(e.target.value as ScheduleType)}
+                    disabled={isUpdating}
+                    className="bg-gray-800 dark:bg-gray-700 border border-gray-700 dark:border-gray-600 
+                      text-white rounded-md px-3 py-2 text-sm appearance-none"
+                  >
+                    {SCHEDULE_TYPE_OPTIONS.map(option => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
             
-            {/* Toggle between desktop and mobile view */}
-            <div className="bg-white dark:bg-gray-800 shadow-md rounded-lg p-4">
+            {/* Month Navigation */}
+            <div className="bg-gray-800 dark:bg-gray-800 shadow-md rounded-lg p-3 flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-3">
+                <button
+                  onClick={goToPreviousMonth}
+                  disabled={isUpdating}
+                  className="p-2 rounded-full text-gray-300 dark:text-gray-400 hover:bg-gray-700 dark:hover:bg-gray-700/30 disabled:opacity-50 bg-blue-600"
+                  aria-label="Previous month"
+                >
+                  <ChevronLeftIcon className="w-5 h-5" />
+                </button>
+                <span className="text-lg font-medium text-white dark:text-gray-200">
+                  {format(currentDate, 'MMMM yyyy')}
+                </span>
+                <button
+                  onClick={goToNextMonth}
+                  disabled={isUpdating}
+                  className="p-2 rounded-full text-gray-300 dark:text-gray-400 hover:bg-gray-700 dark:hover:bg-gray-700/30 disabled:opacity-50 bg-blue-600"
+                  aria-label="Next month"
+                >
+                  <ChevronRightIcon className="w-5 h-5" />
+                </button>
+              </div>
+              <button
+                onClick={goToToday}
+                disabled={isUpdating}
+                className="px-3 py-1 bg-blue-600 text-white rounded-md text-sm font-medium"
+              >
+                Today
+              </button>
+            </div>
+            
+            {/* Calendar component */}
+            <div className="bg-gray-800 dark:bg-gray-800 shadow-md rounded-lg overflow-hidden mb-4">
               {isMobileView ? (
                 monthData && (
                   <MobileScheduleView 
@@ -575,24 +478,24 @@ const SchedulePage: React.FC = () => {
             </div>
             
             {/* Schedule information */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-gray-50 dark:bg-gray-800/50 p-6 rounded-lg">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-gray-800 dark:bg-gray-800 p-6 rounded-lg shadow-md mb-4">
               {scheduleInfo}
               
               {employeeData?.shift_group && employeeData?.schedule_type && (
                 <div>
-                  <h3 className="text-lg font-medium mb-2">Your Schedule Settings</h3>
+                  <h3 className="text-lg font-medium text-white mb-2">Your Schedule Settings</h3>
                   <div className="space-y-2">
                     <p>
-                      <span className="text-gray-600 dark:text-gray-400">Schedule Type:</span>{' '}
-                      <span className="font-medium">{scheduleType === 'regular' ? 'Regular Work Hours' : 'Shift-Based'}</span>
+                      <span className="text-gray-400 dark:text-gray-400">Schedule Type:</span>{' '}
+                      <span className="font-medium text-white">{scheduleType === 'regular' ? 'Regular Work Hours' : 'Shift-Based'}</span>
                     </p>
                     {scheduleType === 'shift' && (
                       <p>
-                        <span className="text-gray-600 dark:text-gray-400">Assigned Group:</span>{' '}
-                        <span className="font-medium">Group {employeeGroup}</span>
+                        <span className="text-gray-400 dark:text-gray-400">Assigned Group:</span>{' '}
+                        <span className="font-medium text-white">Group {employeeGroup}</span>
                       </p>
                     )}
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
+                    <p className="text-sm text-gray-400 dark:text-gray-400 mt-2">
                       You can change these settings using the controls above.
                     </p>
                   </div>
@@ -602,36 +505,24 @@ const SchedulePage: React.FC = () => {
             
             {/* Color legend key (hidden on mobile - already in mobile view) */}
             {!isMobileView && (
-              <div className="mt-4 p-4 bg-white dark:bg-gray-800 shadow-sm rounded-lg">
-                <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Legend:</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-y-2 gap-x-4">
+              <div className="p-4 bg-gray-800 dark:bg-gray-800 shadow-md rounded-lg">
+                <h3 className="text-sm font-medium text-white mb-2">Legend:</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-y-2 gap-x-4">
                   <div className="flex items-center">
-                    <div className="w-3 h-3 bg-blue-500 mr-2"></div>
-                    <span className="text-xs text-gray-600 dark:text-gray-400">Day Shift</span>
+                    <div className="w-3 h-3 bg-blue-500 mr-2 rounded-full"></div>
+                    <span className="text-xs text-gray-300 dark:text-gray-300">Day Shift</span>
                   </div>
                   <div className="flex items-center">
-                    <div className="w-3 h-3 bg-green-500 mr-2"></div>
-                    <span className="text-xs text-gray-600 dark:text-gray-400">Night Shift</span>
+                    <div className="w-3 h-3 bg-green-500 mr-2 rounded-full"></div>
+                    <span className="text-xs text-gray-300 dark:text-gray-300">Night Shift</span>
                   </div>
                   <div className="flex items-center">
-                    <div className="w-3 h-3 bg-red-500 mr-2"></div>
-                    <span className="text-xs text-gray-600 dark:text-gray-400">Off Duty</span>
+                    <div className="w-3 h-3 bg-red-500 mr-2 rounded-full"></div>
+                    <span className="text-xs text-gray-300 dark:text-gray-300">Off Duty</span>
                   </div>
                   <div className="flex items-center">
-                    <div className="w-3 h-3 bg-yellow-500 mr-2"></div>
-                    <span className="text-xs text-gray-600 dark:text-gray-400">On Leave</span>
-                  </div>
-                  <div className="flex items-center">
-                    <div className="w-3 h-3 bg-orange-500 mr-2"></div>
-                    <span className="text-xs text-gray-600 dark:text-gray-400">Public Holiday</span>
-                  </div>
-                  <div className="flex items-center">
-                    <div className="w-3 h-3 bg-pink-500 mr-2"></div>
-                    <span className="text-xs text-gray-600 dark:text-gray-400">Overtime</span>
-                  </div>
-                  <div className="flex items-center">
-                    <div className="w-3 h-3 bg-purple-500 mr-2"></div>
-                    <span className="text-xs text-gray-600 dark:text-gray-400">In-Lieu Time</span>
+                    <div className="w-3 h-3 bg-yellow-500 mr-2 rounded-full"></div>
+                    <span className="text-xs text-gray-300 dark:text-gray-300">On Leave</span>
                   </div>
                 </div>
               </div>
@@ -639,52 +530,106 @@ const SchedulePage: React.FC = () => {
           </div>
         ) : (
           // Future months view
-          <div className="space-y-8">
-            <div className="flex justify-between items-center">
-              <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200">
-                Future Schedule (Next 11 Months)
-              </h2>
-              <button
-                onClick={() => setViewMode('current')}
-                className="px-3 py-1 rounded-md text-sm bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"
-              >
-                Back to Current Month
-              </button>
+          <div className="space-y-4">
+            {/* Header section for future view */}
+            <div className="bg-gray-900 dark:bg-gray-800 rounded-lg shadow-md p-4 mb-4">
+              <div className="flex justify-between items-center">
+                <h1 className="text-2xl font-bold text-white">Work Schedule</h1>
+              </div>
+              
+              <div className="flex flex-col space-y-3 mt-3">
+                {/* View mode toggle */}
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => setViewMode('current')}
+                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                      viewMode === 'current' 
+                        ? 'bg-blue-600 text-white' 
+                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                    }`}
+                  >
+                    Current
+                  </button>
+                  <button
+                    onClick={() => setViewMode('future')}
+                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                      viewMode === 'future' 
+                        ? 'bg-blue-600 text-white' 
+                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                    }`}
+                  >
+                    Future
+                  </button>
+                </div>
+                
+                {/* Schedule settings */}
+                <div className="grid grid-cols-2 gap-3">
+                  {scheduleType === 'shift' && (
+                    <div className="flex items-center space-x-2 bg-gray-800 dark:bg-gray-700 rounded-md px-3 py-2">
+                      <span className="text-sm text-gray-300">Group {employeeGroup}</span>
+                      <button
+                        onClick={handleGroupChangeClick}
+                        disabled={isUpdating}
+                        className="text-blue-400 text-sm hover:underline disabled:opacity-50"
+                      >
+                        Change
+                      </button>
+                    </div>
+                  )}
+                  
+                  <select
+                    value={scheduleType}
+                    onChange={(e) => updateScheduleType(e.target.value as ScheduleType)}
+                    disabled={isUpdating}
+                    className="bg-gray-800 dark:bg-gray-700 border border-gray-700 dark:border-gray-600 
+                      text-white rounded-md px-3 py-2 text-sm appearance-none"
+                  >
+                    {SCHEDULE_TYPE_OPTIONS.map(option => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
             </div>
             
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {futureMonths.map((month, index) => (
-                <div 
-                  key={`${month.year}-${month.month}`}
-                  className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-shadow"
-                >
-                  <h3 className="text-lg font-medium text-gray-800 dark:text-gray-200 mb-3">
-                    {format(new Date(month.year, month.month, 1), 'MMMM yyyy')}
-                  </h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                    Shift Group: <span className="font-medium">Group {employeeGroup}</span>
-                  </p>
-                  
-                  {/* Would integrate with useSchedule to get actual shift data */}
-                  <div className="flex justify-between items-center mt-4">
-                    <div className="text-gray-500 dark:text-gray-400 text-sm">
-                      {index + 1} month{index > 0 ? 's' : ''} from now
+            <div className="bg-gray-800 dark:bg-gray-800 rounded-lg shadow-md p-4 mb-4">
+              <h2 className="text-xl font-semibold text-white mb-4">
+                Future Schedule (Next 11 Months)
+              </h2>
+            
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {futureMonths.map((month, index) => (
+                  <div 
+                    key={`${month.year}-${month.month}`}
+                    className="p-4 bg-gray-700 dark:bg-gray-700 rounded-lg shadow hover:shadow-lg transition-shadow"
+                  >
+                    <h3 className="text-lg font-medium text-white mb-2">
+                      {format(new Date(month.year, month.month, 1), 'MMMM yyyy')}
+                    </h3>
+                    <p className="text-sm text-gray-300 mb-2">
+                      Shift Group: <span className="font-medium">Group {employeeGroup}</span>
+                    </p>
+                    
+                    <div className="flex justify-between items-center mt-3">
+                      <div className="text-gray-400 text-sm">
+                        {index + 1} month{index > 0 ? 's' : ''} from now
+                      </div>
+                      <button
+                        onClick={() => {
+                          // Navigate to this month
+                          for (let i = 0; i <= index; i++) {
+                            goToNextMonth();
+                          }
+                          setViewMode('current');
+                        }}
+                        className="px-3 py-1 rounded text-sm bg-blue-600 text-white"
+                      >
+                        View
+                      </button>
                     </div>
-                    <button
-                      onClick={() => {
-                        // Navigate to this month
-                        for (let i = 0; i <= index; i++) {
-                          goToNextMonth();
-                        }
-                        setViewMode('current');
-                      }}
-                      className="px-2 py-1 rounded text-xs bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400"
-                    >
-                      View Details
-                    </button>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
         )}

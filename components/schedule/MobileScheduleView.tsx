@@ -20,13 +20,13 @@ const shiftColorMap: Record<ShiftType, string> = {
 
 // Text colors for shift types
 const shiftTextColorMap: Record<ShiftType, string> = {
-  'Day': 'text-blue-600 dark:text-blue-400',
-  'Night': 'text-green-600 dark:text-green-400',
-  'Off': 'text-red-600 dark:text-red-400',
-  'Leave': 'text-yellow-600 dark:text-yellow-400',
-  'Public': 'text-orange-600 dark:text-orange-400',
-  'Overtime': 'text-pink-600 dark:text-pink-400',
-  'InLieu': 'text-purple-600 dark:text-purple-400'
+  'Day': 'text-blue-400',
+  'Night': 'text-green-400',
+  'Off': 'text-red-400',
+  'Leave': 'text-yellow-400',
+  'Public': 'text-orange-400',
+  'Overtime': 'text-pink-400',
+  'InLieu': 'text-purple-400'
 };
 
 const MobileScheduleView: React.FC<MobileScheduleViewProps> = ({ 
@@ -93,13 +93,13 @@ const MobileScheduleView: React.FC<MobileScheduleViewProps> = ({
   }
   
   if (!selectedDay) {
-    return <div className="p-4 text-center">Loading schedule...</div>;
+    return <div className="p-4 text-center text-white">Loading schedule...</div>;
   }
   
   return (
-    <div className="mobile-schedule-view space-y-5">
+    <div className="mobile-schedule-view space-y-5 px-4 py-5">
       {/* Header with month and year */}
-      <div className="text-xl font-semibold text-center text-gray-800 dark:text-gray-100">
+      <div className="text-xl font-semibold text-center text-white mb-2">
         {monthData.name} {monthData.year}
       </div>
       
@@ -108,35 +108,36 @@ const MobileScheduleView: React.FC<MobileScheduleViewProps> = ({
         {/* Day of week headers */}
         <div className="grid grid-cols-7 text-center mb-2">
           {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((dayLabel, i) => (
-            <div key={i} className="text-xs font-medium text-gray-500 dark:text-gray-400">
+            <div key={i} className="text-xs font-medium text-gray-300">
               {dayLabel}
             </div>
           ))}
         </div>
         
         {/* Calendar grid */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg overflow-hidden shadow-sm">
+        <div className="bg-blue-900 bg-opacity-30 rounded-lg overflow-hidden">
           {weekRows.map((week, weekIndex) => (
-            <div key={`week-${weekIndex}`} className="grid grid-cols-7 border-b border-gray-200 dark:border-gray-700 last:border-b-0">
+            <div key={`week-${weekIndex}`} className="grid grid-cols-7 border-b border-gray-700 last:border-b-0">
               {week.map((day, dayIndex) => {
                 const isSelected = selectedDayIndex === monthData.days.findIndex(d => d.date === day.date);
+                const dayBgColor = day.isCurrentMonth ? 'bg-blue-700' : 'bg-blue-900 opacity-60';
+                
                 return (
                   <button
                     key={`${weekIndex}-${dayIndex}`}
                     onClick={() => handleDaySelect(monthData.days.findIndex(d => d.date === day.date))}
                     className={`
                       py-3 flex flex-col items-center relative
-                      ${!day.isCurrentMonth ? 'opacity-40' : ''}
-                      ${isSelected ? 'bg-blue-50 dark:bg-blue-900/20' : ''}
-                      hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors
+                      ${dayBgColor}
+                      ${isSelected ? 'ring-2 ring-white' : ''}
+                      transition-colors
                     `}
                     disabled={!day.isCurrentMonth}
                   >
                     {/* Date number */}
                     <span className={`
-                      text-sm font-medium mb-1
-                      ${day.isToday ? 'bg-blue-500 text-white w-7 h-7 rounded-full flex items-center justify-center' : 
-                        'text-gray-800 dark:text-gray-200'}
+                      text-sm font-medium mb-1 text-white
+                      ${day.isToday ? 'bg-blue-600 w-7 h-7 rounded-full flex items-center justify-center' : ''}
                     `}>
                       {day.dayOfMonth}
                     </span>
@@ -152,17 +153,17 @@ const MobileScheduleView: React.FC<MobileScheduleViewProps> = ({
       </div>
       
       {/* Selected day detail card */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 border border-gray-200 dark:border-gray-700">
+      <div className="bg-gray-800 rounded-lg shadow p-4 border border-gray-700">
         {/* Day header */}
         <div className="flex justify-between items-start mb-3">
           <div>
-            <h3 className="text-lg font-medium text-gray-800 dark:text-gray-100">
+            <h3 className="text-lg font-medium text-white">
               {format(new Date(selectedDay.date), 'EEEE, MMMM d')}
             </h3>
             <p className={`font-medium ${shiftTextColorMap[selectedDay.personalShift.type]}`}>
               {selectedDay.personalShift.type}
               {selectedDay.personalShift.shiftNumber && (
-                <span className="ml-1 text-xs text-gray-500">({selectedDay.personalShift.shiftNumber})</span>
+                <span className="ml-1 text-xs text-gray-400">({selectedDay.personalShift.shiftNumber})</span>
               )}
             </p>
           </div>
@@ -170,7 +171,7 @@ const MobileScheduleView: React.FC<MobileScheduleViewProps> = ({
           {/* Edit button */}
           <button 
             onClick={handleDayClick}
-            className="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+            className="p-2 rounded-full text-gray-300 hover:bg-gray-700"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
@@ -180,7 +181,7 @@ const MobileScheduleView: React.FC<MobileScheduleViewProps> = ({
         
         {/* Groups on shift section */}
         <div className="space-y-3">
-          <h4 className="text-sm font-medium text-gray-600 dark:text-gray-400">
+          <h4 className="text-sm font-medium text-gray-300">
             Groups on shift today:
           </h4>
           
@@ -189,8 +190,8 @@ const MobileScheduleView: React.FC<MobileScheduleViewProps> = ({
             <div className="flex items-start">
               <span className="w-3 h-3 rounded-full bg-blue-500 mt-1 mr-2 flex-shrink-0"></span>
               <div>
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Day:</span>{' '}
-                <span className="text-sm text-gray-600 dark:text-gray-400">
+                <span className="text-sm font-medium text-gray-300">Day:</span>{' '}
+                <span className="text-sm text-gray-400">
                   {selectedDay.groupAssignments.dayShift.map(g => `Group ${g.group}${g.isFirstDay ? ' (1st)' : ' (2nd)'}`).join(', ')}
                 </span>
               </div>
@@ -202,8 +203,8 @@ const MobileScheduleView: React.FC<MobileScheduleViewProps> = ({
             <div className="flex items-start">
               <span className="w-3 h-3 rounded-full bg-green-500 mt-1 mr-2 flex-shrink-0"></span>
               <div>
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Night:</span>{' '}
-                <span className="text-sm text-gray-600 dark:text-gray-400">
+                <span className="text-sm font-medium text-gray-300">Night:</span>{' '}
+                <span className="text-sm text-gray-400">
                   {selectedDay.groupAssignments.nightShift.map(g => `Group ${g.group}${g.isFirstNight ? ' (1st)' : ' (2nd)'}`).join(', ')}
                 </span>
               </div>
@@ -211,30 +212,30 @@ const MobileScheduleView: React.FC<MobileScheduleViewProps> = ({
           )}
           
           {selectedDay.groupAssignments.dayShift.length === 0 && selectedDay.groupAssignments.nightShift.length === 0 && (
-            <p className="text-sm text-gray-500 dark:text-gray-400">No groups working today</p>
+            <p className="text-sm text-gray-400">No groups working today</p>
           )}
         </div>
         
         {/* Additional information */}
         {(selectedDay.personalShift.isOverridden || selectedDay.personalShift.notes || selectedDay.holiday) && (
-          <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+          <div className="mt-3 pt-3 border-t border-gray-700">
             {/* Show override info */}
             {selectedDay.personalShift.isOverridden && selectedDay.personalShift.originalType && (
-              <div className="text-xs text-blue-600 dark:text-blue-400 mb-1.5">
+              <div className="text-xs text-blue-400 mb-1.5">
                 Changed from {selectedDay.personalShift.originalType}
               </div>
             )}
             
             {/* Show notes if any */}
             {selectedDay.personalShift.notes && (
-              <div className="text-xs text-gray-600 dark:text-gray-400 mb-1.5">
+              <div className="text-xs text-gray-400 mb-1.5">
                 <span className="font-medium">Notes:</span> {selectedDay.personalShift.notes}
               </div>
             )}
             
             {/* Show holiday */}
             {selectedDay.holiday && (
-              <div className="text-xs text-orange-600 dark:text-orange-400">
+              <div className="text-xs text-orange-400">
                 {selectedDay.holiday.name} ({selectedDay.holiday.isOfficial ? 'Official' : 'Unofficial'})
               </div>
             )}
@@ -243,12 +244,12 @@ const MobileScheduleView: React.FC<MobileScheduleViewProps> = ({
       </div>
       
       {/* Shift legend */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg p-3 border border-gray-200 dark:border-gray-700 shadow-sm">
+      <div className="bg-gray-800 rounded-lg p-3 border border-gray-700 shadow-sm">
         <div className="flex flex-wrap gap-x-4 gap-y-2">
           {Object.entries(shiftColorMap).slice(0, 4).map(([type, color]) => (
             <div key={type} className="flex items-center">
               <div className={`w-3 h-3 rounded-full ${color} mr-1.5`}></div>
-              <span className="text-xs text-gray-700 dark:text-gray-300">{type}</span>
+              <span className="text-xs text-gray-300">{type}</span>
             </div>
           ))}
         </div>
