@@ -36,7 +36,7 @@ export default function Signup() {
   // Redirect if already logged in
   useEffect(() => {
     if (user && session) {
-      router.push('/dashboard');
+      router.push('/schedule');
     }
   }, [user, session, router]);
 
@@ -115,8 +115,8 @@ export default function Signup() {
       }
       
       toast.success('Account created successfully');
-      // Redirect to login
-      router.push('/login');
+      // Redirect to schedule
+      router.push('/schedule');
     } catch (error: any) {
       console.error('Signup error:', error);
       setError(error.message || 'Signup failed. Please try again.');

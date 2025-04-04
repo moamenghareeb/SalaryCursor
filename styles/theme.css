@@ -1,0 +1,318 @@
+/**
+ * Consistent theme variables for SalaryCursor
+ */
+
+:root {
+  /* Light mode colors - improved for better visual appeal */
+  --sc-bg-primary: #f8f9fa;
+  --sc-bg-secondary: #ffffff;
+  --sc-bg-tertiary: #f1f3f5;
+  --sc-text-primary: #212529;
+  --sc-text-secondary: #495057;
+  --sc-text-tertiary: #6c757d;
+  --sc-border-color: #dee2e6;
+  --sc-accent-color: #0d6efd;
+  --sc-accent-light: #e7f1ff;
+  --sc-success-color: #20c997;
+  --sc-warning-color: #ffc107;
+  --sc-danger-color: #dc3545;
+  --sc-info-color: #0dcaf0;
+  
+  /* Component styles */
+  --sc-card-bg: var(--sc-bg-secondary);
+  --sc-card-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075);
+  --sc-card-hover-shadow: 0 0.5rem 1rem rgba(0,0,0,0.15);
+  --sc-button-radius: 0.25rem;
+  --sc-card-radius: 0.5rem;
+  --sc-input-radius: 0.25rem;
+  
+  /* Calendar specific */
+  --sc-day-bg: var(--sc-bg-secondary);
+  --sc-day-text: var(--sc-text-primary);
+  --sc-day-today-bg: #e7f5ff;
+  --sc-day-selected-bg: var(--sc-accent-color);
+  --sc-day-selected-text: white;
+  --sc-day-inactive: #adb5bd;
+  --sc-day-border: rgba(0,0,0,0.125);
+  
+  /* Calendar legend colors - consistent with mobile view */
+  --sc-day-shift-color: #3b82f6;
+  --sc-night-shift-color: #10b981;
+  --sc-off-color: #ef4444;
+  --sc-leave-color: #f59e0b;
+  --sc-public-color: #8b5cf6;
+  --sc-overtime-color: #ec4899;
+  --sc-inlieu-color: #6366f1;
+}
+
+.dark {
+  /* Dark mode colors - improved for better contrast and readability */
+  --sc-bg-primary: #202124; /* Softer background (Google-inspired dark gray) */
+  --sc-bg-secondary: #2d2e33; /* Card background with slight blue undertone */
+  --sc-bg-tertiary: #36373d; /* Tertiary elements background */
+  --sc-text-primary: #ffffff;
+  --sc-text-secondary: #cacaca; /* Lighter secondary text for better readability */
+  --sc-text-tertiary: #a8a9ab;
+  --sc-border-color: #414248; /* Slightly visible borders */
+  --sc-accent-color: #4f8df6; /* More vibrant blue */
+  --sc-accent-light: rgba(79,141,246,0.2); /* Slightly more opacity for accent */
+  --sc-success-color: #34d399; /* Brighter green */
+  --sc-warning-color: #fbbf24; /* Brighter yellow */
+  --sc-danger-color: #f87171; /* Brighter red */
+  --sc-info-color: #38bdf8; /* Brighter blue */
+  
+  /* Component styles */
+  --sc-card-bg: var(--sc-bg-secondary);
+  --sc-card-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  --sc-card-hover-shadow: 0 8px 16px rgba(0,0,0,0.2);
+  
+  /* Calendar specific */
+  --sc-day-bg: #36373d; /* Slightly lighter than card background */
+  --sc-day-text: var(--sc-text-primary);
+  --sc-day-today-bg: rgba(79,141,246,0.25); /* More visible today highlight */
+  --sc-day-selected-bg: var(--sc-accent-color);
+  --sc-day-selected-text: white;
+  --sc-day-inactive: #6b6c72; /* Better visibility for inactive days */
+  
+  /* Calendar legend colors - consistent with mobile view */
+  --sc-day-shift-color: #3b82f6;
+  --sc-night-shift-color: #10b981;
+  --sc-off-color: #ef4444;
+  --sc-leave-color: #f59e0b;
+  --sc-public-color: #8b5cf6;
+  --sc-overtime-color: #ec4899;
+  --sc-inlieu-color: #6366f1;
+}
+
+/* Common Component Styles */
+
+/* Card styles */
+.sc-card {
+  background-color: var(--sc-card-bg);
+  border-radius: var(--sc-card-radius);
+  box-shadow: var(--sc-card-shadow);
+  border: 1px solid var(--sc-border-color);
+  transition: all 0.2s ease;
+  overflow: hidden;
+  position: relative;
+}
+
+.sc-card:hover {
+  box-shadow: var(--sc-card-hover-shadow);
+}
+
+/* Button styles */
+.sc-button {
+  border-radius: var(--sc-button-radius);
+  padding: 0.5rem 1rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.sc-button-primary {
+  background-color: var(--sc-accent-color);
+  color: white;
+}
+
+.sc-button-primary:hover {
+  filter: brightness(1.1);
+}
+
+.sc-button-secondary {
+  background-color: var(--sc-bg-tertiary);
+  color: var(--sc-text-primary);
+}
+
+/* Text styles */
+.sc-text-primary {
+  color: var(--sc-text-primary);
+}
+
+.sc-text-secondary {
+  color: var(--sc-text-secondary);
+}
+
+.sc-text-accent {
+  color: var(--sc-accent-color);
+}
+
+/* Calendar styles */
+.sc-calendar {
+  --day-border-radius: 8px;
+  --day-padding: 0.75rem;
+  --day-font-size: 0.875rem;
+}
+
+.sc-calendar .day {
+  border-radius: var(--day-border-radius);
+  transition: background-color 0.15s ease;
+  padding: var(--day-padding);
+  font-size: var(--day-font-size);
+}
+
+.sc-calendar .day.today {
+  background-color: var(--sc-day-today-bg);
+  border: 1px solid var(--sc-accent-color);
+}
+
+.sc-calendar .day.selected {
+  background-color: var(--sc-day-selected-bg);
+  color: var(--sc-day-selected-text);
+  transform: scale(1.05);
+}
+
+.sc-calendar .day.inactive {
+  color: var(--sc-day-inactive);
+  opacity: 0.7;
+}
+
+/* Shift legend styles */
+.sc-shift-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding: 1rem;
+  background-color: var(--sc-bg-tertiary);
+  border-radius: var(--sc-card-radius);
+  border: 1px solid var(--sc-border-color);
+}
+
+.sc-shift-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.sc-shift-legend-item .color-indicator {
+  width: 1rem;
+  height: 1rem;
+  border-radius: 0.25rem;
+}
+
+/* Mobile Specific Classes */
+@media (max-width: 768px) {
+  .sc-mobile-card {
+    margin-bottom: 0.75rem;
+    border-radius: 12px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+  
+  .sc-mobile-nav {
+    background-color: var(--sc-bg-secondary);
+    border-top: 1px solid var(--sc-border-color);
+    padding-bottom: env(safe-area-inset-bottom, 0);
+    padding: 0.75rem;
+  }
+  
+  .sc-mobile-nav-item {
+    color: var(--sc-text-secondary);
+    transition: all 0.2s ease;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+  }
+  
+  .sc-mobile-nav-item.active {
+    color: var(--sc-accent-color);
+    background-color: var(--sc-accent-light);
+  }
+  
+  .sc-mobile-nav-item-bg {
+    background-color: var(--sc-accent-light);
+  }
+  
+  /* Additional mobile components */
+  .sc-mobile-header {
+    background-color: var(--sc-bg-secondary);
+    border-bottom: 1px solid var(--sc-border-color);
+    padding: 1rem;
+  }
+  
+  .sc-mobile-calendar {
+    --day-border-radius: 8px;
+    --day-padding: 0.75rem;
+    --day-font-size: 0.875rem;
+  }
+  
+  .sc-mobile-calendar .day {
+    border-radius: var(--day-border-radius);
+    transition: background-color 0.15s ease;
+    padding: var(--day-padding);
+    font-size: var(--day-font-size);
+  }
+  
+  .sc-mobile-calendar .day.today {
+    background-color: var(--sc-day-today-bg);
+    border: 1px solid var(--sc-accent-color);
+  }
+  
+  .sc-mobile-calendar .day.selected {
+    background-color: var(--sc-day-selected-bg);
+    color: var(--sc-day-selected-text);
+    transform: scale(1.05);
+  }
+  
+  .sc-mobile-calendar .day.inactive {
+    color: var(--sc-day-inactive);
+    opacity: 0.7;
+  }
+  
+  /* Day cell specific styles */
+  .sc-day-cell {
+    min-height: 64px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  
+  .sc-day-cell .day-number {
+    font-weight: 600;
+    font-size: 1.1rem;
+  }
+  
+  .sc-day-cell .shift-indicator {
+    min-width: 64px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  
+  .sc-day-cell .notes-indicator {
+    position: absolute;
+    top: 0.25rem;
+    right: 0.25rem;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: var(--sc-warning-color);
+  }
+  
+  /* Group assignments */
+  .sc-group-assignments {
+    padding: 0.75rem;
+    border-top: 1px solid var(--sc-border-color);
+  }
+  
+  .sc-group-assignment {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0;
+  }
+  
+  .sc-group-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+  
+  .sc-group-indicator.day {
+    background-color: var(--sc-accent-color);
+  }
+  
+  .sc-group-indicator.night {
+    background-color: var(--sc-success-color);
+  }
+}

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { captureAuthError } from '../lib/errorTracking';
 import { useAuth } from '../lib/authContext';
 import { useTheme } from '../lib/themeContext';
+import toast from 'react-hot-toast';
 
 export default function Login() {
   const router = useRouter();
@@ -55,17 +56,18 @@ export default function Login() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          employeeId: employeeId,
-          password,
+          employeeId,
+          email: loginEmail,
+          password
         }),
       });
-      
+
       const result = await response.json();
-      
+
       if (!response.ok) {
         throw new Error(result.error || 'Login failed');
       }
-      
+
       // Update session via Supabase to ensure client state is synced
       if (result.session) {
         await supabase.auth.setSession({
@@ -73,7 +75,14 @@ export default function Login() {
           refresh_token: result.session.refresh_token,
         });
         
-        setMessage('Login successful! Redirecting...');
+        // Wait for the session to be updated
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Redirect to schedule page
+        router.push('/schedule');
+        
+        // Show success message after redirect
+        toast.success('Login successful!');
       }
     } catch (error: any) {
       console.error('Login error:', error);

@@ -16,7 +16,7 @@ type LayoutProps = {
 
 export default function Layout({ children }: LayoutProps) {
   const router = useRouter();
-  const { user, loading, signOut } = useAuth();
+  const { user, session, loading } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [isPageTransitioning, setIsPageTransitioning] = useState(false);
@@ -30,11 +30,21 @@ export default function Layout({ children }: LayoutProps) {
       setIsMobile(isMobileScreen);
       setUseMobileLayout(isMobileScreen && isMobileDevice());
     };
-    
+
     checkIfMobile();
     window.addEventListener('resize', checkIfMobile);
     return () => window.removeEventListener('resize', checkIfMobile);
   }, []);
+
+  // Handle authentication state
+  useEffect(() => {
+    if (loading) return;
+
+    if (!user && !session) {
+      // Redirect to login if not authenticated
+      router.push('/login');
+    }
+  }, [user, session, loading, router]);
 
   // Handle scroll effect for transparent to solid nav transition
   useEffect(() => {
@@ -77,6 +87,10 @@ export default function Layout({ children }: LayoutProps) {
         <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-apple-blue"></div>
       </div>
     );
+  }
+
+  if (!user && !session) {
+    return null; // Should be handled by the auth check above
   }
 
   // Use Mobile Layout for small screen mobile devices
@@ -133,12 +147,12 @@ export default function Layout({ children }: LayoutProps) {
             {/* Desktop menu */}
             <div className="hidden sm:flex sm:items-center sm:space-x-6">
               <Link 
-                href="/dashboard" 
+                href="/schedule" 
                 className={`px-3 py-1 rounded-full text-sm text-apple-gray-dark dark:text-dark-text-primary font-medium hover:bg-gray-100 dark:hover:bg-dark-surface transition-colors ${
-                  router.pathname === '/dashboard' ? 'bg-gray-100 dark:bg-dark-surface' : ''
+                  router.pathname === '/schedule' ? 'bg-gray-100 dark:bg-dark-surface' : ''
                 }`}
               >
-                Dashboard
+                Schedule
               </Link>
               <Link 
                 href="/salary" 
@@ -157,12 +171,12 @@ export default function Layout({ children }: LayoutProps) {
                 Leave
               </Link>
               <Link
-                href="/schedule"
+                href="/dashboard"
                 className={`px-3 py-1 rounded-full text-sm text-apple-gray-dark dark:text-dark-text-primary font-medium hover:bg-gray-100 dark:hover:bg-dark-surface transition-colors ${
-                  router.pathname === '/schedule' ? 'bg-gray-100 dark:bg-dark-surface' : ''
+                  router.pathname === '/dashboard' ? 'bg-gray-100 dark:bg-dark-surface' : ''
                 }`}
               >
-                Schedule
+                Dashboard
               </Link>
               
               <div className="pl-4 border-l border-gray-200 dark:border-dark-border flex items-center space-x-3">
@@ -170,7 +184,9 @@ export default function Layout({ children }: LayoutProps) {
                 <DarkModeToggle />
                 <span className="hidden lg:block text-sm text-apple-gray dark:text-dark-text-secondary">{user?.email}</span>
                 <button
-                  onClick={signOut}
+                  onClick={() => {
+                    router.push('/login');
+                  }}
                   className="px-3 py-1 bg-apple-blue hover:bg-apple-blue-hover text-white rounded-full text-sm font-medium transition-colors"
                 >
                   Sign Out
@@ -184,13 +200,13 @@ export default function Layout({ children }: LayoutProps) {
         <div className={`${isMenuOpen ? 'block' : 'hidden'} sm:hidden border-t border-gray-200 dark:border-dark-border bg-white dark:bg-dark-surface`}>
           <div className="px-2 pt-2 pb-3 space-y-1">
             <Link
-              href="/dashboard"
+              href="/schedule"
               className={`block px-3 py-2 rounded-md text-base font-medium text-apple-gray-dark dark:text-dark-text-primary ${
-                router.pathname === '/dashboard' ? 'bg-gray-100 dark:bg-dark-surface/70' : 'hover:bg-gray-50 dark:hover:bg-dark-surface/70'
+                router.pathname === '/schedule' ? 'bg-gray-100 dark:bg-dark-surface/70' : 'hover:bg-gray-50 dark:hover:bg-dark-surface/70'
               }`}
               onClick={() => setIsMenuOpen(false)}
             >
-              Dashboard
+              Schedule
             </Link>
             <Link
               href="/salary"
@@ -211,19 +227,19 @@ export default function Layout({ children }: LayoutProps) {
               Leave
             </Link>
             <Link
-              href="/schedule"
+              href="/dashboard"
               className={`block px-3 py-2 rounded-md text-base font-medium text-apple-gray-dark dark:text-dark-text-primary ${
-                router.pathname === '/schedule' ? 'bg-gray-100 dark:bg-dark-surface/70' : 'hover:bg-gray-50 dark:hover:bg-dark-surface/70'
+                router.pathname === '/dashboard' ? 'bg-gray-100 dark:bg-dark-surface/70' : 'hover:bg-gray-50 dark:hover:bg-dark-surface/70'
               }`}
               onClick={() => setIsMenuOpen(false)}
             >
-              Schedule
+              Dashboard
             </Link>
             <div className="px-3 py-2 text-sm text-apple-gray dark:text-dark-text-secondary">{user?.email}</div>
             <button
               onClick={() => {
                 setIsMenuOpen(false);
-                signOut();
+                router.push('/login');
               }}
               className="block w-full text-left px-3 py-2 rounded-md text-base font-medium bg-apple-blue text-white hover:bg-apple-blue-hover"
             >
@@ -237,4 +253,4 @@ export default function Layout({ children }: LayoutProps) {
       </main>
     </div>
   );
-} 
+}

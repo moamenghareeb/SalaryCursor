@@ -5,6 +5,7 @@ import { useAuth } from '../lib/authContext';
 import DarkModeToggle from './DarkModeToggle';
 import NotificationCenter from './NotificationCenter';
 import { motion } from 'framer-motion';
+import { FiCalendar, FiDollarSign, FiClock, FiLogOut, FiHome } from 'react-icons/fi';
 
 type MobileLayoutProps = {
   children: ReactNode;
@@ -31,15 +32,10 @@ export default function MobileLayout({ children }: MobileLayoutProps) {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Handle page transition effects
+  // Handle page transitions
   useEffect(() => {
-    const handleStart = () => {
-      setIsPageTransitioning(true);
-    };
-    
-    const handleComplete = () => {
-      setIsPageTransitioning(false);
-    };
+    const handleStart = () => setIsPageTransitioning(true);
+    const handleComplete = () => setIsPageTransitioning(false);
 
     router.events.on('routeChangeStart', handleStart);
     router.events.on('routeChangeComplete', handleComplete);
@@ -60,8 +56,6 @@ export default function MobileLayout({ children }: MobileLayoutProps) {
     );
   }
 
-  const isSchedulePage = router.pathname === '/schedule';
-
   return (
     <div className="min-h-screen bg-apple-gray-light dark:bg-dark-bg font-sans text-apple-gray-dark dark:text-dark-text-primary transition-colors duration-200">
       {isPageTransitioning && (
@@ -70,214 +64,100 @@ export default function MobileLayout({ children }: MobileLayoutProps) {
         </div>
       )}
       
-      {/* Mobile-optimized top nav */}
-      <nav 
-        className={`fixed w-full z-40 transition-all duration-300 ${
-          scrolled 
-            ? 'bg-white/90 dark:bg-dark-surface/90 backdrop-blur-md shadow-apple-nav dark:shadow-dark-card' 
-            : 'bg-apple-gray-light dark:bg-dark-bg'
-        }`}
-      >
-        <div className="px-2 py-2">
-          <div className="flex justify-between h-12 items-center">
-            <div className="flex items-center">
-              <Link href="/dashboard" className="text-lg font-medium text-apple-gray-dark dark:text-dark-text-primary">
-                SalaryCursor
-              </Link>
-            </div>
-            
-            {/* Mobile menu button */}
-            <div className="flex items-center">
-              <NotificationCenter />
-              <DarkModeToggle />
-              <button
-                onClick={() => setIsMenuOpen(!isMenuOpen)}
-                className="inline-flex items-center justify-center p-2 rounded-full text-apple-gray-dark dark:text-dark-text-primary hover:bg-gray-100 dark:hover:bg-dark-surface focus:outline-none ml-2"
-                aria-label="Open main menu"
-              >
-                <span className="sr-only">Open main menu</span>
-                {!isMenuOpen ? (
-                  <svg className="block h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                  </svg>
-                ) : (
-                  <svg className="block h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Mobile menu drawer - slide in from right */}
-        <motion.div 
-          className={`fixed inset-y-0 right-0 w-3/4 max-w-xs z-50 bg-white dark:bg-dark-surface shadow-lg transform transition-transform duration-300 ease-in-out ${isMenuOpen ? 'translate-x-0' : 'translate-x-full'}`}
-          initial={false}
-        >
-          <div className="flex flex-col h-full">
-            <div className="p-4 border-b border-gray-200 dark:border-dark-border">
-              <div className="flex justify-between items-center">
-                <h2 className="text-lg font-medium text-gray-900 dark:text-white">Menu</h2>
-                <button 
-                  onClick={() => setIsMenuOpen(false)}
-                  className="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-dark-surface/70"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-              <div className="mt-2 text-sm text-gray-500 dark:text-gray-400">{user?.email}</div>
-            </div>
-            
-            {/* Navigation Links */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-2">
-              <Link
-                href="/dashboard"
-                className={`flex items-center px-4 py-3 rounded-lg text-base font-medium ${
-                  router.pathname === '/dashboard' 
-                    ? 'bg-apple-blue text-white' 
-                    : 'text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-dark-surface/70'
-                }`}
-                onClick={() => setIsMenuOpen(false)}
-              >
-                <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                </svg>
-                Dashboard
-              </Link>
-              
-              <Link
-                href="/salary"
-                className={`flex items-center px-4 py-3 rounded-lg text-base font-medium ${
-                  router.pathname === '/salary' 
-                    ? 'bg-apple-blue text-white' 
-                    : 'text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-dark-surface/70'
-                }`}
-                onClick={() => setIsMenuOpen(false)}
-              >
-                <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                Salary
-              </Link>
-              
-              <Link
-                href="/leave"
-                className={`flex items-center px-4 py-3 rounded-lg text-base font-medium ${
-                  router.pathname === '/leave' 
-                    ? 'bg-apple-blue text-white' 
-                    : 'text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-dark-surface/70'
-                }`}
-                onClick={() => setIsMenuOpen(false)}
-              >
-                <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                Leave
-              </Link>
-              
-              <Link
-                href="/schedule"
-                className={`flex items-center px-4 py-3 rounded-lg text-base font-medium ${
-                  router.pathname === '/schedule' 
-                    ? 'bg-apple-blue text-white' 
-                    : 'text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-dark-surface/70'
-                }`}
-                onClick={() => setIsMenuOpen(false)}
-              >
-                <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                </svg>
-                Schedule
-              </Link>
-            </div>
-            
-            {/* Bottom section with sign out */}
-            <div className="p-4 border-t border-gray-200 dark:border-dark-border">
-              <button
-                onClick={() => {
-                  setIsMenuOpen(false);
-                  signOut();
-                }}
-                className="flex items-center w-full px-4 py-3 rounded-lg text-base font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
-              >
-                <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                </svg>
-                Sign Out
-              </button>
-            </div>
-          </div>
-        </motion.div>
-        
-        {/* Backdrop for mobile menu */}
-        {isMenuOpen && (
-          <div 
-            className="fixed inset-0 bg-black bg-opacity-50 z-40"
-            onClick={() => setIsMenuOpen(false)}
-          ></div>
-        )}
-      </nav>
-
       {/* Main content */}
-      <main className={`pt-16 pb-16 ${isSchedulePage ? 'px-0' : 'px-4'} animate-fadeIn`}>
+      <main className={`pt-0 ${router.pathname === '/schedule' ? 'px-0' : 'px-4'} pb-16 animate-fadeIn`}>
         {children}
       </main>
       
-      {/* Mobile bottom navigation bar */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white dark:bg-dark-surface shadow-t border-t border-gray-200 dark:border-dark-border z-40">
-        <div className="flex justify-around">
+      {/* Mobile bottom navigation bar with prominent icons */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 shadow-lg border-t border-gray-200 dark:border-gray-700 z-40 ios-safe-bottom sc-mobile-nav">
+        {/* Bottom navigation bar */}
+        <div className="flex justify-around items-center h-16" data-testid="mobile-bottom-nav">
+          <Link 
+            href="/schedule" 
+            className={`relative flex flex-col items-center justify-center py-3 px-4 flex-1 transition-all duration-200 ${router.pathname === '/schedule' 
+              ? 'text-apple-blue' 
+              : 'text-gray-500 dark:text-gray-400'}`}
+          >
+            {/* Active indicator dot */}
+            {router.pathname === '/schedule' && (
+              <span className="absolute top-0 w-10 h-1 rounded-full bg-apple-blue" />
+            )}
+            
+            <div className={`p-1.5 rounded-full ${router.pathname === '/schedule' ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}>
+              <FiCalendar className="w-7 h-7" />
+            </div>
+            <span className={`text-xs mt-1 ${router.pathname === '/schedule' ? 'font-medium' : ''}`}>Schedule</span>
+          </Link>
+
           <Link 
             href="/dashboard" 
-            className={`flex flex-col items-center justify-center py-2 px-2 flex-1 ${
-              router.pathname === '/dashboard' ? 'text-apple-blue' : 'text-gray-600 dark:text-gray-400'
-            }`}
+            className={`relative flex flex-col items-center justify-center py-3 px-4 flex-1 transition-all duration-200 ${router.pathname === '/dashboard' 
+              ? 'text-apple-blue' 
+              : 'text-gray-500 dark:text-gray-400'}`}
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-            </svg>
-            <span className="text-xs mt-1">Dashboard</span>
+            {/* Active indicator dot */}
+            {router.pathname === '/dashboard' && (
+              <span className="absolute top-0 w-10 h-1 rounded-full bg-apple-blue" />
+            )}
+            
+            <div className={`p-1.5 rounded-full ${router.pathname === '/dashboard' ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}>
+              <FiHome className="w-7 h-7" />
+            </div>
+            <span className={`text-xs mt-1 ${router.pathname === '/dashboard' ? 'font-medium' : ''}`}>Dashboard</span>
           </Link>
-          
+
           <Link 
             href="/salary" 
-            className={`flex flex-col items-center justify-center py-2 px-2 flex-1 ${
-              router.pathname === '/salary' ? 'text-apple-blue' : 'text-gray-600 dark:text-gray-400'
-            }`}
+            className={`relative flex flex-col items-center justify-center py-3 px-4 flex-1 transition-all duration-200 ${router.pathname === '/salary' 
+              ? 'text-apple-blue' 
+              : 'text-gray-500 dark:text-gray-400'}`}
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <span className="text-xs mt-1">Salary</span>
+            {/* Active indicator dot */}
+            {router.pathname === '/salary' && (
+              <span className="absolute top-0 w-10 h-1 rounded-full bg-apple-blue" />
+            )}
+            
+            <div className={`p-1.5 rounded-full ${router.pathname === '/salary' ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}>
+              <FiDollarSign className="w-7 h-7" />
+            </div>
+            <span className={`text-xs mt-1 ${router.pathname === '/salary' ? 'font-medium' : ''}`}>Salary</span>
           </Link>
           
           <Link 
             href="/leave" 
-            className={`flex flex-col items-center justify-center py-2 px-2 flex-1 ${
-              router.pathname === '/leave' ? 'text-apple-blue' : 'text-gray-600 dark:text-gray-400'
-            }`}
+            className={`relative flex flex-col items-center justify-center py-3 px-4 flex-1 transition-all duration-200 ${router.pathname === '/leave' 
+              ? 'text-apple-blue' 
+              : 'text-gray-500 dark:text-gray-400'}`}
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-            <span className="text-xs mt-1">Leave</span>
+            {/* Active indicator dot */}
+            {router.pathname === '/leave' && (
+              <span className="absolute top-0 w-10 h-1 rounded-full bg-apple-blue" />
+            )}
+            
+            <div className={`p-1.5 rounded-full ${router.pathname === '/leave' ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}>
+              <FiClock className="w-7 h-7" />
+            </div>
+            <span className={`text-xs mt-1 ${router.pathname === '/leave' ? 'font-medium' : ''}`}>Leave</span>
           </Link>
           
-          <Link 
-            href="/schedule" 
-            className={`flex flex-col items-center justify-center py-2 px-2 flex-1 ${
-              router.pathname === '/schedule' ? 'text-apple-blue' : 'text-gray-600 dark:text-gray-400'
-            }`}
+          <button
+            onClick={() => {
+              setIsMenuOpen(false);
+              signOut();
+            }}
+            className="flex flex-col items-center justify-center py-3 px-4 flex-1 transition-all duration-200 text-red-600 dark:text-red-400"
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-            </svg>
-            <span className="text-xs mt-1">Schedule</span>
-          </Link>
+            <FiLogOut className="w-7 h-7" />
+            <span className="text-xs mt-1">Sign Out</span>
+          </button>
         </div>
       </nav>
+
+      {/* Dark/Light mode toggle - fixed at the top */}
+      <div className="fixed top-4 right-4 z-50">
+        <DarkModeToggle />
+      </div>
     </div>
   );
 }

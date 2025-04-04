@@ -4,21 +4,20 @@ import Head from 'next/head';
 import { useRouter } from 'next/router';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Link from 'next/link';
-import { FiCalendar, FiDollarSign, FiArrowRight, FiPieChart, FiChevronLeft, FiChevronRight, FiDownload } from 'react-icons/fi';
+import { FiCalendar, FiDollarSign, FiArrowRight, FiPieChart, FiChevronLeft, FiChevronRight, FiDownload, FiClock } from 'react-icons/fi';
 import { pdf } from '@react-pdf/renderer';
 import YearlySalaryPDF from '../components/YearlySalaryPDF';
 import toast from 'react-hot-toast';
-import StatsPanel, { StatsData } from '../components/dashboard/StatsPanel';
-import UpcomingShifts, { UpcomingShift } from '../components/dashboard/UpcomingShifts';
+import StatsPanel from '../components/dashboard/StatsPanel';
 import { format, addDays, getDay } from 'date-fns';
 import { ShiftType } from '../lib/types/schedule';
 import { supabase } from '../lib/supabase';
 import { useTheme } from '../lib/themeContext';
+import { useQuery } from '@tanstack/react-query';
 
 // Import skeleton components
 import { 
   StatsPanelSkeleton, 
-  UpcomingShiftsSkeleton, 
   LeaveBalanceSkeleton,
   SalaryHistorySkeleton
 } from '../components/dashboard/SkeletonLoaders';
@@ -26,7 +25,6 @@ import {
 // Import React Query hooks
 import { 
   useEmployee, 
-  useShiftData, 
   useSalaryData, 
   useLeaveBalance 
 } from '../lib/hooks';
@@ -46,6 +44,7 @@ const getShiftTimes = (type: ShiftType): { start: string, end: string } => {
 };
 
 export default function Dashboard() {
+  // State and hooks that must be called at the top level
   const router = useRouter();
   const [pdfLoading, setPdfLoading] = useState(false);
   const { isDarkMode } = useTheme();
@@ -54,20 +53,21 @@ export default function Dashboard() {
   const currentYear = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = useState<number>(currentYear);
   
-  // Fix getting supabase user data
-  const [userData, setUserData] = useState<{ user: { id: string } | null }>({ user: null });
+  // Get user data
+  const { data: userData } = useQuery({
+    queryKey: ['auth'],
+    queryFn: async () => {
+      const { data, error } = await supabase.auth.getUser();
+      if (error) throw error;
+      return data;
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
+  });
+
   const userId = userData?.user?.id;
 
-  // Add useEffect to get user data
-  useEffect(() => {
-    async function getUserData() {
-      const { data } = await supabase.auth.getUser();
-      setUserData(data);
-    }
-    getUserData();
-  }, []);
-
-  // Use React Query hooks
+  // Use React Query hooks - these must be called at the top level
   const { 
     data: employee, 
     isLoading: employeeLoading,
@@ -76,355 +76,245 @@ export default function Dashboard() {
   
   const {
     data: leaveBalanceData,
-    isLoading: leaveLoading
+    isLoading: leaveLoading,
+    error: leaveError
   } = useLeaveBalance(userId, currentYear);
   
   const {
     data: salaryData,
-    isLoading: salaryLoading
+    isLoading: salaryLoading,
+    error: salaryError
   } = useSalaryData(userId, selectedYear);
-  
-  const {
-    data: shiftData,
-    isLoading: shiftLoading
-  } = useShiftData(userId);
-  
-  // Generate upcoming shifts
-  const upcomingShifts = useMemo(() => {
-    if (!shiftData?.shifts) return [];
-    
-    const upcoming: UpcomingShift[] = [];
-    const today = new Date();
-    
-    // Generate upcoming shifts (next 5 days)
-    for (let i = 0; i < 5; i++) {
-      const date = addDays(today, i);
-      const dayOfWeek = getDay(date); // 0 = Sunday, 6 = Saturday
-      
-      // Skip weekends in this simple example
-      if (dayOfWeek === 0 || dayOfWeek === 6) continue;
-      
-      // Find if there's an override for this date
-      const dateStr = format(date, 'yyyy-MM-dd');
-      const override = shiftData.shifts.find(s => s.date === dateStr);
-      
-      // Default shift if no override
-      let shiftType: ShiftType = 'Day';
-      
-      if (override) {
-        shiftType = override.shift_type as ShiftType;
-      }
-      
-      // Skip off/leave days
-      if (shiftType === 'Off' || shiftType === 'Leave') continue;
-      
-      const { start, end } = getShiftTimes(shiftType);
-      
-      upcoming.push({
-        date,
-        type: shiftType,
-        startTime: start,
-        endTime: end,
-        notes: override?.notes
-      });
-      
-      // Only show max 3 upcoming shifts
-      if (upcoming.length >= 3) break;
-    }
-    
-    return upcoming;
-  }, [shiftData?.shifts]);
-  
-  // Prepare stats data
-  const stats = useMemo(() => {
-    return {
-      monthlyEarnings: salaryData?.currentSalary || 0,
-      overtimeHours: shiftData?.stats?.overtimeHours || 0
-    };
-  }, [salaryData, shiftData]);
-  
-  // Combined loading state
-  const isLoading = employeeLoading || leaveLoading || salaryLoading || shiftLoading;
-  
+
+  // Derived state and computations
+  const isLoading = employeeLoading || leaveLoading || salaryLoading;
+  const hasError = employeeError || leaveError || salaryError;
+
+  // Format currency with 2 decimal places
+  const formatCurrency = (amount: number | null | undefined): string => {
+    if (amount === null || amount === undefined) return '0';
+    return new Intl.NumberFormat('en-EG', {
+      style: 'currency',
+      currency: 'EGP',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(amount);
+  };
+
+  // Format hours with 2 decimal places
+  const formatHours = (hours: number | null | undefined): string => {
+    if (hours === null || hours === undefined) return '0';
+    return hours.toFixed(2);
+  };
+
+  // Format date
+  const formatDate = (date: string | null | undefined): string => {
+    if (!date) return 'N/A';
+    const parsedDate = new Date(date);
+    if (isNaN(parsedDate.getTime())) return 'N/A';
+    return parsedDate.toLocaleDateString('en-EG', {
+      month: 'long',
+      year: 'numeric'
+    });
+  };
+
+  // Get current month's salary record
+  const currentMonthRecord = useMemo(() => {
+    if (!salaryData?.monthlySalaries) return null;
+    const currentMonth = new Date().getMonth() + 1;
+    return salaryData.monthlySalaries.find(month => month.month === currentMonth);
+  }, [salaryData?.monthlySalaries]);
+
+  // Get current year's salary records
+  const currentYearRecords = useMemo(() => {
+    if (!salaryData?.monthlySalaries) return [];
+    return salaryData.monthlySalaries.filter(month => month.month > 0);
+  }, [salaryData?.monthlySalaries]);
+
   // Handler for changing the selected year
   const handleYearChange = (year: number) => {
     setSelectedYear(year);
   };
-  
-  // Generate available years
-  const availableYears = useMemo(() => {
-    const years = new Set<number>();
-    // Add current year
-    years.add(currentYear);
-    
-    // Add years from salary data if available
-    if (salaryData?.monthlySalaries) {
-      salaryData.monthlySalaries.forEach(month => {
-        if (month) {
-          years.add(selectedYear);
-        }
-      });
-    }
-    
-    // Add previous and next years
-    years.add(currentYear - 1);
-    years.add(currentYear + 1);
-    
-    return Array.from(years).sort((a, b) => b - a);
-  }, [currentYear, salaryData, selectedYear]);
-  
-  // Handle downloading PDF
-  const handleDownloadPDF = async () => {
+
+  // Handler for generating PDF
+  const handleGeneratePDF = async () => {
     try {
       setPdfLoading(true);
-      toast.loading('Generating PDF...');
-      
-      // Fix YearlySalaryPDF props
-      const blob = await pdf(
-        <YearlySalaryPDF 
-          employee={{
-            name: employee?.name || 'Employee',
-            employee_id: employee?.employee_id || '-',
-            position: employee?.position || '-',
-            id: userId || '',
-            created_at: '',
-            updated_at: '',
-            email: '',
-            years_of_service: 0,
-            is_admin: false
-          }}
-          year={selectedYear}
-          totalSalary={salaryData?.yearlyTotal || 0}
-          averageSalary={(salaryData?.yearlyTotal || 0) / 12}
-          monthlyBreakdown={salaryData?.monthlySalaries || []}
-        />
-      ).toBlob();
-      
-      // Create a URL for the blob
-      const url = URL.createObjectURL(blob);
-      
-      // Create a link and click it
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `salary_report_${selectedYear}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      
-      // Clean up
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-      
-      toast.dismiss();
-      toast.success('PDF downloaded successfully');
+      // Implement PDF generation logic here
     } catch (error) {
-      toast.dismiss();
-      toast.error('Failed to generate PDF');
-      console.error('PDF generation error:', error);
+      console.error('Error generating PDF:', error);
     } finally {
       setPdfLoading(false);
     }
   };
-  
+
+  // Render logic
+  if (!userId) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold mb-4">Please log in to view your dashboard</h2>
+            <Link href="/login" className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+              Login
+            </Link>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
   if (isLoading) {
     return (
       <Layout>
-        <Head>
-          <title>Dashboard - SalaryCursor</title>
-          <meta name="description" content="View your salary and leave summary" />
-        </Head>
-        <div className="flex justify-center py-12">
+        <div className="flex items-center justify-center min-h-screen">
           <LoadingSpinner />
         </div>
       </Layout>
     );
   }
-  
+
+  if (hasError) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold mb-4">Error Loading Dashboard</h2>
+            <p className="text-red-500">
+              {(() => {
+                if (employeeError) return 'Error loading employee data';
+                if (leaveError) return 'Error loading leave balance';
+                if (salaryError) return 'Error loading salary data';
+                return 'An error occurred while loading your data';
+              })()}
+            </p>
+            <button
+              onClick={() => window.location.reload()}
+              className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
   return (
     <Layout>
       <Head>
-        <title>Dashboard | SalaryCursor</title>
+        <title>Dashboard - SalaryCursor</title>
+        <meta name="description" content="View your salary and leave summary" />
       </Head>
       
-      {employeeError ? (
-        <div className="bg-red-500 bg-opacity-20 text-red-100 p-4 rounded-lg mb-6">
-          <h3 className="text-lg font-semibold mb-2">Error</h3>
-          <p>{employeeError.message}</p>
-          <button 
-            onClick={() => router.push('/login')}
-            className="mt-4 bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
-          >
-            Back to Login
-          </button>
-        </div>
-      ) : (
-        <div className="container mx-auto px-4 py-6">
-          {/* Welcome Section */}
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold mb-2">
-              Welcome, {employee?.name || 'Employee'}
-            </h1>
-            <p className="text-gray-400">
-              {employee?.position || 'Staff'} • ID: {employee?.employee_id || 'N/A'}
-            </p>
-          </div>
-          
-          {/* Stats Panel */}
-          {salaryLoading ? <StatsPanelSkeleton /> : <StatsPanel stats={stats} isLoading={false} />}
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Upcoming Shifts */}
-            <div className="md:col-span-1">
-              {shiftLoading ? <UpcomingShiftsSkeleton /> : <UpcomingShifts shifts={upcomingShifts} isLoading={false} />}
-              
-              {/* Leave Balance */}
-              {leaveLoading ? (
-                <LeaveBalanceSkeleton />
-              ) : (
-                <div className="bg-gray-800 rounded-lg p-4 shadow-md mb-6">
-                  <h2 className="text-lg font-semibold mb-4 text-white">Leave Balance</h2>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-gray-300">Annual Leave</span>
-                    <span className="text-white font-medium">{leaveBalanceData?.remainingBalance || 0} days</span>
-                  </div>
-                  <div className="w-full bg-gray-700 rounded-full h-2.5 mb-4">
-                    <div 
-                      className="bg-green-500 h-2.5 rounded-full" 
-                      style={{ width: `${Math.min(100, ((leaveBalanceData?.remainingBalance || 0) / 30) * 100)}%` }}
-                    ></div>
-                  </div>
-                  <Link href="/leave" className="text-blue-400 hover:text-blue-300 text-sm flex justify-center items-center mt-3">
-                    Request Leave
-                  </Link>
-                </div>
-              )}
+      <div className="container mx-auto px-4 py-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          <StatsPanel
+            stats={{
+              monthlyEarnings: formatCurrency(currentMonthRecord?.total || 0),
+              overtimeHours: formatHours(0)
+            }}
+            isLoading={salaryLoading}
+            error={salaryError}
+          />
+
+          <div className={`p-4 rounded-lg shadow-md ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
+            <div className="flex items-center mb-2">
+              <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center mr-2">
+                <FiCalendar className={`w-5 h-5 ${isDarkMode ? 'text-purple-400' : 'text-purple-500'}`} />
+              </div>
+              <span className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                Leave Balance
+              </span>
             </div>
-            
-            {/* Salary Chart */}
-            <div className="md:col-span-2">
-              {salaryLoading ? (
-                <SalaryHistorySkeleton />
-              ) : (
-                <div className="bg-gray-800 rounded-lg p-4 shadow-md mb-6">
-                  <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-lg font-semibold text-white">Salary History</h2>
-                    <div className="flex items-center space-x-2">
-                      <button 
-                        onClick={() => setSelectedYear(selectedYear - 1)}
-                        className="p-1 rounded bg-gray-700 hover:bg-gray-600 disabled:opacity-50"
-                      >
-                        <FiChevronLeft />
-                      </button>
-                      <span className="text-gray-300">{selectedYear}</span>
-                      <button 
-                        onClick={() => setSelectedYear(selectedYear + 1)}
-                        className="p-1 rounded bg-gray-700 hover:bg-gray-600 disabled:opacity-50"
-                      >
-                        <FiChevronRight />
-                      </button>
-                      <button
-                        onClick={handleDownloadPDF}
-                        disabled={pdfLoading}
-                        className="ml-2 p-2 rounded bg-blue-600 hover:bg-blue-500 text-white text-sm flex items-center"
-                      >
-                        {pdfLoading ? 'Generating...' : <><FiDownload className="mr-1" /> Export</>}
-                      </button>
-                    </div>
-                  </div>
-                  
-                  {/* Monthly Salary Breakdown */}
-                  <div className="h-64 w-full overflow-auto">
-                    {salaryData?.monthlySalaries && salaryData.monthlySalaries.length > 0 ? (
-                      <div className="space-y-3">
-                        {salaryData.monthlySalaries.map((month, index) => (
-                          <div key={index} className="bg-gray-700 p-3 rounded-md">
-                            <div className="flex justify-between mb-1">
-                              <span className="text-gray-300">{month.name}</span>
-                              <span className="text-white font-semibold">EGP {month.total.toLocaleString()}</span>
-                            </div>
-                            <div className="w-full bg-gray-800 rounded-full h-2">
-                              <div 
-                                className="bg-blue-500 h-2 rounded-full"
-                                style={{ 
-                                  width: `${Math.min(100, (month.total / (salaryData.yearlyTotal || 1)) * 100)}%` 
-                                }}
-                              ></div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-center h-full">
-                        <p className="text-gray-400">No salary data available for {selectedYear}</p>
-                      </div>
-                    )}
-                  </div>
-                  
-                  <div className="mt-4 pt-3 border-t border-gray-700 flex justify-between">
-                    <div>
-                      <p className="text-sm text-gray-400">Yearly Total</p>
-                      <p className="text-xl font-bold text-white">EGP {salaryData?.yearlyTotal?.toLocaleString() || '0'}</p>
-                    </div>
-                    <Link href="/salary" className="text-blue-400 hover:text-blue-300 text-sm flex items-center">
-                      View Details <FiArrowRight className="ml-1" />
-                    </Link>
-                  </div>
+            {leaveLoading ? (
+              <LeaveBalanceSkeleton isDarkMode={isDarkMode} />
+            ) : leaveError ? (
+              <div className="text-red-500 text-center py-4">
+                Error loading leave balance
+              </div>
+            ) : (
+              <>
+                <div className={`text-2xl font-bold ${isDarkMode ? 'text-purple-400' : 'text-purple-500'} mb-1`}>
+                  {leaveBalanceData?.remainingBalance || 0} days
                 </div>
-              )}
-            </div>
+                <p className={`text-xs ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>
+                  Available leave days
+                </p>
+                <div className="mt-2 flex justify-between">
+                  <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                    Taken: {leaveBalanceData?.leaveTaken || 0} days
+                  </p>
+                  <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                    Remaining: {leaveBalanceData?.remainingBalance || 0} days
+                  </p>
+                </div>
+              </>
+            )}
           </div>
-          
-          {/* Quick Links */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-            <Link href="/schedule" className="bg-gray-800 p-4 rounded-lg shadow-md hover:bg-gray-700 transition-colors">
-              <div className="flex items-center">
-                <div className="w-10 h-10 rounded-full bg-blue-500 bg-opacity-20 flex items-center justify-center mr-3">
-                  <FiCalendar className="text-blue-400" />
-                </div>
-                <div>
-                  <h3 className="font-medium text-white">Schedule</h3>
-                  <p className="text-sm text-gray-400">View your shifts</p>
-                </div>
+
+          <div className={`p-4 rounded-lg shadow-md ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
+            <div className="flex items-center mb-2">
+              <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center mr-2">
+                <FiDollarSign className={`w-5 h-5 ${isDarkMode ? 'text-green-400' : 'text-green-500'}`} />
               </div>
-            </Link>
-            
-            <Link href="/salary" className="bg-gray-800 p-4 rounded-lg shadow-md hover:bg-gray-700 transition-colors">
-              <div className="flex items-center">
-                <div className="w-10 h-10 rounded-full bg-green-500 bg-opacity-20 flex items-center justify-center mr-3">
-                  <FiDollarSign className="text-green-400" />
-                </div>
-                <div>
-                  <h3 className="font-medium text-white">Salary</h3>
-                  <p className="text-sm text-gray-400">Monthly breakdown</p>
-                </div>
+              <span className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                Yearly Salary
+              </span>
+            </div>
+            {salaryLoading ? (
+              <SalaryHistorySkeleton isDarkMode={isDarkMode} />
+            ) : salaryError ? (
+              <div className="text-red-500 text-center py-4">
+                Error loading salary data
               </div>
-            </Link>
-            
-            <Link href="/leave" className="bg-gray-800 p-4 rounded-lg shadow-md hover:bg-gray-700 transition-colors">
-              <div className="flex items-center">
-                <div className="w-10 h-10 rounded-full bg-purple-500 bg-opacity-20 flex items-center justify-center mr-3">
-                  <FiCalendar className="text-purple-400" />
+            ) : (
+              <>
+                <div className="flex items-center justify-between mb-4">
+                  <select
+                    value={selectedYear}
+                    onChange={(e) => handleYearChange(parseInt(e.target.value))}
+                    className={`w-32 px-3 py-2 rounded-md ${isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-800'} border ${isDarkMode ? 'border-gray-600' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-indigo-500`}
+                  >
+                    {Array.from({ length: 5 }, (_, i) => currentYear - i).map((year) => (
+                      <option key={year} value={year}>
+                        {year}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={handleGeneratePDF}
+                    className={`px-4 py-2 rounded-md ${pdfLoading ? 'opacity-50 cursor-not-allowed' : ''} ${isDarkMode ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-indigo-500 hover:bg-indigo-600'} text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2`}
+                    disabled={pdfLoading}
+                  >
+                    {pdfLoading ? 'Generating...' : 'Generate PDF'}
+                  </button>
                 </div>
-                <div>
-                  <h3 className="font-medium text-white">Leave</h3>
-                  <p className="text-sm text-gray-400">Request time off</p>
+                <div className="space-y-4">
+                  {currentYearRecords.map((month, index) => (
+                    <div
+                      key={index}
+                      className={`p-3 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'} flex items-center justify-between`}
+                    >
+                      <div>
+                        <p className={`font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-800'}`}>
+                          {formatDate(new Date(selectedYear, month.month - 1).toISOString())}
+                        </p>
+                        <p className={`text-sm ${isDarkMode ? 'text-gray-500' : 'text-gray-600'}`}>
+                          Basic: {formatCurrency(month.total)}
+                        </p>
+                      </div>
+                      <div className={`text-lg font-bold ${isDarkMode ? 'text-green-400' : 'text-green-500'}`}>
+                        {formatCurrency(month.total)}
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              </div>
-            </Link>
-            
-            <Link href="/reports" className="bg-gray-800 p-4 rounded-lg shadow-md hover:bg-gray-700 transition-colors">
-              <div className="flex items-center">
-                <div className="w-10 h-10 rounded-full bg-yellow-500 bg-opacity-20 flex items-center justify-center mr-3">
-                  <FiPieChart className="text-yellow-400" />
-                </div>
-                <div>
-                  <h3 className="font-medium text-white">Reports</h3>
-                  <p className="text-sm text-gray-400">View annual reports</p>
-                </div>
-              </div>
-            </Link>
+              </>
+            )}
           </div>
         </div>
-      )}
+      </div>
     </Layout>
   );
-} 
+}

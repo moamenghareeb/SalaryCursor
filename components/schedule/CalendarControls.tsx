@@ -88,24 +88,24 @@ const CalendarControls: React.FC<CalendarControlsProps> = ({
   return (
     <div className="mb-8 space-y-4">
       {/* Month navigation */}
-      <div className="flex items-center justify-between bg-white dark:bg-gray-800 rounded-xl shadow-sm p-3 border border-gray-100 dark:border-gray-700">
+      <div className="flex items-center justify-between bg-[var(--sc-bg-secondary)] rounded-xl shadow-sm p-3 border border-[var(--sc-border-color)]">
         <button
           onClick={onPrevMonth}
           disabled={isUpdating}
-          className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition-colors"
+          className="p-2 rounded-lg hover:bg-[var(--sc-accent-light)] text-[var(--sc-text-primary)] transition-colors"
           aria-label="Previous month"
         >
           <ChevronLeftIcon />
         </button>
         
-        <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 tracking-wide">
+        <h2 className="text-xl font-bold text-[var(--sc-text-primary)] tracking-wide">
           {currentMonthLabel}
         </h2>
         
         <button
           onClick={onNextMonth}
           disabled={isUpdating}
-          className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition-colors"
+          className="p-2 rounded-lg hover:bg-[var(--sc-accent-light)] text-[var(--sc-text-primary)] transition-colors"
           aria-label="Next month"
         >
           <ChevronRightIcon />
@@ -120,8 +120,7 @@ const CalendarControls: React.FC<CalendarControlsProps> = ({
           disabled={isUpdating}
           className={`
             flex items-center justify-center gap-2 p-3 rounded-xl
-            bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-800/50
-            text-blue-700 dark:text-blue-300 font-medium transition-colors
+            bg-[var(--sc-accent-light)] text-[var(--sc-accent-color)] font-medium transition-colors
             ${isUpdating ? 'opacity-50 cursor-not-allowed' : ''}
           `}
           aria-label="Go to today"
@@ -137,8 +136,7 @@ const CalendarControls: React.FC<CalendarControlsProps> = ({
             disabled={isUpdating}
             className={`
               flex items-center justify-center gap-2 p-3 rounded-xl
-              bg-green-50 hover:bg-green-100 dark:bg-green-900/30 dark:hover:bg-green-800/50
-              text-green-700 dark:text-green-300 font-medium transition-colors
+              bg-[var(--sc-accent-light)] text-[var(--sc-accent-color)] font-medium transition-colors
               ${isUpdating ? 'opacity-50 cursor-not-allowed' : ''}
             `}
             aria-label="Change group"
@@ -151,8 +149,7 @@ const CalendarControls: React.FC<CalendarControlsProps> = ({
         {/* Schedule type selector */}
         <div className={`
           flex items-center gap-2 p-3 rounded-xl
-          bg-purple-50 dark:bg-purple-900/30
-          text-purple-700 dark:text-purple-300 transition-colors
+          bg-[var(--sc-accent-light)] text-[var(--sc-accent-color)] transition-colors
         `}>
           <ScheduleIcon />
           <select
@@ -176,4 +173,4 @@ const CalendarControls: React.FC<CalendarControlsProps> = ({
   );
 };
 
-export default CalendarControls; 
+export default CalendarControls;

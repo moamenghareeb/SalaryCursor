@@ -9,7 +9,7 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     backgroundColor: '#fff',
     padding: 30,
-    fontFamily: 'Roboto'
+    fontFamily: 'Helvetica'
   },
   header: {
     marginBottom: 20,
@@ -170,7 +170,7 @@ const SalaryPDF: React.FC<SalaryPDFProps> = ({ salary, employee, month, exchange
           })}
         </Text>
         <Text style={{ fontSize: 8, marginTop: 5, color: '#999' }}>
-          SalaryCursor - All rights reserved © {new Date().getFullYear()}
+          SalaryCursor - All rights reserved {new Date().getFullYear()}
         </Text>
       </View>
     </Page>

@@ -24,24 +24,26 @@ const Calendar: React.FC<CalendarProps> = ({
   }
   
   return (
-    <div className="calendar w-full">
+    <div className="sc-calendar">
       {/* Calendar header */}
-      <div className="text-2xl font-bold mb-6 text-center text-gray-800 dark:text-gray-100">
+      <div className="text-2xl font-bold mb-6 text-center text-[var(--sc-text-primary)] pb-2 border-b border-[var(--sc-border-color)]">
         {name} {year}
       </div>
       
       {/* Calendar grid */}
-      <div className="border-0 rounded-xl overflow-hidden bg-gray-50/30 dark:bg-gray-800/20 shadow-lg">
+      <div className="border border-[var(--sc-border-color)] rounded-xl overflow-hidden bg-[var(--sc-bg-secondary)] shadow-sm">
+        {/* Calendar container */}
         {/* Days of week header */}
-        <div className="grid grid-cols-7 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+        <div className="grid grid-cols-7 bg-[var(--sc-bg-tertiary)] border-b border-[var(--sc-border-color)] py-1">
+          {/* Weekday headers */}
           {weekdayLabels.map((day, index) => (
             <div 
               key={day} 
               className={`
                 py-3 font-medium text-center text-sm
                 ${index === 0 || index === 6 
-                  ? 'text-gray-700 dark:text-gray-300' 
-                  : 'text-gray-800 dark:text-gray-200'}
+                  ? 'text-[var(--sc-text-secondary)]' 
+                  : 'text-[var(--sc-text-primary)]'}
               `}
             >
               {day}
@@ -50,7 +52,8 @@ const Calendar: React.FC<CalendarProps> = ({
         </div>
         
         {/* Calendar grid */}
-        <div className="grid grid-cols-7 gap-1 p-2 bg-gray-100/50 dark:bg-gray-800/40">
+        <div className="grid grid-cols-7 gap-1 p-2 bg-[var(--sc-bg-secondary)]">
+          {/* Calendar days */}
           {weeks.map((week, weekIndex) => (
             <React.Fragment key={weekIndex}>
               {week.map((day) => (
@@ -68,11 +71,23 @@ const Calendar: React.FC<CalendarProps> = ({
       </div>
       
       {/* Legend */}
-      <div className="mt-6 flex flex-wrap gap-3 justify-center">
+      <div className="mt-6 sc-shift-legend">
+        {/* Shift type legend */}
         {Object.entries(ShiftLegendItems).map(([type, item]) => (
-          <div key={type} className="flex items-center">
-            <span className={`w-4 h-4 rounded-sm mr-2 ${item.colorClass}`}></span>
-            <span className="text-sm text-gray-700 dark:text-gray-300">{item.label}</span>
+          <div key={type} className="sc-shift-legend-item">
+            <span 
+              className="color-indicator" 
+              style={{ 
+                backgroundColor: type === 'Day' ? 'var(--sc-day-shift-color)' :
+                         type === 'Night' ? 'var(--sc-night-shift-color)' :
+                         type === 'Off' ? 'var(--sc-off-color)' :
+                         type === 'Leave' ? 'var(--sc-leave-color)' :
+                         type === 'Public' ? 'var(--sc-public-color)' :
+                         type === 'Overtime' ? 'var(--sc-overtime-color)' :
+                         'var(--sc-inlieu-color)'
+              }}
+            ></span>
+            <span className="text-[var(--sc-text-secondary)]">{item.label}</span>
           </div>
         ))}
       </div>

@@ -114,9 +114,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             loading: false,
           });
           
-          // Navigate to dashboard on sign in
+          // Navigate to schedule page on sign in
           if (router.pathname === '/login') {
-            router.push('/dashboard');
+            router.push('/schedule');
           }
         } else if (event === 'SIGNED_OUT') {
           setAuthState({

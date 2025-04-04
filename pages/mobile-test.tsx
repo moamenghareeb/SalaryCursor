@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import Head from 'next/head';
-import Layout from '../components/Layout';
+import Layout from '../components/layout/MainLayout';
+import MobileLayout from '../components/MobileLayout';
 import { isRunningAsPwa, isMobileDevice, isIOS } from '../lib/pwaUtils';
 import MobileEmulator from '../components/MobileEmulator';
+import Link from 'next/link';
 
 export default function MobileTest() {
   const [deviceInfo, setDeviceInfo] = useState({
@@ -87,11 +89,7 @@ export default function MobileTest() {
   }, []);
   
   return (
-    <Layout>
-      <Head>
-        <title>Mobile Testing - SalaryCursor</title>
-      </Head>
-      
+    <Layout title="Mobile Testing - SalaryCursor">
       <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Mobile Experience Testing</h1>
         <p className="mt-2 text-gray-600 dark:text-gray-400">
@@ -257,7 +255,7 @@ export default function MobileTest() {
           </div>
           <div className="border-t border-gray-200 dark:border-dark-border px-4 py-5 sm:p-6">
             <MobileEmulator 
-              url="/dashboard" 
+              url={`http://localhost:${window.location.port}/test-mobile-preview`} 
               width={selectedDevice.width}
               height={selectedDevice.height}
               deviceName={selectedDevice.name}

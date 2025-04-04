@@ -2,6 +2,18 @@
   "version": 2,
   "buildCommand": "npm run build",
   "outputDirectory": ".next",
-  "installCommand": "npm install",
-  "framework": "nextjs"
-} 
+  "installCommand": "npm install --no-optional",
+  "framework": "nextjs",
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/next",
+      "config": {
+        "installCommand": "npm install --no-optional"
+      }
+    }
+  ],
+  "env": {
+    "NEXT_PUBLIC_SKIP_ICON_GENERATION": "true"
+  }
+}

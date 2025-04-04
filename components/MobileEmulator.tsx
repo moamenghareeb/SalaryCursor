@@ -1,27 +1,41 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, ReactNode } from 'react';
+
+interface DeviceSpec {
+  name: string;
+  width: number;
+  height: number;
+}
 
 interface MobileEmulatorProps {
-  url: string;
+  url?: string;
+  device?: DeviceSpec;
   width?: number;
   height?: number;
   deviceName?: string;
   orientation?: 'portrait' | 'landscape';
+  children?: ReactNode;
 }
 
 export default function MobileEmulator({
   url,
+  device,
   width = 375,
   height = 667,
-  deviceName = 'iPhone SE',
-  orientation = 'portrait'
+  deviceName,
+  orientation = 'portrait',
+  children
 }: MobileEmulatorProps) {
+  // Use device specs if provided
+  const deviceWidth = device?.width || width;
+  const deviceHeight = device?.height || height;
+  const deviceDisplayName = deviceName || device?.name || 'iPhone SE';
   const [isRotated, setIsRotated] = useState(orientation === 'landscape');
   const [scale, setScale] = useState(1);
   const containerRef = useRef<HTMLDivElement>(null);
   
   // Get actual dimensions based on orientation
-  const actualWidth = isRotated ? height : width;
-  const actualHeight = isRotated ? width : height;
+  const actualWidth = isRotated ? deviceHeight : deviceWidth;
+  const actualHeight = isRotated ? deviceWidth : deviceHeight;
   
   // Calculate scale to fit the container
   useEffect(() => {
@@ -58,7 +72,7 @@ export default function MobileEmulator({
     <div className="flex flex-col items-center space-y-4">
       <div className="flex items-center justify-between w-full">
         <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
-          {deviceName} {isRotated ? '(Landscape)' : '(Portrait)'}
+          {deviceDisplayName} {isRotated ? '(Landscape)' : '(Portrait)'}
           <span className="ml-2 text-gray-500 dark:text-gray-400">
             {actualWidth}×{actualHeight}
           </span>
@@ -112,17 +126,23 @@ export default function MobileEmulator({
               <div className="w-24 h-1 bg-black rounded-full opacity-20"></div>
             </div>
             
-            {/* Content iframe */}
-            <iframe 
-              src={url} 
-              style={{ 
-                width: '100%', 
-                height: '100%',
-                marginTop: '0px'
-              }}
-              className="border-0"
-              title="Mobile device emulator"
-            />
+            {/* Content - either iframe or children */}
+            {url ? (
+              <iframe 
+                src={url} 
+                style={{ 
+                  width: '100%', 
+                  height: '100%',
+                  marginTop: '0px'
+                }}
+                className="border-0"
+                title="Mobile device emulator"
+              />
+            ) : (
+              <div className="absolute inset-0 pt-6 overflow-auto">
+                {children}
+              </div>
+            )}
           </div>
         </div>
       </div>

@@ -9,6 +9,9 @@
 /* Import mobile styles */
 @import './mobile.css';
 
+/* Import theme variables */
+@import './theme.css';
+
 @layer utilities {
   /* Custom animation classes */
   .animate-fadeIn {

@@ -16,37 +16,37 @@ const shiftColors: Record<ShiftType, {
   border?: string;
 }> = {
   'Day': { 
-    bg: 'bg-blue-500/90', 
+    bg: 'bg-blue-500', 
     text: 'text-white',
     border: 'border-blue-600'
   },
   'Night': { 
-    bg: 'bg-green-500/90', 
+    bg: 'bg-green-500', 
     text: 'text-white',
     border: 'border-green-600'
   },
   'Off': { 
-    bg: 'bg-red-500/90', 
+    bg: 'bg-red-500', 
     text: 'text-white',
     border: 'border-red-600'
   },
   'Leave': { 
-    bg: 'bg-amber-500/90', 
+    bg: 'bg-amber-500', 
     text: 'text-white',
     border: 'border-amber-600'
   },
   'Public': { 
-    bg: 'bg-orange-500/90', 
+    bg: 'bg-orange-500', 
     text: 'text-white',
     border: 'border-orange-600'
   },
   'Overtime': { 
-    bg: 'bg-pink-500/90', 
+    bg: 'bg-pink-500', 
     text: 'text-white',
     border: 'border-pink-600'
   },
   'InLieu': {
-    bg: 'bg-purple-500/90',
+    bg: 'bg-purple-500',
     text: 'text-white',
     border: 'border-purple-600'
   }
@@ -87,13 +87,15 @@ const DayCell: React.FC<DayCellProps> = ({ day, onClick, ariaLabel, title }) => 
   return (
     <div 
       className={`
-        relative min-h-[110px] p-2 border rounded-lg shadow-sm transition-all duration-200
-        ${isCurrentMonth ? 'border-gray-200/70 dark:border-gray-700/70' : 'border-gray-100 dark:border-gray-800'}
-        ${!isCurrentMonth ? 'opacity-60 bg-gray-50/50 dark:bg-gray-800/20' : 'bg-white dark:bg-gray-800/40'}
+        relative min-h-[110px] p-2 border rounded-lg transition-all duration-200
+        ${isCurrentMonth ? 'border-gray-300 dark:border-gray-600' : 'border-gray-200 dark:border-gray-700'}
+        ${!isCurrentMonth 
+          ? 'opacity-75 bg-gray-100 dark:bg-gray-700/40' 
+          : 'bg-white dark:bg-gray-700/60'}
         ${isToday ? 'ring-2 ring-blue-500 dark:ring-blue-400' : ''}
-        ${hasGroupChange ? 'ring-1 ring-green-500/70 dark:ring-green-400/70' : ''}
-        hover:bg-gray-50 dark:hover:bg-gray-700/30 active:scale-98
-        ${onClick && isCurrentMonth ? 'cursor-pointer' : 'cursor-default'}
+        ${hasGroupChange ? 'ring-1 ring-green-500 dark:ring-green-400' : ''}
+        ${isCurrentMonth ? 'hover:bg-gray-50 dark:hover:bg-gray-600' : ''}
+        ${onClick && isCurrentMonth ? 'cursor-pointer shadow-sm hover:shadow' : 'cursor-default'}
       `}
       onClick={handleClick}
       aria-label={ariaLabel}
@@ -107,13 +109,15 @@ const DayCell: React.FC<DayCellProps> = ({ day, onClick, ariaLabel, title }) => 
         <div className="flex items-center gap-1">
           <span className={`
             text-sm font-medium rounded-full w-7 h-7 flex items-center justify-center
-            ${isToday ? 'bg-blue-500 text-white dark:bg-blue-600' : 'text-gray-700 dark:text-gray-300'}
+            ${isToday 
+              ? 'bg-blue-500 text-white' 
+              : 'text-gray-700 dark:text-gray-100'}
           `}>
             {dayOfMonth}
           </span>
           
           {isWeekend && (
-            <span className="text-xs text-red-500/80 dark:text-red-400/80 font-medium ml-1">
+            <span className="text-xs text-red-500 dark:text-red-300 font-medium ml-1">
               {format(new Date(date), 'E')}
             </span>
           )}
@@ -133,7 +137,8 @@ const DayCell: React.FC<DayCellProps> = ({ day, onClick, ariaLabel, title }) => 
         py-1.5 px-2 rounded-md text-center font-medium
         ${shiftColor.bg} ${shiftColor.text} ${shiftColor.border ? `border ${shiftColor.border}` : ''}
         flex items-center justify-center shadow-sm
-        ${personalShift.isOverridden ? 'border-l-2 border-white dark:border-l-gray-200' : ''}
+        ${personalShift.isOverridden ? 'border-l-2 border-white' : ''}
+        transform transition-transform duration-150 hover:scale-[1.02]
       `}>
         <span>{personalShift.type}</span>
         {personalShift.shiftNumber && (
@@ -143,8 +148,8 @@ const DayCell: React.FC<DayCellProps> = ({ day, onClick, ariaLabel, title }) => 
       
       {/* Overridden status */}
       {personalShift.isOverridden && personalShift.originalType && (
-        <div className="mt-1 text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3">
+        <div className="mt-1 text-xs text-gray-600 dark:text-gray-400 flex items-center gap-1 bg-yellow-50 dark:bg-yellow-900/20 p-1 rounded-md">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3 text-amber-500 dark:text-amber-400">
             <path d="M15.312 11.424a5.5 5.5 0 01-9.201 2.466l-.312-.311h2.433a.75.75 0 000-1.5H3.989a.75.75 0 00-.75.75v4.242a.75.75 0 001.5 0v-2.43l.31.31a7 7 0 0011.712-3.138.75.75 0 00-1.449-.39zm1.23-3.723a.75.75 0 00.219-.53V2.929a.75.75 0 00-1.5 0V5.36l-.31-.31A7 7 0 003.239 8.188a.75.75 0 101.448.389A5.5 5.5 0 0113.89 6.11l.311.31h-2.432a.75.75 0 000 1.5h4.243a.75.75 0 00.53-.219z" />
           </svg>
           <span>was {personalShift.originalType}</span>
@@ -176,7 +181,7 @@ const DayCell: React.FC<DayCellProps> = ({ day, onClick, ariaLabel, title }) => 
         {groupAssignments.dayShift.length > 0 && (
           <div className="flex items-center">
             <div className="w-2 h-2 rounded-full bg-blue-500 mr-1.5"></div>
-            <span className="text-xs text-gray-600 dark:text-gray-400 truncate" title={`Day: ${groupsOnDayShift}`}>
+            <span className="text-xs text-gray-600 dark:text-gray-200 truncate" title={`Day: ${groupsOnDayShift}`}>
               Day: {groupsOnDayShift}
             </span>
           </div>
@@ -185,7 +190,7 @@ const DayCell: React.FC<DayCellProps> = ({ day, onClick, ariaLabel, title }) => 
         {groupAssignments.nightShift.length > 0 && (
           <div className="flex items-center">
             <div className="w-2 h-2 rounded-full bg-green-500 mr-1.5"></div>
-            <span className="text-xs text-gray-600 dark:text-gray-400 truncate" title={`Night: ${groupsOnNightShift}`}>
+            <span className="text-xs text-gray-600 dark:text-gray-200 truncate" title={`Night: ${groupsOnNightShift}`}>
               Night: {groupsOnNightShift}
             </span>
           </div>

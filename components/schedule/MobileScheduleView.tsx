@@ -67,20 +67,22 @@ const DayCell: React.FC<DayCellProps> = ({ day, isSelected, onClick, currentMont
   return (
     <div 
       className={`
-        relative p-0 border-b border-gray-700 ${isOutsideMonth ? 'opacity-40' : ''}
-        ${isSelected ? 'bg-gray-800' : isToday ? 'bg-gray-700' : 'bg-transparent'}
+        relative sc-day-cell
+        ${isOutsideMonth ? 'opacity-40' : ''}
+        ${isSelected ? 'bg-[var(--sc-day-selected-bg)] text-[var(--sc-day-selected-text)]' : 
+          isToday ? 'bg-[var(--sc-day-today-bg)]' : 'bg-transparent'}
         rounded-sm transition-all duration-200 active:scale-95
       `}
       onClick={onClick}
     >
       {/* Day number with improved styling */}
       <div className={`
-        ${isToday ? 'bg-white/10 rounded-full p-1' : 'p-1'}
+        ${isToday ? 'bg-[var(--sc-day-today-bg)] rounded-full p-1' : 'p-1'}
         ${isSelected ? 'font-bold' : ''}
         flex justify-center items-center
       `}>
         <span className={`
-          text-base ${isOutsideMonth ? 'text-gray-500' : 'text-white'}
+          text-base ${isOutsideMonth ? 'text-[var(--sc-day-inactive)]' : 'text-[var(--sc-text-primary)]'}
           ${isToday ? 'font-semibold' : ''}
         `}>
           {day.dayOfMonth}
@@ -89,7 +91,7 @@ const DayCell: React.FC<DayCellProps> = ({ day, isSelected, onClick, currentMont
       
       {/* Shift type indicator without icon */}
       {!isOutsideMonth && (
-        <div className="flex justify-center">
+        <div className="shift-indicator">
           <div 
             className="py-0.5 px-1 rounded-md text-center flex items-center justify-center shadow-sm"
             style={{
@@ -104,7 +106,7 @@ const DayCell: React.FC<DayCellProps> = ({ day, isSelected, onClick, currentMont
 
       {/* Notes indicator */}
       {day.personalShift.notes && (
-        <div className="absolute top-0 right-0 w-1.5 h-1.5 bg-yellow-400 rounded-full m-0.5"></div>
+        <div className="notes-indicator"></div>
       )}
     </div>
   );
@@ -137,67 +139,61 @@ const MobileScheduleView: React.FC<MobileScheduleViewProps> = ({
           setCurrentDate(new Date(monthData.days[currentMonthFirstDayIndex].date));
         }
       }
-      
+    }
+  }, [monthData]);
+
+  // Update visible days when month data changes
+  useEffect(() => {
+    if (monthData?.days) {
       setVisibleDays(monthData.days);
     }
   }, [monthData]);
-  
+
   const handleDaySelect = (index: number) => {
     setSelectedDayIndex(index);
-    setCurrentDate(new Date(visibleDays[index].date));
-    
     if (onDayClick) {
       onDayClick(visibleDays[index]);
     }
   };
-  
-  // Group days into weeks
-  const weekRows: CalendarDay[][] = [];
-  if (visibleDays.length > 0) {
-    for (let i = 0; i < visibleDays.length; i += 7) {
-      weekRows.push(visibleDays.slice(i, Math.min(i + 7, visibleDays.length)));
-    }
-  }
-  
-  // Get the selected day's shift information
+
+  if (!monthData?.days) return null;
+
   const selectedDay = visibleDays[selectedDayIndex];
   const selectedShift = selectedDay?.personalShift;
   const selectedShiftConfig = selectedShift ? shiftConfig[selectedShift.type] : null;
+
+  // Calculate week rows for the calendar
+  const weekRows = [];
+  let currentRow = [];
   
-  if (!visibleDays.length) {
-    return <div className="text-center text-gray-400">Loading...</div>;
+  for (let i = 0; i < visibleDays.length; i++) {
+    currentRow.push(visibleDays[i]);
+    if (currentRow.length === 7) {
+      weekRows.push(currentRow);
+      currentRow = [];
+    }
   }
-  
+
+  // Add remaining days to last row if any
+  if (currentRow.length > 0) {
+    weekRows.push(currentRow);
+  }
+
   return (
-    <div className="bg-[#121212] w-full h-full">
-      {/* Calendar header */}
-      <div className="flex justify-between items-center pt-1 px-2 pb-1">
-        <h2 className="text-2xl font-bold text-white">
-          {format(currentDate, 'MMMM yyyy')}
-        </h2>
-        
-        <button 
-          onClick={() => onDayClick && onDayClick(selectedDay)}
-          className="bg-blue-600 text-white px-2 py-1 rounded-lg text-xs font-medium"
-        >
-          Today
-        </button>
-      </div>
-      
-      {/* Day of week headers */}
-      <div className="grid grid-cols-7 bg-[#1a1a1a] rounded-t-lg mx-0">
+    <div className="space-y-4 sc-mobile-calendar">
+      {/* Calendar grid with improved spacing */}
+      <div className="grid grid-cols-7 bg-[var(--sc-day-bg)] rounded-t-lg mx-0">
         {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((dayLabel, i) => (
           <div key={i} className={`
             py-1 text-center font-medium text-xs
-            ${i === 0 || i === 6 ? 'text-gray-400' : 'text-gray-300'}
+            ${i === 0 || i === 6 ? 'text-[var(--sc-day-inactive)]' : 'text-[var(--sc-text-primary)]'}
           `}>
             {dayLabel}
           </div>
         ))}
       </div>
       
-      {/* Calendar grid with improved spacing */}
-      <div className="grid grid-cols-7 gap-0 p-0 bg-[#1a1a1a] rounded-b-lg mx-0">
+      <div className="grid grid-cols-7 gap-0 p-0 bg-[var(--sc-day-bg)] rounded-b-lg mx-0">
         {weekRows.map((week, weekIndex) => (
           <React.Fragment key={`week-${weekIndex}`}>
             {week.map((day) => (
@@ -215,14 +211,14 @@ const MobileScheduleView: React.FC<MobileScheduleViewProps> = ({
       
       {/* Selected day details - only show if there's enough space */}
       {selectedDay && (
-        <div className="bg-[#1a1a1a] rounded-lg p-3 mt-2 mx-0">
+        <div className="bg-[var(--sc-day-bg)] rounded-lg p-3 mt-2 mx-0">
           <div className="flex justify-between items-center mb-2">
-            <h3 className="text-lg font-bold text-white">
+            <h3 className="text-lg font-bold text-[var(--sc-text-primary)]">
               {format(new Date(selectedDay.date), 'EEEE, MMMM d')}
             </h3>
             
             {selectedDay.isToday && (
-              <span className="bg-blue-600 text-white text-xs px-2 py-0.5 rounded-full">Today</span>
+              <span className="bg-[var(--sc-day-today-bg)] text-[var(--sc-text-primary)] text-xs px-2 py-0.5 rounded-full">Today</span>
             )}
           </div>
           
@@ -239,8 +235,8 @@ const MobileScheduleView: React.FC<MobileScheduleViewProps> = ({
               </div>
               
               {selectedShift.notes && (
-                <div className="bg-gray-800 rounded-lg p-2 mt-2 text-gray-300 text-xs">
-                  <div className="font-medium text-white mb-1">Notes:</div>
+                <div className="bg-[var(--sc-bg-secondary)] rounded-lg p-2 mt-2 text-[var(--sc-text-secondary)] text-xs">
+                  <div className="font-medium text-[var(--sc-text-primary)] mb-1">Notes:</div>
                   {selectedShift.notes}
                 </div>
               )}
@@ -250,14 +246,14 @@ const MobileScheduleView: React.FC<MobileScheduleViewProps> = ({
           {selectedDay.groupAssignments && (
             <div className="space-y-1">
               {selectedDay.groupAssignments.dayShift.length > 0 && (
-                <div className="flex items-center gap-2 text-xs text-gray-300">
+                <div className="flex items-center gap-2 text-xs text-[var(--sc-text-secondary)]">
                   <div className="w-2 h-2 rounded-full bg-blue-500"></div>
                   <span>Day shift: Groups {selectedDay.groupAssignments.dayShift.map(g => g.group).join(', ')}</span>
                 </div>
               )}
               
               {selectedDay.groupAssignments.nightShift.length > 0 && (
-                <div className="flex items-center gap-2 text-xs text-gray-300">
+                <div className="flex items-center gap-2 text-xs text-[var(--sc-text-secondary)]">
                   <div className="w-2 h-2 rounded-full bg-green-500"></div>
                   <span>Night shift: Groups {selectedDay.groupAssignments.nightShift.map(g => g.group).join(', ')}</span>
                 </div>
@@ -270,7 +266,7 @@ const MobileScheduleView: React.FC<MobileScheduleViewProps> = ({
       {/* Floating action button - enhanced with better positioning and animation */}
       <button 
         onClick={() => onDayClick && onDayClick(selectedDay)}
-        className="fixed bottom-20 right-4 w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center shadow-lg transform hover:scale-105 transition-transform"
+        className="fixed bottom-4 right-4 w-12 h-12 rounded-full bg-[var(--sc-accent-color)] flex items-center justify-center shadow-lg transform hover:scale-105 transition-transform"
         aria-label="Edit schedule"
       >
         <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">

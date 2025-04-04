@@ -2,29 +2,52 @@ import React, { useState, useEffect } from 'react';
 import { FiSave } from 'react-icons/fi';
 
 interface SalaryFormProps {
-  data: {
+  employee?: {
+    id: string;
+    name: string;
+  };
+  salaryCalc: {
     basicSalary: number;
+    costOfLiving: number;
+    shiftAllowance: number;
     overtimeHours: number;
     overtimePay: number;
-    deductions: number;
-    allowances: number;
-    month: string;
+    deduction: number;
   };
-  onSave: (data: any) => void;
-  onMonthChange: (month: string) => void;
+  scheduleOvertimeHours?: number;
+  manualOvertimeHours?: number;
+  selectedMonth?: number;
+  selectedYear?: number;
+  onDateChange?: (year: number, month: number) => void;
+  onInputChange?: (field: keyof SalaryFormProps['salaryCalc'] | 'manualOvertimeHours', value: number) => void;
+  onManualUpdateRate?: () => void;
+  exchangeRate?: number;
 }
 
-export function SalaryForm({ data, onSave, onMonthChange }: SalaryFormProps) {
-  const [formData, setFormData] = useState(data);
+export function SalaryForm({ 
+  employee,
+  salaryCalc,
+  scheduleOvertimeHours = 0,
+  manualOvertimeHours = 0,
+  selectedMonth = new Date().getMonth() + 1,
+  selectedYear = new Date().getFullYear(),
+  onDateChange = () => {},
+  onInputChange = () => {},
+  onManualUpdateRate = () => {},
+  exchangeRate = 31.50
+}: SalaryFormProps) {
+  const [formData, setFormData] = useState(salaryCalc);
+  const [manualOvertimeHoursState, setManualOvertimeHours] = useState(manualOvertimeHours || 0);
 
   // Update form when data changes
   useEffect(() => {
-    setFormData(data);
-  }, [data]);
+    setFormData(salaryCalc);
+  }, [salaryCalc]);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSave(formData);
+  // Update parent when manual overtime changes
+  const handleManualOvertimeChange = (value: number) => {
+    setManualOvertimeHours(value);
+    onInputChange('manualOvertimeHours', value);
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -33,112 +56,158 @@ export function SalaryForm({ data, onSave, onMonthChange }: SalaryFormProps) {
       ...prev,
       [name]: parseFloat(value) || 0
     }));
+    onInputChange(name as keyof typeof salaryCalc, parseFloat(value) || 0);
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <div>
-        <label htmlFor="month" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-          Month
-        </label>
-        <input
-          type="month"
-          id="month"
-          name="month"
-          value={formData.month}
-          onChange={handleChange}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
-        />
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Month
+          </label>
+          <select 
+            value={selectedMonth}
+            onChange={(e) => onDateChange(selectedYear, parseInt(e.target.value))}
+            className="w-full px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
+          >
+            <option value={1}>January</option>
+            <option value={2}>February</option>
+            <option value={3}>March</option>
+            <option value={4}>April</option>
+            <option value={5}>May</option>
+            <option value={6}>June</option>
+            <option value={7}>July</option>
+            <option value={8}>August</option>
+            <option value={9}>September</option>
+            <option value={10}>October</option>
+            <option value={11}>November</option>
+            <option value={12}>December</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Year
+          </label>
+          <select 
+            value={selectedYear}
+            onChange={(e) => onDateChange(parseInt(e.target.value), selectedMonth)}
+            className="w-full px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
+          >
+            {Array.from({ length: selectedYear - 2020 + 2 }, (_, i) => (
+              <option key={2020 + i} value={2020 + i}>
+                {2020 + i}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
-      <div>
-        <label htmlFor="basicSalary" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-          Basic Salary
-        </label>
-        <input
-          type="number"
-          id="basicSalary"
-          name="basicSalary"
-          value={formData.basicSalary}
-          onChange={handleChange}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
-        />
-      </div>
-
-      <div>
-        <label htmlFor="overtimeHours" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-          Overtime Hours
-        </label>
-        <div className="mt-1 flex items-center space-x-2">
+      <div className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Basic Salary (EGP)
+          </label>
           <input
             type="number"
-            id="overtimeHours"
-            name="overtimeHours"
-            value={formData.overtimeHours}
+            value={formData.basicSalary || ''}
             onChange={handleChange}
-            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
-            readOnly
+            name="basicSalary"
+            className="w-full px-4 py-2 rounded-md border border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 bg-white dark:bg-gray-800"
           />
-          <span className="text-sm text-gray-500 dark:text-gray-400">
-            (Automatically updated from schedule)
-          </span>
         </div>
-      </div>
 
-      <div>
-        <label htmlFor="overtimePay" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-          Overtime Pay
-        </label>
-        <div className="mt-1 flex items-center space-x-2">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Cost of Living (EGP)
+          </label>
           <input
             type="number"
-            id="overtimePay"
-            name="overtimePay"
-            value={formData.overtimePay}
-            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
-            readOnly
+            value={formData.costOfLiving || ''}
+            onChange={handleChange}
+            name="costOfLiving"
+            className="w-full px-4 py-2 rounded-md border border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 bg-white dark:bg-gray-800"
           />
-          <span className="text-sm text-gray-500 dark:text-gray-400">
-            (Calculated automatically)
-          </span>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Shift Allowance (EGP)
+          </label>
+          <input
+            type="number"
+            value={formData.shiftAllowance || ''}
+            onChange={handleChange}
+            name="shiftAllowance"
+            className="w-full px-4 py-2 rounded-md border border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 bg-white dark:bg-gray-800"
+          />
         </div>
       </div>
 
-      <div>
-        <label htmlFor="deductions" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-          Deductions
-        </label>
-        <input
-          type="number"
-          id="deductions"
-          name="deductions"
-          value={formData.deductions}
-          onChange={handleChange}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
-        />
+      <div className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Overtime Hours
+          </label>
+          <div className="space-y-3">
+            <div className="flex items-center">
+              <input
+                type="number"
+                value={scheduleOvertimeHours}
+                className="w-full px-4 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
+                readOnly
+              />
+              <span className="ml-2 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                From Schedule
+              </span>
+            </div>
+            
+            <div className="flex items-center">
+              <input
+                type="number"
+                value={manualOvertimeHoursState}
+                onChange={(e) => handleManualOvertimeChange(Number(e.target.value))}
+                className="w-full px-4 py-2 rounded-md border border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 bg-white dark:bg-gray-800"
+              />
+              <span className="ml-2 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                Additional
+              </span>
+            </div>
+            
+            <div className="flex items-center">
+              <input
+                type="number"
+                value={scheduleOvertimeHours + manualOvertimeHoursState}
+                className="w-full px-4 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
+                readOnly
+              />
+              <span className="ml-2 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                Total Overtime
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Deductions (EGP)
+          </label>
+          <input
+            type="number"
+            value={formData.deduction || ''}
+            onChange={handleChange}
+            name="deduction"
+            className="w-full px-4 py-2 rounded-md border border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 bg-white dark:bg-gray-800"
+          />
+        </div>
       </div>
 
-      <div>
-        <label htmlFor="allowances" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-          Allowances
-        </label>
-        <input
-          type="number"
-          id="allowances"
-          name="allowances"
-          value={formData.allowances}
-          onChange={handleChange}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
-        />
+      <div className="flex justify-end">
+        <div className="text-sm text-gray-600 dark:text-gray-300">
+          {exchangeRate}
+        </div>
       </div>
-
-      <button
-        type="submit"
-        className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-      >
-        <FiSave className="mr-2" />
-        Save Changes
-      </button>
-    </form>
+    </div>
   );
-} 
+}

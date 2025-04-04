@@ -13,13 +13,13 @@ import { FiRefreshCw, FiCalendar } from 'react-icons/fi';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { SalaryForm } from '@/components/salary/SalaryForm';
 import { SalarySummary } from '@/components/salary/SalarySummary';
-import { 
-  BasicSalaryCalculation, 
+import {
+  BasicSalaryCalculation,
   defaultSalaryCalc,
   calculateOvertimePay,
   calculateVariablePay,
   calculateTotalSalary,
-  testCalculation 
+  testCalculation
 } from '@/lib/calculations/salary';
 import {
   saveInputsToLocalStorage,
@@ -27,20 +27,18 @@ import {
   clearSavedInputs
 } from '@/lib/storage/salary';
 
-// Register fonts - use direct font import
+// Register fonts - use system fonts
 Font.register({
-  family: 'Roboto',
+  family: 'Helvetica',
   format: "truetype",
-  fonts: [
-    {
-      src: 'https://cdnjs.cloudflare.com/ajax/libs/ink/3.1.10/fonts/Roboto/roboto-light-webfont.ttf',
-      fontWeight: 'normal'
-    },
-    {
-      src: 'https://cdnjs.cloudflare.com/ajax/libs/ink/3.1.10/fonts/Roboto/roboto-bold-webfont.ttf',
-      fontWeight: 'bold'
-    }
-  ]
+  src: 'Helvetica'
+});
+
+// Register bold font
+Font.register({
+  family: 'Helvetica-Bold',
+  format: "truetype",
+  src: 'Helvetica-Bold'
 });
 
 // Add the debounce hook
@@ -177,17 +175,19 @@ export default function Salary() {
       console.log('Calculated schedule overtime hours:', scheduleOvertimeHours);
 
       // Update the salary calculation with new overtime hours
-      setScheduleOvertimeHours(scheduleOvertimeHours);
       setSalaryCalc(prev => {
         const totalOvertimeHours = scheduleOvertimeHours + (manualOvertimeHours || 0);
         const basicSalary = prev.basicSalary || 0;
         const costOfLiving = prev.costOfLiving || 0;
-        
-        // Calculate overtime pay
-        const overtimePay = calculateOvertimePay(basicSalary, costOfLiving, totalOvertimeHours);
-        
-        // Calculate variable pay
         const shiftAllowance = prev.shiftAllowance || 0;
+        const exchangeRate = prev.exchangeRate || 31.50;
+        const deduction = prev.deduction || 0;
+
+        // Calculate overtime pay
+        const hourlyRate = (basicSalary + costOfLiving) / 210;
+        const overtimePay = hourlyRate * totalOvertimeHours;
+
+        // Calculate variable pay
         const variablePay = calculateVariablePay(
           basicSalary,
           costOfLiving,
@@ -195,7 +195,7 @@ export default function Salary() {
           overtimePay,
           exchangeRate
         );
-        
+
         // Calculate total salary
         const totalSalary = calculateTotalSalary(
           basicSalary,
@@ -203,9 +203,9 @@ export default function Salary() {
           shiftAllowance,
           overtimePay,
           variablePay,
-          prev.deduction || 0
+          deduction
         );
-        
+
         return {
           ...prev,
           overtimeHours: totalOvertimeHours,
@@ -264,49 +264,64 @@ export default function Salary() {
     fetchOvertimeHours();
   };
 
-  // Update the handleInputChange function to use the imported calculation functions
+  // Update the handleInputChange function to recalculate total salary immediately
   const handleInputChange = (field: keyof BasicSalaryCalculation, value: number) => {
-    // Create the updated calculation object
-    const newCalc = {
-      ...salaryCalc,
-      [field]: value,
-    };
-    
-    // Handle manual overtime input
-    if (field === 'manualOvertimeHours') {
-      setManualOvertimeHours(value);
-      const totalOvertimeHours = scheduleOvertimeHours + value;
-      newCalc.overtimeHours = totalOvertimeHours;
-      
+    setSalaryCalc(prev => {
+      const updatedCalc = {
+        ...prev,
+        [field]: value
+      };
+
+      // For manualOvertimeHours, we need to update the total overtime hours
+      if (field === 'manualOvertimeHours') {
+        const totalOvertimeHours = (prev.overtimeHours || 0) + value;
+        updatedCalc.overtimeHours = totalOvertimeHours;
+      }
+
+      // Recalculate total salary
+      const basicSalary = updatedCalc.basicSalary || 0;
+      const costOfLiving = updatedCalc.costOfLiving || 0;
+      const shiftAllowance = updatedCalc.shiftAllowance || 0;
+      const exchangeRate = updatedCalc.exchangeRate || 31.50;
+      const deduction = updatedCalc.deduction || 0;
+
       // Calculate overtime pay
-      const overtimePay = calculateOvertimePay(newCalc.basicSalary || 0, newCalc.costOfLiving || 0, totalOvertimeHours);
-      newCalc.overtimePay = overtimePay;
-      
+      const hourlyRate = (basicSalary + costOfLiving) / 210;
+      const overtimePay = hourlyRate * (updatedCalc.overtimeHours || 0);
+
       // Calculate variable pay
       const variablePay = calculateVariablePay(
-        newCalc.basicSalary || 0,
-        newCalc.costOfLiving || 0,
-        newCalc.shiftAllowance || 0,
+        basicSalary,
+        costOfLiving,
+        shiftAllowance,
         overtimePay,
         exchangeRate
       );
-      newCalc.variablePay = variablePay;
-      
-      // Recalculate total salary
-      newCalc.totalSalary = calculateTotalSalary(
-        newCalc.basicSalary || 0,
-        newCalc.costOfLiving || 0,
-        newCalc.shiftAllowance || 0,
+
+      // Calculate total salary
+      const totalSalary = calculateTotalSalary(
+        basicSalary,
+        costOfLiving,
+        shiftAllowance,
         overtimePay,
         variablePay,
-        newCalc.deduction || 0
+        deduction
       );
-    }
-    
-    setSalaryCalc(newCalc);
+
+      return {
+        ...updatedCalc,
+        overtimePay,
+        variablePay,
+        totalSalary
+      };
+    });
+
     // Save to localStorage with debounce
     if (employee?.id) {
-      debouncedSaveToLocalStorage(newCalc);
+      debouncedSaveToLocalStorage({
+        ...salaryCalc,
+        [field]: value
+      });
     }
   };
 
@@ -743,8 +758,7 @@ export default function Salary() {
     }
   };
 
-  // Add near the other functions in the component
-  const downloadPDF = (salary: any) => {
+  const downloadPDF = async (salary: any) => {
     try {
       const MyDocument = () => (
         <Document>
@@ -767,20 +781,21 @@ export default function Salary() {
           />
         </Document>
       );
+
+      // Generate PDF
+      const pdfBlob = await pdf(<MyDocument />).toBlob();
       
-      const pdfBlob = pdf(<MyDocument />).toBlob();
-      pdfBlob.then(blob => {
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `${employee?.name}_salary_${new Date(salary.month).toISOString().substring(0, 7)}.pdf`;
-        link.click();
-        // Clean up the URL object after download
-        setTimeout(() => URL.revokeObjectURL(url), 100);
-      }).catch(error => {
-        console.error('PDF generation error:', error);
-        toast.error(`Error generating PDF: ${error.message || 'Unknown error'}`);
-      });
+      // Create download link
+      const url = URL.createObjectURL(pdfBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${employee?.name}_salary_${new Date(salary.month).toISOString().substring(0, 7)}.pdf`;
+      
+      // Trigger download
+      link.click();
+      
+      // Clean up
+      setTimeout(() => URL.revokeObjectURL(url), 100);
     } catch (error) {
       console.error('PDF generation error:', error);
       toast.error(`Error generating PDF: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -792,6 +807,91 @@ export default function Salary() {
     const results = testCalculation();
     console.log('Test Calculation Results:', results);
   }, []);
+
+  // Add useEffect to watch for changes in manual overtime hours
+  useEffect(() => {
+    setSalaryCalc(prev => {
+      const totalOvertimeHours = (prev.overtimeHours || 0) + manualOvertimeHours;
+      const basicSalary = prev.basicSalary || 0;
+      const costOfLiving = prev.costOfLiving || 0;
+      const shiftAllowance = prev.shiftAllowance || 0;
+      const exchangeRate = prev.exchangeRate || 31.50;
+      const deduction = prev.deduction || 0;
+
+      // Calculate overtime pay
+      const hourlyRate = (basicSalary + costOfLiving) / 210;
+      const overtimePay = hourlyRate * totalOvertimeHours;
+
+      // Calculate variable pay
+      const variablePay = calculateVariablePay(
+        basicSalary,
+        costOfLiving,
+        shiftAllowance,
+        overtimePay,
+        exchangeRate
+      );
+
+      // Calculate total salary
+      const totalSalary = calculateTotalSalary(
+        basicSalary,
+        costOfLiving,
+        shiftAllowance,
+        overtimePay,
+        variablePay,
+        deduction
+      );
+
+      return {
+        ...prev,
+        overtimeHours: totalOvertimeHours,
+        overtimePay,
+        variablePay,
+        totalSalary
+      };
+    });
+  }, [manualOvertimeHours]);
+
+  // Add useEffect to watch for changes in exchange rate
+  useEffect(() => {
+    setSalaryCalc(prev => {
+      const totalOvertimeHours = (prev.overtimeHours || 0) + manualOvertimeHours;
+      const basicSalary = prev.basicSalary || 0;
+      const costOfLiving = prev.costOfLiving || 0;
+      const shiftAllowance = prev.shiftAllowance || 0;
+      const deduction = prev.deduction || 0;
+
+      // Calculate overtime pay
+      const hourlyRate = (basicSalary + costOfLiving) / 210;
+      const overtimePay = hourlyRate * totalOvertimeHours;
+
+      // Calculate variable pay
+      const variablePay = calculateVariablePay(
+        basicSalary,
+        costOfLiving,
+        shiftAllowance,
+        overtimePay,
+        exchangeRate
+      );
+
+      // Calculate total salary
+      const totalSalary = calculateTotalSalary(
+        basicSalary,
+        costOfLiving,
+        shiftAllowance,
+        overtimePay,
+        variablePay,
+        deduction
+      );
+
+      return {
+        ...prev,
+        overtimePay,
+        variablePay,
+        totalSalary,
+        exchangeRate
+      };
+    });
+  }, [exchangeRate]);
 
   // Add the calculate salary function
   const calculateSalary = async () => {
@@ -888,335 +988,48 @@ export default function Salary() {
         <meta name="description" content="Manage and calculate salary information" />
       </Head>
 
-      <div className="px-2 sm:px-4 lg:px-8 py-4 sm:py-6">
-        {authError && (
-          <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-3 sm:p-4 rounded-md mb-4 sm:mb-6">
-            <p className="text-sm sm:text-base">{authError}</p>
-            <button 
-              onClick={() => window.location.href = '/login'} 
-              className="mt-2 text-sm text-red-700 dark:text-red-300 underline"
-            >
-              Go to Login
-            </button>
-          </div>
-        )}
-
-        {/* Header section */}
-        <section className="mb-4 sm:mb-8">
-          <h1 className="text-2xl sm:text-3xl font-medium text-apple-gray-dark dark:text-dark-text-primary mb-1 sm:mb-2">Salary Management</h1>
-          <p className="text-sm sm:text-base text-apple-gray dark:text-dark-text-secondary">Calculate and manage salary information for {employee?.name}</p>
-        </section>
-
-        {/* Main content grid */}
-        <div className="grid gap-4 sm:gap-8 lg:grid-cols-3">
-          {/* Salary Calculator Card */}
-          <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-lg shadow-sm">
-            <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
-                <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">Salary Calculator</h2>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="bg-white dark:bg-dark-surface rounded-apple shadow-sm">
+          <div className="px-4 sm:px-6 py-5">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <SalaryForm
+                employee={employee}
+                salaryCalc={salaryCalc}
+                setSalaryCalc={setSalaryCalc}
+                scheduleOvertimeHours={scheduleOvertimeHours}
+                setScheduleOvertimeHours={setScheduleOvertimeHours}
+                manualOvertimeHours={manualOvertimeHours}
+                setManualOvertimeHours={setManualOvertimeHours}
+                selectedMonth={selectedMonth}
+                selectedYear={selectedYear}
+                onDateChange={handleDateChange}
+                onInputChange={handleInputChange}
+                onManualUpdateRate={manuallyUpdateRate}
+                exchangeRate={exchangeRate}
+              />
+              
+              <div className="flex justify-between items-center">
+                <div className="text-lg font-semibold">
+                  Total Salary: EGP {salaryCalc.totalSalary.toLocaleString()}
+                </div>
                 <button
-                  onClick={handleClearSavedInputs}
-                  className="w-full sm:w-auto px-3 py-1.5 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  onClick={saveSalary}
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                 >
-                  Clear
+                  Save Salary
                 </button>
               </div>
-            </div>
-
-            {/* Month/Year Picker */}
-            <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
-              <div className="flex items-center mb-4">
-                <FiCalendar className="w-5 h-5 text-blue-500 mr-2" />
-                <h3 className="text-base font-medium text-gray-900 dark:text-white">
-                  Select Month & Year
-                </h3>
-              </div>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Month
-                  </label>
-                  <select 
-                    value={selectedMonth}
-                    onChange={(e) => handleDateChange(selectedYear, parseInt(e.target.value))}
-                    className="w-full px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
-                  >
-                    <option value={1}>January</option>
-                    <option value={2}>February</option>
-                    <option value={3}>March</option>
-                    <option value={4}>April</option>
-                    <option value={5}>May</option>
-                    <option value={6}>June</option>
-                    <option value={7}>July</option>
-                    <option value={8}>August</option>
-                    <option value={9}>September</option>
-                    <option value={10}>October</option>
-                    <option value={11}>November</option>
-                    <option value={12}>December</option>
-                  </select>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Year
-                  </label>
-                  <select 
-                    value={selectedYear}
-                    onChange={(e) => handleDateChange(parseInt(e.target.value), selectedMonth)}
-                    className="w-full px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
-                  >
-                    {/* Generate years from 2020 to current year + 1 */}
-                    {Array.from({ length: currentYear - 2020 + 2 }, (_, i) => (
-                      <option key={2020 + i} value={2020 + i}>
-                        {2020 + i}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                
-                <div className="flex items-end">
-                  <button
-                    onClick={() => handleDateChange(currentYear, currentMonth)}
-                    className="w-full px-4 py-2 text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-900"
-                  >
-                    <div className="flex items-center justify-center">
-                      <FiRefreshCw className="w-4 h-4 mr-2" />
-                      Current Month
-                    </div>
-                  </button>
-                </div>
-              </div>
-              
-              {salaryHistory && salaryHistory.length > 0 && (
-                <div className="mt-3 flex items-center">
-                  {salaryHistory.find(salary => {
-                    const salaryDate = new Date(salary.month);
-                    return salaryDate.getFullYear() === selectedYear && salaryDate.getMonth() + 1 === selectedMonth;
-                  }) 
-                    ? <div className="flex items-center text-green-600 dark:text-green-400">
-                        <svg className="w-4 h-4 mr-1.5" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                        </svg>
-                        <span className="text-sm font-medium">Saved record exists for this month</span>
-                      </div>
-                    : <div className="flex items-center text-amber-600 dark:text-amber-400">
-                        <svg className="w-4 h-4 mr-1.5" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                        </svg>
-                        <span className="text-sm font-medium">No saved record for this month yet</span>
-                      </div>
-                  }
-                </div>
-              )}
-            </div>
-
-            {/* Salary Form */}
-            <div className="p-4 sm:p-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-                {/* Basic Information */}
-                <div className="space-y-4 sm:space-y-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Basic Salary (EGP)
-                    </label>
-                    <div className="relative rounded-md shadow-sm">
-                      <input
-                        type="number"
-                        value={salaryCalc.basicSalary || ''}
-                        onChange={(e) => handleInputChange('basicSalary', parseFloat(e.target.value) || 0)}
-                        className="block w-full px-4 py-2 rounded-md border border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 bg-white dark:bg-gray-800"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Cost of Living (EGP)
-                    </label>
-                    <div className="relative rounded-md shadow-sm">
-                      <input
-                        type="number"
-                        value={salaryCalc.costOfLiving || ''}
-                        onChange={(e) => handleInputChange('costOfLiving', parseFloat(e.target.value) || 0)}
-                        className="block w-full px-4 py-2 rounded-md border border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 bg-white dark:bg-gray-800"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Shift Allowance (EGP)
-                    </label>
-                    <div className="relative rounded-md shadow-sm">
-                      <input
-                        type="number"
-                        value={salaryCalc.shiftAllowance || ''}
-                        onChange={(e) => handleInputChange('shiftAllowance', parseFloat(e.target.value) || 0)}
-                        className="block w-full px-4 py-2 rounded-md border border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 bg-white dark:bg-gray-800"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Overtime and Additional Info */}
-                <div className="space-y-4 sm:space-y-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Overtime Hours
-                    </label>
-                    <div className="space-y-3">
-                      <div className="flex items-center">
-                        <input
-                          type="number"
-                          value={scheduleOvertimeHours}
-                          className="block w-full px-4 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
-                          readOnly
-                        />
-                        <span className="ml-2 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                          From Schedule
-                        </span>
-                      </div>
-                      
-                      <div className="flex items-center">
-                        <input
-                          type="number"
-                          value={manualOvertimeHours}
-                          onChange={(e) => handleInputChange('manualOvertimeHours', Number(e.target.value))}
-                          className="block w-full px-4 py-2 rounded-md border border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 bg-white dark:bg-gray-800"
-                        />
-                        <span className="ml-2 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                          Additional
-                        </span>
-                      </div>
-                      
-                      <div className="flex items-center">
-                        <input
-                          type="number"
-                          value={salaryCalc.overtimeHours}
-                          className="block w-full px-4 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 font-medium text-gray-900 dark:text-white"
-                          readOnly
-                        />
-                        <span className="ml-2 text-sm font-medium text-gray-900 dark:text-white whitespace-nowrap">
-                          Total
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Deductions (EGP)
-                    </label>
-                    <div className="relative rounded-md shadow-sm">
-                      <input
-                        type="number"
-                        value={salaryCalc.deduction || ''}
-                        onChange={(e) => handleInputChange('deduction', parseFloat(e.target.value) || 0)}
-                        className="block w-full px-4 py-2 rounded-md border border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 bg-white dark:bg-gray-800"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Exchange Rate Section */}
-            <div className="p-4 sm:p-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
-                <div>
-                  <h3 className="text-base font-medium text-gray-900 dark:text-white">Exchange Rate</h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-                    Last updated: {rateLastUpdated || 'Not available'}
-                  </p>
-                </div>
-                <div className="flex items-center justify-between sm:justify-end sm:space-x-3">
-                  <span className="text-base sm:text-lg font-medium text-gray-900 dark:text-white">
-                    1 USD = {exchangeRate} EGP
-                  </span>
-                  <button
-                    onClick={manuallyUpdateRate}
-                    className="p-2 rounded-md text-blue-600 dark:text-blue-400 hover:bg-gray-200 dark:hover:bg-gray-700"
-                  >
-                    <FiRefreshCw className="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Results Card */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm h-fit">
-            <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700">
-              <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">Calculation Results</h2>
-            </div>
-
-            <div className="p-4 sm:p-6">
-              {salaryCalc.totalSalary > 0 ? (
-                <div className="space-y-4 sm:space-y-6">
-                  <div>
-                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Salary</p>
-                    <p className="mt-1 text-2xl sm:text-3xl font-semibold text-gray-900 dark:text-white">
-                      EGP {salaryCalc.totalSalary.toLocaleString('en-US', { maximumFractionDigits: 2 })}
-                    </p>
-                  </div>
-
-                  <div className="space-y-2 sm:space-y-3">
-                    <button
-                      onClick={calculateSalary}
-                      disabled={calculationLoading}
-                      className="w-full px-4 py-2 text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-900 disabled:opacity-50"
-                    >
-                      {calculationLoading ? 'Calculating...' : 'Calculate'}
-                    </button>
-
-                    <button
-                      onClick={saveSalary}
-                      disabled={calculationLoading || !salaryCalc.totalSalary}
-                      className="w-full px-4 py-2 text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 focus:ring-2 focus:ring-offset-2 focus:ring-green-500 dark:focus:ring-offset-gray-900 disabled:opacity-50"
-                    >
-                      {calculationLoading ? 'Saving...' : 'Save Salary'}
-                    </button>
-
-                    <button
-                      onClick={() => {/* PDF generation logic */}}
-                      className="w-full px-4 py-2 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 dark:focus:ring-offset-gray-900"
-                    >
-                      Generate PDF
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center py-6 sm:py-8">
-                  <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                  </svg>
-                  <p className="mt-2 text-sm font-medium text-gray-900 dark:text-white">No calculations yet</p>
-                  <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Enter values and click Calculate</p>
-                </div>
-              )}
             </div>
           </div>
         </div>
 
-        {/* Salary History Section */}
-        <div className="mt-4 sm:mt-8 bg-white dark:bg-gray-800 rounded-lg shadow-sm">
-          <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
-              <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">Salary History</h2>
-              <button
-                onClick={fetchSalaryHistory}
-                className="flex items-center justify-center px-3 py-1.5 text-sm font-medium rounded-md text-blue-600 dark:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-700"
-              >
-                <FiRefreshCw className="w-4 h-4 mr-1.5" />
-                Refresh
-              </button>
-            </div>
-          </div>
-
-          <div className="overflow-x-auto">
-            <div className="min-w-full inline-block align-middle">
-              <div className="overflow-hidden">
+        <div className="mt-6">
+          <h2 className="text-lg font-medium text-apple-gray-dark dark:text-dark-text-primary mb-4">
+            Salary History
+          </h2>
+          <div className="bg-white dark:bg-dark-surface rounded-apple shadow-sm">
+            <div className="px-4 sm:px-6 py-5">
+              <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                   <thead>
                     <tr className="bg-gray-50 dark:bg-gray-900">
@@ -1273,7 +1086,7 @@ export default function Salary() {
                                   Load
                                 </button>
                                 <button
-                                  onClick={() => {/* PDF generation logic */}}
+                                  onClick={() => downloadPDF(salary)}
                                   className="px-2 sm:px-2.5 py-1 sm:py-1.5 text-xs font-medium rounded text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
                                 >
                                   PDF
@@ -1297,35 +1110,6 @@ export default function Salary() {
           </div>
         </div>
       </div>
-
-      {/* PDF Modal */}
-      {pdfModalOpen && employee && calculationResults && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
-          <div className="bg-white dark:bg-dark-surface rounded-apple w-full max-w-4xl max-h-[90vh] overflow-hidden">
-            <div className="flex justify-between items-center p-4 border-b border-gray-100 dark:border-gray-700">
-              <h3 className="text-lg font-medium text-apple-gray-dark dark:text-dark-text-primary">Salary PDF Preview</h3>
-              <button
-                onClick={() => setPdfModalOpen(false)}
-                className="text-apple-gray dark:text-gray-300 hover:text-apple-gray-dark"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <div className="p-4 h-[calc(90vh-80px)] overflow-auto">
-              <PDFViewer width="100%" height="100%">
-                <SalaryPDF
-                  employee={employee}
-                  salary={calculationResults}
-                  month={month}
-                  exchangeRate={exchangeRate}
-                />
-              </PDFViewer>
-            </div>
-          </div>
-        </div>
-      )}
     </Layout>
   );
-} 
+}

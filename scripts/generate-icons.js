@@ -1,6 +1,20 @@
 const fs = require('fs');
 const path = require('path');
-const { createCanvas } = require('canvas');
+
+// Skip icon generation in Vercel or when env var is set
+if (process.env.VERCEL || process.env.NEXT_PUBLIC_SKIP_ICON_GENERATION === 'true') {
+  console.log('Skipping icon generation in deployment environment');
+  process.exit(0);
+}
+
+// Only require canvas if we're actually going to use it
+let createCanvas;
+try {
+  ({ createCanvas } = require('canvas'));
+} catch (error) {
+  console.error('Canvas package not available - icons will not be generated');
+  process.exit(0);
+}
 
 // Icon sizes needed for PWA
 const ICON_SIZES = [72, 96, 128, 144, 152, 192, 384, 512];
