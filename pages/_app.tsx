@@ -15,6 +15,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { getPersistedOptions } from '../lib/queryPersistence';
+// PWA support
+import Head from 'next/head';
+import { registerServiceWorker } from '../public/serviceWorkerRegistration';
+import { loadPwaInstallScript } from '../lib/pwaUtils';
 
 // Simple error boundary component since react-error-boundary might not be installed
 interface ErrorBoundaryProps {
@@ -115,6 +119,11 @@ function MyApp({ Component, pageProps }: AppProps) {
     // Get persisted options after component mounts (client-side only)
     const options = getPersistedOptions();
     setPersistOptions(options);
+    
+    // Register service worker for PWA functionality
+    registerServiceWorker();
+    // Load PWA install prompt script
+    loadPwaInstallScript();
   }, []);
 
   useEffect(() => {
@@ -150,6 +159,16 @@ function MyApp({ Component, pageProps }: AppProps) {
         client={queryClient}
         persistOptions={persistOptions}
       >
+        {/* PWA head metadata */}
+        <Head>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+          <meta name="theme-color" content="#0066cc" />
+          <meta name="apple-mobile-web-app-capable" content="yes" />
+          <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+          <meta name="apple-mobile-web-app-title" content="SalaryCursor" />
+          <link rel="manifest" href="/manifest.json" />
+          <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
+        </Head>
         <ThemeProvider>
           <AuthProvider>
             <ErrorBoundary FallbackComponent={ErrorFallback}>
@@ -160,6 +179,18 @@ function MyApp({ Component, pageProps }: AppProps) {
               )}
               <Component {...pageProps} />
               <ToastWrapper />
+              {/* PWA install prompt - will show if app can be installed */}
+              <div id="pwa-install-prompt" className="hidden fixed bottom-4 left-0 right-0 mx-auto w-5/6 max-w-sm bg-white dark:bg-dark-surface p-4 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-medium text-gray-900 dark:text-white">Install App</h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Install SalaryCursor for offline use</p>
+                  </div>
+                  <button id="pwa-install-button" className="px-3 py-1 bg-apple-blue hover:bg-apple-blue-hover text-white rounded-full text-sm font-medium">
+                    Install
+                  </button>
+                </div>
+              </div>
             </ErrorBoundary>
           </AuthProvider>
         </ThemeProvider>

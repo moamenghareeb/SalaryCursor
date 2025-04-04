@@ -1,0 +1,99 @@
+/**
+ * Mobile-specific styles for SalaryCursor
+ * These styles enhance the mobile experience in addition to the Tailwind responsive classes
+ */
+
+/* Improved touch targets */
+@media (max-width: 768px) {
+  button, 
+  a,
+  .clickable {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Increase form element spacing */
+  input, 
+  select, 
+  textarea {
+    margin-bottom: 16px;
+    font-size: 16px !important; /* Prevent iOS zoom on focus */
+  }
+
+  /* Improved table layouts on small screens */
+  table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Card styles for mobile */
+  .card-mobile {
+    border-radius: 12px;
+    margin-bottom: 16px;
+    width: 100%;
+  }
+
+  /* Full-width containers on mobile */
+  .container-mobile {
+    width: 100%;
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  /* Bottom safe area for iOS devices */
+  .ios-safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 16px);
+  }
+
+  /* Hide desktop-only elements */
+  .desktop-only {
+    display: none !important;
+  }
+  
+  /* Show mobile-only elements */
+  .mobile-only {
+    display: block !important;
+  }
+
+  /* Adjust font sizes for mobile */
+  h1 { font-size: 1.5rem !important; }
+  h2 { font-size: 1.25rem !important; }
+  h3 { font-size: 1.125rem !important; }
+  
+  /* Adjust spacing for mobile */
+  .section {
+    margin-bottom: 1.5rem !important;
+  }
+  
+  /* Make calendars more touch-friendly */
+  .fc-daygrid-day-frame {
+    min-height: 70px !important;
+  }
+}
+
+/* Mobile-first bottom navigation enhancements */
+.mobile-tab-nav {
+  z-index: 40;
+  transition: transform 0.3s ease;
+}
+
+.mobile-tab-nav.hidden-nav {
+  transform: translateY(100%);
+}
+
+/* Mobile Form Optimizations */
+@media (max-width: 768px) {
+  .form-grid-mobile {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  
+  /* Optimize modal sizes */
+  .modal-mobile {
+    width: 90% !important;
+    max-width: 90% !important;
+  }
+}

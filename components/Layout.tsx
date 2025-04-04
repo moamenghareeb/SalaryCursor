@@ -4,6 +4,11 @@ import Link from 'next/link';
 import { useAuth } from '../lib/authContext';
 import DarkModeToggle from './DarkModeToggle';
 import NotificationCenter from './NotificationCenter';
+import dynamic from 'next/dynamic';
+import { isMobileDevice } from '../lib/pwaUtils';
+
+// Dynamically import MobileLayout to avoid SSR issues
+const MobileLayout = dynamic(() => import('./MobileLayout'), { ssr: false });
 
 type LayoutProps = {
   children: ReactNode;
@@ -16,11 +21,14 @@ export default function Layout({ children }: LayoutProps) {
   const [scrolled, setScrolled] = useState(false);
   const [isPageTransitioning, setIsPageTransitioning] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [useMobileLayout, setUseMobileLayout] = useState(false);
 
   // Detect mobile screens
   useEffect(() => {
     const checkIfMobile = () => {
-      setIsMobile(window.innerWidth < 768);
+      const isMobileScreen = window.innerWidth < 768;
+      setIsMobile(isMobileScreen);
+      setUseMobileLayout(isMobileScreen && isMobileDevice());
     };
     
     checkIfMobile();
@@ -69,6 +77,11 @@ export default function Layout({ children }: LayoutProps) {
         <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-apple-blue"></div>
       </div>
     );
+  }
+
+  // Use Mobile Layout for small screen mobile devices
+  if (useMobileLayout) {
+    return <MobileLayout>{children}</MobileLayout>;
   }
 
   const isSchedulePage = router.pathname === '/schedule';

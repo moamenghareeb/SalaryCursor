@@ -1,9 +1,13 @@
+/* tailwindcss directives - IDE warnings can be ignored */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 /* Import dark mode styles */
 @import './darkMode.css';
+
+/* Import mobile styles */
+@import './mobile.css';
 
 @layer utilities {
   /* Custom animation classes */
