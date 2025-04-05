@@ -1,4 +1,6 @@
 import '../styles/globals.css';
+import '../styles/theme.css';
+import '../styles/mobile.css';
 import type { AppProps } from 'next/app';
 import React from 'react';
 import { AuthProvider } from '../lib/authContext';
@@ -16,8 +18,7 @@ import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client
 import { getPersistedOptions } from '../lib/queryPersistence';
 // PWA support
 import Head from 'next/head';
-import { registerServiceWorker } from '../public/serviceWorkerRegistration';
-import { loadPwaInstallScript } from '../lib/pwaUtils';
+import { useRouter } from 'next/router';
 
 // Simple error boundary component since react-error-boundary might not be installed
 interface ErrorBoundaryProps {
@@ -110,6 +111,7 @@ function ToastWrapper() {
 }
 
 function MyApp({ Component, pageProps }: AppProps) {
+  const router = useRouter();
   const [queryClient] = useState(() => new QueryClient());
   const [isOnline, setIsOnline] = useState(true);
   const [persistOptions, setPersistOptions] = useState<any>(null);
@@ -118,34 +120,41 @@ function MyApp({ Component, pageProps }: AppProps) {
     // Get persisted options after component mounts (client-side only)
     const options = getPersistedOptions();
     setPersistOptions(options);
-    
-    // Register service worker for PWA functionality
-    registerServiceWorker();
-    // Load PWA install prompt script
-    loadPwaInstallScript();
   }, []);
 
   useEffect(() => {
-    // Check initial online status
-    setIsOnline(navigator.onLine);
+    // Register Service Worker
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/service-worker.js')
+          .then((registration) => {
+            console.log('ServiceWorker registration successful');
+          })
+          .catch((err) => {
+            console.log('ServiceWorker registration failed: ', err);
+          });
+      });
+    }
 
-    // Add event listeners for online/offline status
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
+    // Handle network changes
+    const handleNetworkChange = () => {
+      if (!navigator.onLine) {
+        console.log('App is offline');
+        setIsOnline(false);
+      } else {
+        console.log('App is back online');
+        setIsOnline(true);
+      }
+    };
+
+    window.addEventListener('online', handleNetworkChange);
+    window.addEventListener('offline', handleNetworkChange);
 
     return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('online', handleNetworkChange);
+      window.removeEventListener('offline', handleNetworkChange);
     };
   }, []);
-
-  const handleOnline = () => {
-    setIsOnline(true);
-  };
-
-  const handleOffline = () => {
-    setIsOnline(false);
-  };
 
   // Show loading state until we have persisted options
   if (!persistOptions) {
