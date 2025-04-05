@@ -380,8 +380,8 @@ export default function MobileTest() {
                   <ol className="list-decimal list-inside">
                     <li>Open SalaryCursor in Safari</li>
                     <li>Tap the Share button</li>
-                    <li>Scroll down and tap "Add to Home Screen"</li>
-                    <li>Tap "Add" in the upper right corner</li>
+                    <li>Scroll down and tap &quot;Add to Home Screen&quot;</li>
+                    <li>Tap &quot;Add&quot; in the upper right corner</li>
                   </ol>
                 </div>
                 
@@ -390,17 +390,32 @@ export default function MobileTest() {
                   <ol className="list-decimal list-inside">
                     <li>Open SalaryCursor in Chrome</li>
                     <li>Tap the menu button (three dots)</li>
-                    <li>Tap "Add to Home screen"</li>
-                    <li>Tap "Add" when prompted</li>
+                    <li>Tap &quot;Add to Home screen&quot;</li>
+                    <li>Tap &quot;Add&quot; when prompted</li>
                   </ol>
                 </div>
               </div>
               
               <div className="mt-4">
                 <h4>On Desktop (Chrome, Edge, or Safari)</h4>
-                <p>Look for the install icon in the address bar or use the browser menu to find the "Install" option.</p>
+                <p>Look for the install icon in the address bar or use the browser menu to find the &quot;Install&quot; option.</p>
               </div>
             </div>
+          </div>
+        </div>
+        
+        <div className="mt-4 space-y-4">
+          <div className="bg-white p-4 rounded-lg shadow">
+            <h3 className="text-lg font-semibold mb-2">Test Section</h3>
+            <p className="text-gray-600">
+              This is a test paragraph with some &quot;text&quot; that needs to be escaped.
+            </p>
+          </div>
+          <div className="bg-white p-4 rounded-lg shadow">
+            <h3 className="text-lg font-semibold mb-2">Another Section</h3>
+            <p className="text-gray-600">
+              Here's another test with &quot;escaped&quot; quotes.
+            </p>
           </div>
         </div>
       </div>

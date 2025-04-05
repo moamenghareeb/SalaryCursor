@@ -59,15 +59,16 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     setIsDarkMode(shouldUseDarkMode);
     
     // Apply theme to document immediately
+    const html = document.documentElement;
     if (shouldUseDarkMode) {
-      document.documentElement.classList.add('dark');
+      html.classList.add('dark');
       // Apply to all calendar elements that might exist
       const calendarElements = document.querySelectorAll('.fc');
       calendarElements.forEach(element => {
         element.classList.add('dark-theme-calendar');
       });
     } else {
-      document.documentElement.classList.remove('dark');
+      html.classList.remove('dark');
       // Remove from all calendar elements that might exist
       const calendarElements = document.querySelectorAll('.fc');
       calendarElements.forEach(element => {
@@ -108,6 +109,15 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       observer.disconnect();
     };
   }, []);
+
+  useEffect(() => {
+    const html = document.documentElement;
+    if (isDarkMode) {
+      html.classList.add('dark');
+    } else {
+      html.classList.remove('dark');
+    }
+  }, [isDarkMode]);
 
   // Listen for system theme changes
   useEffect(() => {

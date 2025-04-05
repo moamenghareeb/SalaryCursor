@@ -328,11 +328,8 @@ export default function Salary() {
   // Modified useEffects to guarantee localStorage priority
   useEffect(() => {
     fetchData();
-    // Fetch overtime hours when component mounts
-    if (user) {
-      fetchOvertimeHours();
-    }
-  }, []);
+    fetchOvertimeHours();
+  }, [fetchData, fetchOvertimeHours, user]);
 
   // This separate useEffect ensures localStorage values are applied AFTER 
   // the employee data has been set and database data has loaded
@@ -810,45 +807,9 @@ export default function Salary() {
 
   // Add useEffect to watch for changes in manual overtime hours
   useEffect(() => {
-    setSalaryCalc(prev => {
-      const totalOvertimeHours = (prev.overtimeHours || 0) + manualOvertimeHours;
-      const basicSalary = prev.basicSalary || 0;
-      const costOfLiving = prev.costOfLiving || 0;
-      const shiftAllowance = prev.shiftAllowance || 0;
-      const exchangeRate = prev.exchangeRate || 31.50;
-      const deduction = prev.deduction || 0;
-
-      // Calculate overtime pay
-      const hourlyRate = (basicSalary + costOfLiving) / 210;
-      const overtimePay = hourlyRate * totalOvertimeHours;
-
-      // Calculate variable pay
-      const variablePay = calculateVariablePay(
-        basicSalary,
-        costOfLiving,
-        shiftAllowance,
-        overtimePay,
-        exchangeRate
-      );
-
-      // Calculate total salary
-      const totalSalary = calculateTotalSalary(
-        basicSalary,
-        costOfLiving,
-        shiftAllowance,
-        overtimePay,
-        variablePay,
-        deduction
-      );
-
-      return {
-        ...prev,
-        overtimeHours: totalOvertimeHours,
-        overtimePay,
-        variablePay,
-        totalSalary
-      };
-    });
+    if (manualOvertimeHours) {
+      calculateSalary();
+    }
   }, [manualOvertimeHours]);
 
   // Add useEffect to watch for changes in exchange rate

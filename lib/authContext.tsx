@@ -144,7 +144,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, [router.pathname]);
+  }, [router]);
 
   return (
     <AuthContext.Provider value={{ 
