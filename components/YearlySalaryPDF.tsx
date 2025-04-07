@@ -120,7 +120,11 @@ interface MonthlyBreakdown {
 }
 
 type YearlySalaryPDFProps = {
-  employee: Employee;
+  employee: {
+    name: string;
+    employee_id: string;
+    position: string;
+  };
   year: number;
   totalSalary: number;
   averageSalary: number;

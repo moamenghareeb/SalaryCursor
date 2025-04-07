@@ -151,9 +151,43 @@ export default function Dashboard() {
   const handleGeneratePDF = async () => {
     try {
       setPdfLoading(true);
-      // Implement PDF generation logic here
+      
+      if (!currentYearRecords || !employee) {
+        throw new Error('No data available for PDF generation');
+      }
+
+      const totalSalary = currentYearRecords.reduce((sum, month) => sum + month.total, 0);
+      const averageSalary = totalSalary / (currentYearRecords.length || 1);
+      
+      const monthlyBreakdown = currentYearRecords.map(month => ({
+        month: month.month,
+        name: format(new Date(selectedYear, month.month - 1), 'MMMM yyyy'),
+        total: month.total
+      }));
+
+      const pdfBlob = await pdf(
+        <YearlySalaryPDF
+          employee={employee}
+          year={selectedYear}
+          totalSalary={totalSalary}
+          averageSalary={averageSalary}
+          monthlyBreakdown={monthlyBreakdown}
+        />
+      ).toBlob();
+
+      // Create download link
+      const url = URL.createObjectURL(pdfBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${employee.name}_yearly_salary_${selectedYear}.pdf`;
+      link.click();
+
+      // Clean up
+      setTimeout(() => URL.revokeObjectURL(url), 100);
+      toast.success('PDF generated successfully');
     } catch (error) {
       console.error('Error generating PDF:', error);
+      toast.error(`Error generating PDF: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setPdfLoading(false);
     }
