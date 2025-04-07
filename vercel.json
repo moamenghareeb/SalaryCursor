@@ -19,9 +19,7 @@
   "env": {
     "NEXT_PUBLIC_SUPABASE_URL": "@supabase_url",
     "NEXT_PUBLIC_SUPABASE_ANON_KEY": "@supabase_key",
-    "NEXT_PUBLIC_SKIP_ICON_GENERATION": "true"
-  },
-  "settings": {
-    "nodeVersion": "18.x"
+    "NEXT_PUBLIC_SKIP_ICON_GENERATION": "true",
+    "NODE_VERSION": "18.x"
   }
 }
