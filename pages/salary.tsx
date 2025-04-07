@@ -122,7 +122,7 @@ export default function Salary() {
     }
   }, 1000);
 
-  // Function to fetch overtime hours for the selected month
+  // Fetch overtime hours for the selected month
   const fetchOvertimeHours = async () => {
     if (!employee) {
       console.log('No employee data, skipping overtime fetch');
@@ -146,6 +146,72 @@ export default function Salary() {
         month: selectedMonth
       });
 
+      // FIRST: Query the overtime table directly as the source of truth
+      const { data: overtimeEntries, error: overtimeError } = await supabase
+        .from('overtime')
+        .select('date, hours')
+        .eq('employee_id', employee.id)
+        .gte('date', startDate.toISOString().split('T')[0])
+        .lte('date', endDate.toISOString().split('T')[0]);
+        
+      if (overtimeError) {
+        console.error('Error fetching overtime entries:', overtimeError);
+      } else {
+        console.log('Overtime entries found from overtime table:', overtimeEntries?.length || 0);
+        console.log('Overtime details:', overtimeEntries);
+        
+        // Calculate total overtime hours from the overtime table
+        const totalHours = overtimeEntries?.reduce((sum, entry) => sum + (entry.hours || 0), 0) || 0;
+        console.log('Total overtime hours from overtime table:', totalHours);
+        
+        // Update the schedule overtime hours
+        setScheduleOvertimeHours(totalHours);
+        
+        // Update the salary calculation with new overtime hours
+        setSalaryCalc(prev => {
+          const totalOvertimeHours = totalHours + (manualOvertimeHours || 0);
+          const basicSalary = prev.basicSalary || 0;
+          const costOfLiving = prev.costOfLiving || 0;
+          const shiftAllowance = prev.shiftAllowance || 0;
+          const exchangeRate = prev.exchangeRate || 31.50;
+          const deduction = prev.deduction || 0;
+
+          // Calculate overtime pay using the formula: ((Basic Salary + Cost of living)/210) * overtime total hrs
+          const hourlyRate = (basicSalary + costOfLiving) / 210;
+          const overtimePay = hourlyRate * totalOvertimeHours;
+
+          // Calculate the rate ratio (Exchange Rate/30.8)
+          const currentRateRatio = exchangeRate / 30.8;
+
+          // Get other earnings value (or default to 0)
+          const otherEarnings = prev.otherEarnings || 0;
+
+          // Calculate total salary using the new formula: [(X+Y+Z+E+O)*(Rate/30.8)]-F
+          const totalSalary = calculateTotalSalary(
+            basicSalary,
+            costOfLiving,
+            shiftAllowance,
+            otherEarnings,
+            overtimePay,
+            exchangeRate,
+            deduction
+          );
+
+          return {
+            ...prev,
+            overtimeHours: totalOvertimeHours,
+            overtimePay,
+            variablePay: 0, // No longer used in new formula
+            totalSalary,
+            rateRatio: currentRateRatio
+          };
+        });
+        
+        // Early return since we have the overtime data
+        return;
+      }
+
+      // FALLBACK: If overtime table query fails, try the shift_overrides approach
       // Fetch all shifts for the month
       const { data: shifts, error: shiftsError } = await supabase
         .from('shift_overrides')
@@ -188,11 +254,11 @@ export default function Salary() {
         return acc;
       }, {} as Record<string, number>));
 
-      // Filter overtime shifts - only count actual overtime shifts
+      // Filter overtime shifts - count both 'Overtime' and 'OT' types
       const overtimeShifts = shifts?.filter(s => {
         const type = (s.shift_type || '').toLowerCase().trim();
         console.log('Checking shift type:', { original: s.shift_type, normalized: type });
-        return type === 'overtime';
+        return type === 'overtime' || type === 'ot';
       }) || [];
       
       console.log('Overtime shifts details:', overtimeShifts);
@@ -201,6 +267,9 @@ export default function Salary() {
       // Calculate total overtime hours (24 hours per shift)
       const scheduleOvertimeHours = overtimeShifts.length * 24;
       console.log('Calculated schedule overtime hours:', scheduleOvertimeHours);
+      
+      // Update the schedule overtime hours
+      setScheduleOvertimeHours(scheduleOvertimeHours);
 
       // Update the salary calculation with new overtime hours
       setSalaryCalc(prev => {
@@ -291,6 +360,9 @@ export default function Salary() {
       setCalculationLoading(false);
     }
     
+    // Reset overtime hours immediately to avoid showing stale data
+    setScheduleOvertimeHours(0);
+    
     // Look for existing salary record for this month/year
     if (salaryHistory && salaryHistory.length > 0) {
       const existingRecord = salaryHistory.find(salary => {
@@ -316,10 +388,10 @@ export default function Salary() {
           otherEarnings: existingRecord.other_earnings || 0, // Added other earnings with fallback
           overtimeHours: existingRecord.overtime_hours,
           manualOvertimeHours: 0,
-          dayOvertimeHours: existingRecord.day_overtime_hours || 0,
-          nightOvertimeHours: existingRecord.night_overtime_hours || 0,
-          holidayOvertimeHours: existingRecord.holiday_overtime_hours || 0,
-          effectiveOvertimeHours: existingRecord.effective_overtime_hours || existingRecord.overtime_hours || 0,
+          dayOvertimeHours: 0, // Use default value instead of reading from DB
+          nightOvertimeHours: 0, // Use default value instead of reading from DB
+          holidayOvertimeHours: 0, // Use default value instead of reading from DB
+          effectiveOvertimeHours: existingRecord.overtime_hours || 0, // Use overtime_hours directly
           overtimePay: existingRecord.overtime_pay,
           variablePay: existingRecord.variable_pay || 0,
           deduction: existingRecord.deduction,
@@ -332,7 +404,12 @@ export default function Salary() {
     }
 
     // Fetch overtime hours for the new month
-    fetchOvertimeHours();
+    await fetchOvertimeHours();
+    
+    // Refresh data once more to ensure consistency
+    setTimeout(() => {
+      fetchOvertimeHours();
+    }, 500);
   };
 
   // Update the handleInputChange function to recalculate total salary immediately
@@ -529,10 +606,6 @@ export default function Salary() {
         shift_allowance: salaryCalc.shiftAllowance || 0,
         other_earnings: salaryCalc.otherEarnings || 0,
         overtime_hours: (scheduleOvertimeHours || 0) + (manualOvertimeHours || 0),
-        day_overtime_hours: salaryCalc.dayOvertimeHours || 0,
-        night_overtime_hours: salaryCalc.nightOvertimeHours || 0,
-        holiday_overtime_hours: salaryCalc.holidayOvertimeHours || 0,
-        effective_overtime_hours: salaryCalc.effectiveOvertimeHours || salaryCalc.overtimeHours || 0,
         overtime_pay: salaryCalc.overtimePay || 0,
         variable_pay: salaryCalc.variablePay || 0,
         deduction: salaryCalc.deduction || 0,
@@ -676,16 +749,16 @@ export default function Salary() {
             otherEarnings: existingRecord.other_earnings || 0, // Added other earnings with fallback
             overtimeHours: existingRecord.overtime_hours,
             manualOvertimeHours: 0,
-            dayOvertimeHours: existingRecord.day_overtime_hours || 0,
-            nightOvertimeHours: existingRecord.night_overtime_hours || 0,
-            holidayOvertimeHours: existingRecord.holiday_overtime_hours || 0,
-            effectiveOvertimeHours: existingRecord.effective_overtime_hours || existingRecord.overtime_hours || 0,
+            dayOvertimeHours: 0, // Use default value instead of reading from DB
+            nightOvertimeHours: 0, // Use default value instead of reading from DB
+            holidayOvertimeHours: 0, // Use default value instead of reading from DB
+            effectiveOvertimeHours: existingRecord.overtime_hours || 0, // Use overtime_hours directly
             overtimePay: existingRecord.overtime_pay,
             variablePay: existingRecord.variable_pay || 0,
             deduction: existingRecord.deduction,
             totalSalary: existingRecord.total_salary,
             exchangeRate: exchangeRate,
-            rateRatio: exchangeRate / 30.8, // Calculate rate ratio
+            rateRatio: existingRecord.exchange_rate ? existingRecord.exchange_rate / 30.8 : 0, // Calculate rate ratio
           });
         }
       }

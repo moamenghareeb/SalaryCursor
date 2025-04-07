@@ -3,6 +3,8 @@ import { format } from 'date-fns';
 import { CalendarDay, ShiftType } from '../../lib/types/schedule';
 import { updateUserOvertime } from '../../lib/overtime';
 import { useAuth } from '../../lib/authContext';
+import { useQueryClient } from '@tanstack/react-query';
+import { supabase } from '../../lib/supabase';
 
 interface ShiftEditModalProps {
   day: CalendarDay | null;
@@ -30,6 +32,7 @@ const ShiftEditModal: React.FC<ShiftEditModalProps> = ({
 }) => {
   const auth = useAuth() as any;
   const user = auth?.user;
+  const queryClient = useQueryClient();
   // Form state
   const [selectedShift, setSelectedShift] = useState<ShiftType>('Off');
   const [notes, setNotes] = useState<string>('');
@@ -54,14 +57,58 @@ const ShiftEditModal: React.FC<ShiftEditModalProps> = ({
     e.preventDefault();
     
     if (day && !isLoading && user) {
+      // Track whether we had a change to/from overtime
+      const wasOvertime = day.personalShift.type === 'Overtime';
+      const nowOvertime = selectedShift === 'Overtime';
+      
       // Update the shift and notes
       onSave(day.date, selectedShift, notes === '' ? undefined : notes);
       
       // If the selected shift is Overtime, add 24 hours to the user's overtime
-      if (selectedShift === 'Overtime') {
+      if (nowOvertime) {
         const overtimeHours = 24;
         // Call the function to update the user's overtime
-        updateUserOvertime(day.date, overtimeHours, user.id);
+        updateUserOvertime(day.date, overtimeHours, user.id)
+          .then(() => {
+            // Force immediate refetch of salary and overtime data
+            const monthStart = new Date(day.date);
+            monthStart.setDate(1);
+            const monthKey = monthStart.toISOString().substring(0, 7);
+            
+            // Invalidate and refetch salary and overtime data
+            queryClient.invalidateQueries({ queryKey: ['salaries'] });
+            queryClient.invalidateQueries({ queryKey: ['overtime'] });
+            queryClient.refetchQueries({ queryKey: ['salaries'] });
+            queryClient.refetchQueries({ queryKey: ['overtime'] });
+          });
+      } 
+      // If changing from Overtime to another shift type, update to remove overtime
+      else if (wasOvertime && !nowOvertime) {
+        // Remove overtime from the overtime table
+        console.log(`Removing overtime for ${day.date}`);
+        
+        // First, delete the overtime record if it exists
+        supabase
+          .from('overtime')
+          .delete()
+          .eq('employee_id', user.id)
+          .eq('date', day.date)
+          .then(() => {
+            // After deleting, refetch to update overtime calculations
+            const monthStart = new Date(day.date);
+            monthStart.setDate(1);
+            const monthKey = monthStart.toISOString().substring(0, 7);
+            
+            // Force recalculation of overtime totals in the salary
+            updateUserOvertime(day.date, 0, user.id, true)
+              .then(() => {
+                // Invalidate and refetch salary and overtime data
+                queryClient.invalidateQueries({ queryKey: ['salaries'] });
+                queryClient.invalidateQueries({ queryKey: ['overtime'] });
+                queryClient.refetchQueries({ queryKey: ['salaries'] });
+                queryClient.refetchQueries({ queryKey: ['overtime'] });
+              });
+          });
       }
     }
   };

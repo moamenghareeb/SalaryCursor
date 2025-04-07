@@ -103,6 +103,7 @@ const SchedulePage: React.FC = () => {
     goToPreviousMonth,
     goToNextMonth,
     goToToday,
+    setDate,
     updateShift,
     updateGroup,
     updateScheduleType,
@@ -179,6 +180,16 @@ const SchedulePage: React.FC = () => {
       setFutureMonths(months);
     }
   }, [currentDate]);
+  
+  // Handle view month button click
+  const handleViewMonth = (year: number, month: number) => {
+    // Create a date for the first day of the target month
+    const targetDate = new Date(year, month, 1);
+    // Update the view mode to current
+    setViewMode('current');
+    // Navigate to the selected month
+    setDate(targetDate);
+  };
   
   // Listen for refresh events from the debug component
   useEffect(() => {
@@ -548,7 +559,7 @@ const SchedulePage: React.FC = () => {
           // Future months view - updated for consistency
           <div className="space-y-5">            
             {/* Future months grid - improved styling */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-6xl mx-auto">
               {futureMonths.map((month, index) => (
                 <div 
                   key={`${month.year}-${month.month}`}
@@ -560,17 +571,10 @@ const SchedulePage: React.FC = () => {
                 >
                   <div className="flex flex-col items-center justify-center space-y-2">
                     <h3 className="text-xl font-bold text-[var(--sc-text-primary)]">
-                      {format(new Date(month.year, month.month - 1), 'MMMM yyyy')}
+                      {format(new Date(month.year, month.month), 'MMMM yyyy')}
                     </h3>
                     <button
-                      onClick={() => {
-                        // Update the current date to this month
-                        const newDate = new Date(month.year, month.month - 1);
-                        // Update the view mode to current
-                        setViewMode('current');
-                        // Navigate to the selected month
-                        goToToday();
-                      }}
+                      onClick={() => handleViewMonth(month.year, month.month)}
                       className="sc-button sc-button-primary px-4 py-2 rounded-md text-sm font-medium transition-colors"
                     >
                       View Month

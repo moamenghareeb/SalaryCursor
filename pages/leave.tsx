@@ -727,6 +727,24 @@ export default function Leave() {
         .eq('shift_type', 'Leave');
         
       if (error) throw error;
+
+      // Get all affected months for proper invalidation
+      const months = new Set(days.map(day => day.substring(0, 7))); // Get unique YYYY-MM
+      
+      // Invalidate queries for each affected month
+      months.forEach(month => {
+        queryClient.invalidateQueries({ queryKey: ['shift-overrides', employee?.id, month] });
+        queryClient.invalidateQueries({ queryKey: ['schedule', employee?.id, month] });
+      });
+
+      // Invalidate general queries
+      queryClient.invalidateQueries({ queryKey: ['shift-overrides'] });
+      queryClient.invalidateQueries({ queryKey: ['schedule'] });
+      queryClient.invalidateQueries({ queryKey: ['leaves'] });
+      
+      // Force immediate refetch of schedule data
+      queryClient.refetchQueries({ queryKey: ['schedule'] });
+      queryClient.refetchQueries({ queryKey: ['shift-overrides'] });
       
       console.log(`Removed shift overrides for leave period ${start} to ${end}`);
     } catch (error) {

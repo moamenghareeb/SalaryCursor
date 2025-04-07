@@ -2,7 +2,7 @@ import { ReactNode, useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { useAuth } from '../lib/authContext';
-import DarkModeToggle from './DarkModeToggle';
+import PremiumThemeToggle from './PremiumThemeToggle';
 import NotificationCenter from './NotificationCenter';
 import { motion } from 'framer-motion';
 import { FiCalendar, FiDollarSign, FiClock, FiLogOut, FiHome } from 'react-icons/fi';
@@ -65,9 +65,14 @@ export default function MobileLayout({ children }: MobileLayoutProps) {
       )}
       
       {/* Main content */}
-      <main className={`pt-0 ${router.pathname === '/schedule' ? 'px-0' : 'px-4'} pb-16 animate-fadeIn`}>
+      <main className={`pt-12 ${router.pathname === '/schedule' ? 'px-0' : 'px-4'} pb-16 animate-fadeIn`}>
         {children}
       </main>
+      
+      {/* Fixed header with theme toggle */}
+      <div className="fixed top-0 left-0 right-0 h-12 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md z-50 border-b border-gray-200 dark:border-gray-700 flex items-center justify-end px-4">
+        <PremiumThemeToggle />
+      </div>
       
       {/* Mobile bottom navigation bar with prominent icons */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 shadow-lg border-t border-gray-200 dark:border-gray-700 z-40 ios-safe-bottom sc-mobile-nav">
@@ -153,11 +158,6 @@ export default function MobileLayout({ children }: MobileLayoutProps) {
           </button>
         </div>
       </nav>
-
-      {/* Dark/Light mode toggle - fixed at the top */}
-      <div className="fixed top-4 right-4 z-50">
-        <DarkModeToggle />
-      </div>
     </div>
   );
 }

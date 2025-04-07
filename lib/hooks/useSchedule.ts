@@ -340,11 +340,137 @@ export function useSchedule({
     setCurrentDate(new Date());
   };
   
+  // Direct date setter function
+  const setDate = (date: Date) => {
+    setCurrentDate(date);
+  };
+  
   // Mutation to update shift override
   const updateShiftMutation = useMutation({
     mutationFn: async ({ date, shiftType, notes }: { date: string; shiftType: ShiftType; notes?: string }) => {
       if (!authUser) {
         throw new Error('User not authenticated');
+      }
+
+      // If adding an overtime shift
+      if (shiftType === 'Overtime') {
+        try {
+          // Add overtime record
+          const { error: overtimeError } = await supabase
+            .from('overtime')
+            .upsert({
+              employee_id: authUser,
+              date: date,
+              hours: 24, // Standard shift length
+              source: 'schedule'
+            }, {
+              onConflict: 'employee_id,date'
+            });
+
+          if (overtimeError) {
+            console.error('Error recording overtime:', overtimeError);
+          }
+
+          // Get the month start date for salary record
+          const monthStart = new Date(date);
+          monthStart.setDate(1);
+          const monthKey = monthStart.toISOString().substring(0, 7) + '-01';
+
+          // Get current salary record
+          const { data: currentSalary, error: fetchError } = await supabase
+            .from('salaries')
+            .select('overtime_hours, basic_salary, cost_of_living')
+            .eq('employee_id', authUser)
+            .eq('month', monthKey)
+            .maybeSingle();
+
+          if (!fetchError || fetchError.code === 'PGRST116') {
+            // Add 24 hours to overtime
+            const currentHours = currentSalary?.overtime_hours || 0;
+            const newHours = currentHours + 24;
+            
+            // Recalculate overtime pay
+            const basicSalary = currentSalary?.basic_salary || 0;
+            const costOfLiving = currentSalary?.cost_of_living || 0;
+            const hourlyRate = (basicSalary + costOfLiving) / 210;
+            const overtimePay = hourlyRate * newHours;
+
+            // Update or create salary record
+            const { error: updateError } = await supabase
+              .from('salaries')
+              .upsert({
+                employee_id: authUser,
+                month: monthKey,
+                overtime_hours: newHours,
+                overtime_pay: overtimePay
+              }, {
+                onConflict: 'employee_id,month'
+              });
+
+            if (updateError) {
+              console.error('Failed to update salary overtime:', updateError);
+            }
+          }
+        } catch (error) {
+          console.error('Error handling overtime addition:', error);
+        }
+      }
+
+      // If removing an overtime shift
+      if (shiftType !== 'Overtime') {
+        try {
+          // Delete from overtime tracking
+          const { error: deleteError } = await supabase
+            .from('overtime')
+            .delete()
+            .eq('employee_id', authUser)
+            .eq('date', date);
+
+          if (deleteError) {
+            console.error('Failed to delete overtime tracking:', deleteError);
+          }
+
+          // Get the month start date
+          const monthStart = new Date(date);
+          monthStart.setDate(1);
+          const monthKey = monthStart.toISOString().substring(0, 7) + '-01';
+
+          // Get current salary record
+          const { data: currentSalary, error: fetchError } = await supabase
+            .from('salaries')
+            .select('overtime_hours, basic_salary, cost_of_living')
+            .eq('employee_id', authUser)
+            .eq('month', monthKey)
+            .maybeSingle();
+
+          if (!fetchError || fetchError.code === 'PGRST116') {
+            // Subtract 24 hours from overtime
+            const currentHours = currentSalary?.overtime_hours || 0;
+            const newHours = Math.max(0, currentHours - 24);
+            
+            // Recalculate overtime pay
+            const basicSalary = currentSalary?.basic_salary || 0;
+            const costOfLiving = currentSalary?.cost_of_living || 0;
+            const hourlyRate = (basicSalary + costOfLiving) / 210;
+            const overtimePay = hourlyRate * newHours;
+
+            // Update salary record
+            const { error: updateError } = await supabase
+              .from('salaries')
+              .update({
+                overtime_hours: newHours,
+                overtime_pay: overtimePay
+              })
+              .eq('employee_id', authUser)
+              .eq('month', monthKey);
+
+            if (updateError) {
+              console.error('Failed to update overtime:', updateError);
+            }
+          }
+        } catch (error) {
+          console.error('Error handling overtime removal:', error);
+        }
       }
 
       // If removing a leave (changing from Leave to something else)
@@ -560,87 +686,39 @@ export function useSchedule({
         }
       }
       
-      // If removing an overtime shift (changing from Overtime to something else)
-      if (shiftType !== 'Overtime') {
-        try {
-          // Get the month start date
-          const monthStart = new Date(date);
-          monthStart.setDate(1);
-          const monthKey = monthStart.toISOString().substring(0, 7) + '-01';
-
-          // Get current salary record
-          const { data: currentSalary, error: fetchError } = await supabase
-            .from('salaries')
-            .select('overtime_hours, basic_salary, cost_of_living')
-            .eq('employee_id', authUser)
-            .eq('month', monthKey)
-            .maybeSingle();
-
-          if (fetchError && fetchError.code !== 'PGRST116') {
-            console.error('Failed to fetch current salary:', fetchError);
-          } else if (currentSalary) {
-            // Subtract 24 hours from overtime
-            const newHours = Math.max(0, (currentSalary.overtime_hours || 0) - 24);
-            
-            // Recalculate overtime pay
-            const basicSalary = currentSalary.basic_salary || 0;
-            const costOfLiving = currentSalary.cost_of_living || 0;
-            const hourlyRate = (basicSalary + costOfLiving) / 210;
-            const overtimePay = hourlyRate * newHours;
-
-            // Update salary record
-            const { error: updateError } = await supabase
-              .from('salaries')
-              .update({
-                overtime_hours: newHours,
-                overtime_pay: overtimePay,
-                updated_at: new Date().toISOString()
-              })
-              .eq('employee_id', authUser)
-              .eq('month', monthKey);
-
-            if (updateError) {
-              console.error('Failed to update overtime:', updateError);
-            } else {
-              // Invalidate relevant queries
-              queryClient.invalidateQueries({ queryKey: ['salaries'] });
-              queryClient.invalidateQueries({ queryKey: ['salary-calculation'] });
-            }
-
-            // Delete from overtime tracking
-            const { error: deleteError } = await supabase
-              .from('overtime')
-              .delete()
-              .eq('employee_id', authUser)
-              .eq('date', date);
-
-            if (deleteError) {
-              console.error('Failed to delete overtime tracking:', deleteError);
-            }
-          }
-        } catch (error) {
-          console.error('Error handling overtime removal:', error);
-        }
-      }
-      
       return result;
     },
     onSuccess: (data, variables) => {
       // Show success message
       toast.success(`Shift for ${format(parseISO(variables.date), 'PPP')} ${data.action} successfully`);
       
-      // Invalidate relevant queries
-      queryClient.invalidateQueries({ queryKey: ['shift-overrides', authUser, monthKey] });
+      // Get the month for the changed date
+      const month = variables.date.substring(0, 7);
       
-      // Depending on shift type, invalidate other relevant queries
-      if (variables.shiftType === 'Leave') {
-        // Invalidate leave queries to reflect the new leave record
-        queryClient.invalidateQueries({ queryKey: ['leaves', authUser] });
-        queryClient.invalidateQueries({ queryKey: ['leaveBalance', authUser] });
-      } else if (variables.shiftType === 'InLieu') {
-        // Invalidate in-lieu queries to reflect the new in-lieu record
-        queryClient.invalidateQueries({ queryKey: ['in-lieu', authUser] });
-        queryClient.invalidateQueries({ queryKey: ['leaveBalance', authUser] });
+      // Invalidate relevant queries
+      queryClient.invalidateQueries({ queryKey: ['shift-overrides', authUser, month] });
+      queryClient.invalidateQueries({ queryKey: ['overtime', authUser, month] });
+      queryClient.invalidateQueries({ queryKey: ['salaries', authUser, month] });
+      
+      // Force immediate refetch of salary data
+      queryClient.refetchQueries({ queryKey: ['salaries'] });
+      queryClient.refetchQueries({ queryKey: ['overtime'] });
+      
+      // Delay and force another refetch to ensure data is updated
+      setTimeout(() => {
+        queryClient.refetchQueries({ queryKey: ['salaries'] });
+        queryClient.refetchQueries({ queryKey: ['overtime'] });
+      }, 500);
+      
+      // If it was an overtime change, make a more specific refetch
+      if (variables.shiftType === 'Overtime' || variables.date) {
+        // Extract the month from the date to update month-specific queries
+        const monthDate = new Date(variables.date);
+        const monthKey = monthDate.toISOString().substring(0, 7);
+        
+        // Force refetch of any salary data for this specific month
+        queryClient.invalidateQueries({ queryKey: ['salaries', authUser, monthKey] });
+        queryClient.invalidateQueries({ queryKey: ['overtime', authUser, monthKey] });
       }
     },
     onError: (error) => {
@@ -781,6 +859,7 @@ export function useSchedule({
     goToPreviousMonth,
     goToNextMonth,
     goToToday,
+    setDate,
     
     // Update functions
     updateShift,
