@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { CalendarDay, ShiftType } from '../../lib/types/schedule';
-import { updateUserOvertime, deleteOvertimeForDate } from '../../lib/overtime';
+import { updateUserOvertime } from '../../lib/overtime';
 import { useAuth } from '../../lib/authContext';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
@@ -37,7 +37,6 @@ const ShiftEditModal: React.FC<ShiftEditModalProps> = ({
   // Form state
   const [selectedShift, setSelectedShift] = useState<ShiftType>('Off');
   const [notes, setNotes] = useState<string>('');
-  const [formProcessing, setFormProcessing] = useState(false);
   
   // Initialize form when day changes
   useEffect(() => {
@@ -49,7 +48,7 @@ const ShiftEditModal: React.FC<ShiftEditModalProps> = ({
   
   // Handle close
   const handleClose = () => {
-    if (!formProcessing && !isLoading) {
+    if (!isLoading) {
       onClose();
     }
   };
@@ -59,8 +58,6 @@ const ShiftEditModal: React.FC<ShiftEditModalProps> = ({
     e.preventDefault();
     
     if (day && !isLoading && user) {
-      setFormProcessing(true);
-      
       // Track whether we had a change to/from overtime
       const wasOvertime = day.personalShift.type === 'Overtime';
       const nowOvertime = selectedShift === 'Overtime';
@@ -73,49 +70,25 @@ const ShiftEditModal: React.FC<ShiftEditModalProps> = ({
         const overtimeHours = 24;
         // Call the function to update the user's overtime
         updateUserOvertime(day.date, overtimeHours, user.id)
-          .then(() => {
+          .then(async () => {
             // Force immediate refetch of salary and overtime data
             const monthStart = new Date(day.date);
             monthStart.setDate(1);
-            const monthKey = monthStart.toISOString().substring(0, 7);
             
             // Invalidate and refetch salary and overtime data
             queryClient.invalidateQueries({ queryKey: ['salaries'] });
             queryClient.invalidateQueries({ queryKey: ['overtime'] });
-            queryClient.refetchQueries({ queryKey: ['salaries'] });
-            queryClient.refetchQueries({ queryKey: ['overtime'] });
-            
-            // Clear form processing
-            setFormProcessing(false);
+            await Promise.all([
+                queryClient.refetchQueries({ queryKey: ['salaries'] }),
+                queryClient.refetchQueries({ queryKey: ['overtime'] })
+            ]);
           });
       } 
-      // If changing from Overtime to another shift type, update to remove overtime
+      // If changing from Overtime to another shift type, let the mutation handle recalculation
       else if (wasOvertime && !nowOvertime) {
-        // Remove overtime from the overtime table
-        console.log(`Removing overtime for ${day.date}`);
-        setFormProcessing(true);
-        
-        // Use the dedicated function to delete overtime
-        deleteOvertimeForDate(day.date, user.id)
-          .then(result => {
-            console.log('Overtime deletion result:', result);
-            
-            // Force refresh all queries
-            queryClient.invalidateQueries();
-            setTimeout(() => {
-              queryClient.refetchQueries();
-              setFormProcessing(false);
-              toast.success('Overtime removed successfully');
-            }, 500);
-          })
-          .catch(error => {
-            console.error('Failed to delete overtime:', error);
-            setFormProcessing(false);
-            toast.error('Failed to remove overtime. Please try again.');
-          });
-      } else {
-        // Other changes don't need special handling
-        setFormProcessing(false);
+        // No need to delete or call updateUserOvertime here, 
+        // the main mutation will handle the recalculation based on the shift change.
+        console.log(`Changing from Overtime on ${day.date}. Mutation will handle salary update.`);
       }
     }
   };
@@ -203,7 +176,7 @@ const ShiftEditModal: React.FC<ShiftEditModalProps> = ({
               id="shift-type"
               value={selectedShift}
               onChange={(e) => setSelectedShift(e.target.value as ShiftType)}
-              disabled={isLoading || formProcessing}
+              disabled={isLoading}
               className="w-full px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 
                 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200
                 focus:outline-none focus:ring-2 focus:ring-gray-500"
@@ -223,13 +196,21 @@ const ShiftEditModal: React.FC<ShiftEditModalProps> = ({
               id="notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              disabled={isLoading || formProcessing}
+              disabled={isLoading}
               placeholder="Add any notes or reason for the override"
               className="w-full px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 
                 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200
                 focus:outline-none focus:ring-2 focus:ring-gray-500"
               rows={3}
             ></textarea>
+            <button
+              type="button"
+              onClick={() => setNotes('')}
+              disabled={isLoading}
+              className="px-4 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-red-600 hover:bg-red-700 text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+            >
+              Clear Notes
+            </button>
           </div>
           
           {/* Holiday indicator */}
@@ -266,7 +247,7 @@ const ShiftEditModal: React.FC<ShiftEditModalProps> = ({
                 <button
                   type="button"
                   onClick={handleReset}
-                  disabled={isLoading || formProcessing}
+                  disabled={isLoading}
                   className="px-3 py-1 text-sm rounded-md text-red-600 hover:text-red-700
                     border border-red-200 hover:border-red-300
                     dark:text-red-400 dark:hover:text-red-300
@@ -277,26 +258,27 @@ const ShiftEditModal: React.FC<ShiftEditModalProps> = ({
                 </button>
               )}
             </div>
+            
             <div className="flex space-x-2">
               <button
                 type="button"
                 onClick={handleClose}
-                disabled={isLoading || formProcessing}
+                disabled={isLoading}
                 className="px-4 py-2 rounded-md border border-gray-300 dark:border-gray-600
                   bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300
-                  hover:bg-gray-50 dark:hover:bg-gray-700
-                  focus:outline-none focus:ring-2 focus:ring-gray-500"
+                  hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500"
               >
                 Cancel
               </button>
+              
               <button
                 type="submit"
-                disabled={isLoading || formProcessing}
+                disabled={isLoading}
                 className="px-4 py-2 rounded-md bg-blue-600 hover:bg-blue-700
                   text-white focus:outline-none focus:ring-2 focus:ring-blue-500
                   flex items-center space-x-1"
               >
-                {isLoading || formProcessing ? (
+                {isLoading ? (
                   <>
                     <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -305,7 +287,7 @@ const ShiftEditModal: React.FC<ShiftEditModalProps> = ({
                     <span>Saving...</span>
                   </>
                 ) : (
-                  <span>Save</span>
+                  <span>Save Changes</span>
                 )}
               </button>
             </div>

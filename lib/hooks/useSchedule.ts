@@ -352,10 +352,29 @@ export function useSchedule({
         throw new Error('User not authenticated');
       }
 
-      // If adding an overtime shift
+      // Get the existing shift override (if any) to check the *previous* type
+      const { data: existingOverride, error: fetchError } = await supabase
+        .from('shift_overrides')
+        .select('id, shift_type')
+        .eq('employee_id', authUser)
+        .eq('date', date)
+        .maybeSingle();
+        
+      if (fetchError) throw fetchError;
+      
+      const previousShiftType = existingOverride?.shift_type;
+      
+      console.log(`[Update Shift] Date: ${date}, New Shift: ${shiftType}, Previous Shift: ${previousShiftType}`);
+
+      // Determine if we are changing *from* Overtime
+      const changingFromOvertime = previousShiftType === 'Overtime' && shiftType !== 'Overtime';
+      console.log(`[Update Shift] Is changing from Overtime? ${changingFromOvertime}`);
+
+      // If adding an overtime shift (or keeping it)
       if (shiftType === 'Overtime') {
         try {
-          // Add overtime record
+          console.log(`[Update Shift] Adding/Updating overtime for ${date}`);
+          // Add/Update overtime record
           const { error: overtimeError } = await supabase
             .from('overtime')
             .upsert({
@@ -368,132 +387,55 @@ export function useSchedule({
             });
 
           if (overtimeError) {
-            console.error('Error recording overtime:', overtimeError);
+            console.error('[Update Shift] Error recording overtime:', overtimeError);
           }
 
-          // Get the month start date for salary record
-          const monthStart = new Date(date);
-          monthStart.setDate(1);
-          const monthKey = monthStart.toISOString().substring(0, 7) + '-01';
-
-          // Get current salary record
-          const { data: currentSalary, error: fetchError } = await supabase
-            .from('salaries')
-            .select('overtime_hours, basic_salary, cost_of_living')
-            .eq('employee_id', authUser)
-            .eq('month', monthKey)
-            .maybeSingle();
-
-          if (!fetchError || fetchError.code === 'PGRST116') {
-            // Add 24 hours to overtime
-            const currentHours = currentSalary?.overtime_hours || 0;
-            const newHours = currentHours + 24;
-            
-            // Recalculate overtime pay
-            const basicSalary = currentSalary?.basic_salary || 0;
-            const costOfLiving = currentSalary?.cost_of_living || 0;
-            const hourlyRate = (basicSalary + costOfLiving) / 210;
-            const overtimePay = hourlyRate * newHours;
-
-            // Update or create salary record
-            const { error: updateError } = await supabase
-              .from('salaries')
-              .upsert({
-                employee_id: authUser,
-                month: monthKey,
-                overtime_hours: newHours,
-                overtime_pay: overtimePay
-              }, {
-                onConflict: 'employee_id,month'
-              });
-
-            if (updateError) {
-              console.error('Failed to update salary overtime:', updateError);
-            }
-          }
+          // Recalculate salary for the month
+          console.log(`[Update Shift] Triggering salary recalculation after adding overtime for ${date}...`);
+          await recalculateSalaryOvertime(date, authUser);
+          
         } catch (error) {
-          console.error('Error handling overtime addition:', error);
+          console.error('[Update Shift] Error handling overtime addition:', error);
         }
-      }
-
-      // If removing an overtime shift
-      if (shiftType !== 'Overtime') {
+      } 
+      // If specifically changing *away* from an overtime shift
+      else if (changingFromOvertime) {
         try {
+          console.log(`[Overtime Removal] Condition met. Attempting to delete overtime for user ${authUser} on date ${date}.`);
           // Delete from overtime tracking
-          const { error: deleteError } = await supabase
+          const { data: deleteData, error: deleteError } = await supabase
             .from('overtime')
             .delete()
             .eq('employee_id', authUser)
-            .eq('date', date);
+            .eq('date', date)
+            .select(); // Add select() to get feedback on what was deleted
 
           if (deleteError) {
-            console.error('Failed to delete overtime tracking:', deleteError);
+            console.error(`[Overtime Removal] Failed to delete overtime tracking for ${date}:`, deleteError);
+            toast.error(`Failed to remove overtime record for ${date}. DB Error: ${deleteError.message}`);
+          } else {
+             console.log(`[Overtime Removal] Successfully executed delete for ${date}. Records affected: ${deleteData?.length || 0}`, deleteData);
+             if (deleteData?.length > 0) {
+               toast.success(`Overtime record for ${date} removed.`);
+             } else {
+               console.warn(`[Overtime Removal] Delete command executed but no matching overtime record found for user ${authUser} on ${date}.`);
+               // Use standard toast for warning
+               toast(`No overtime record found to remove for ${date}.`, { icon: '⚠️' }); 
+             }
           }
 
-          // Get the month start date
-          const monthStart = new Date(date);
-          monthStart.setDate(1);
-          const monthKey = monthStart.toISOString().substring(0, 7) + '-01';
-
-          // Get current salary record
-          const { data: currentSalary, error: fetchError } = await supabase
-            .from('salaries')
-            .select('overtime_hours, basic_salary, cost_of_living')
-            .eq('employee_id', authUser)
-            .eq('month', monthKey)
-            .maybeSingle();
-
-          if (!fetchError || fetchError.code === 'PGRST116') {
-            // Fetch all remaining overtime entries for this month
-            const { data: overtimeEntries, error: overtimeError } = await supabase
-              .from('overtime')
-              .select('hours')
-              .eq('employee_id', authUser)
-              .gte('date', monthStart.toISOString().substring(0, 7) + '-01')
-              .lt('date', new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 1).toISOString().substring(0, 10));
-              
-            if (overtimeError) {
-              console.error('Error fetching overtime entries:', overtimeError);
-            } else {
-              // Calculate total overtime hours from remaining entries
-              const totalOvertimeHours = overtimeEntries?.reduce((total, entry) => total + (entry.hours || 0), 0) || 0;
-              console.log(`Recalculated overtime hours for ${monthKey}: ${totalOvertimeHours}`);
-              
-              // Recalculate overtime pay
-              const basicSalary = currentSalary?.basic_salary || 0;
-              const costOfLiving = currentSalary?.cost_of_living || 0;
-              const hourlyRate = (basicSalary + costOfLiving) / 210;
-              const overtimePay = hourlyRate * totalOvertimeHours;
-
-              // Update salary record with new totals
-              const { error: updateError } = await supabase
-                .from('salaries')
-                .update({
-                  overtime_hours: totalOvertimeHours,
-                  overtime_pay: overtimePay
-                })
-                .eq('employee_id', authUser)
-                .eq('month', monthKey);
-
-              if (updateError) {
-                console.error('Failed to update overtime:', updateError);
-              } else {
-                // Force refresh of related queries to update UI
-                queryClient.invalidateQueries({ queryKey: ['salaries'] });
-                queryClient.invalidateQueries({ queryKey: ['overtime'] });
-                // Force immediate refetch
-                queryClient.refetchQueries({ queryKey: ['salaries'] });
-                queryClient.refetchQueries({ queryKey: ['overtime'] });
-              }
-            }
-          }
+          // Recalculate salary for the month after attempting deletion
+          console.log(`[Overtime Removal] Triggering salary recalculation for ${date}...`);
+          await recalculateSalaryOvertime(date, authUser);
+          
         } catch (error) {
-          console.error('Error handling overtime removal:', error);
+          console.error('[Overtime Removal] Error during overtime removal process:', error);
+          toast.error('An error occurred while removing overtime. Please check console.');
         }
       }
 
       // If removing a leave (changing from Leave to something else)
-      if (shiftType !== 'Leave') {
+      if (previousShiftType === 'Leave' && shiftType !== 'Leave') {
         try {
           // Find and delete the leave record for this date
           const { data: leaveRecord, error: findError } = await supabase
@@ -526,20 +468,8 @@ export function useSchedule({
         }
       }
       
-      // Check if there's an existing override for this date
-      const { data: existing, error: fetchError } = await supabase
-        .from('shift_overrides')
-        .select('id, shift_type')
-        .eq('employee_id', authUser)
-        .eq('date', date)
-        .maybeSingle();
-        
-      if (fetchError) throw fetchError;
-      
-      let result = { success: true, action: '' };
-      
       // If changing from InLieu to another type, delete the in-lieu record
-      if (existing?.shift_type === 'InLieu' && shiftType !== 'InLieu') {
+      if (previousShiftType === 'InLieu' && shiftType !== 'InLieu') {
         try {
           // Find and delete the in-lieu record for this date
           const { data: inLieuRecord, error: findError } = await supabase
@@ -587,8 +517,10 @@ export function useSchedule({
         }
       }
       
-      // Update or create shift override
-      if (existing) {
+      // Update or create shift override - this happens regardless of overtime/leave changes
+      console.log(`[Update Shift] Updating/Creating shift override for ${date} to type ${shiftType}`);
+      let result = { success: true, action: '' };
+      if (existingOverride) {
         // Update existing override
         const { error } = await supabase
           .from('shift_overrides')
@@ -597,10 +529,14 @@ export function useSchedule({
             notes: notes === undefined ? null : notes,
             source: 'schedule_page'
           })
-          .eq('id', existing.id);
+          .eq('id', existingOverride.id);
           
-        if (error) throw error;
+        if (error) {
+           console.error('[Update Shift] Error updating shift override:', error);
+           throw error;
+        }
         result.action = 'updated';
+        console.log(`[Update Shift] Successfully updated override for ${date}`);
       } else {
         // Create new override
         const { error } = await supabase
@@ -613,96 +549,12 @@ export function useSchedule({
             source: 'schedule_page'
           });
           
-        if (error) throw error;
+        if (error) {
+           console.error('[Update Shift] Error creating shift override:', error);
+           throw error;
+        }
         result.action = 'created';
-      }
-      
-      // If the shift type is "Leave", create or update a leave record
-      if (shiftType === 'Leave') {
-        try {
-          // Check if there's an existing leave record for this date
-          const { data: existingLeave, error: leaveError } = await supabase
-            .from('leaves')
-            .select('id')
-            .eq('employee_id', authUser)
-            .lte('start_date', date)
-            .gte('end_date', date)
-            .eq('leave_type', 'Annual') // Assuming this is for annual leave
-            .maybeSingle();
-            
-          if (leaveError) {
-            console.error('Error checking for existing leave:', leaveError);
-          } else if (!existingLeave) {
-            // No existing leave record covering this date, create a new one-day leave
-            const { error: insertError } = await supabase
-              .from('leaves')
-              .insert({
-                employee_id: authUser,
-                start_date: date,
-                end_date: date,
-                days_taken: 1, // Single day
-                leave_type: 'Annual',
-                reason: notes || 'Created from schedule page',
-                status: 'Approved', // Auto-approve leaves created from schedule
-                year: new Date(date).getFullYear()
-              });
-              
-            if (insertError) {
-              console.error('Error creating leave record:', insertError);
-            } else {
-              console.log(`Created leave record for ${date}`);
-              // Invalidate leave-related queries
-              queryClient.invalidateQueries({ queryKey: ['leaves'] });
-            }
-          }
-        } catch (leaveError) {
-          console.error('Exception when handling leave record:', leaveError);
-          // Don't fail the whole operation if leave record creation fails
-        }
-      }
-      
-      // If shift type is "InLieu", create an in-lieu record
-      if (shiftType === 'InLieu') {
-        try {
-          // Check if there's an existing in-lieu record for this date
-          const { data: existingInLieu, error: inLieuError } = await supabase
-            .from('in_lieu_records')
-            .select('id')
-            .eq('employee_id', authUser)
-            .lte('start_date', date)
-            .gte('end_date', date)
-            .maybeSingle();
-            
-          if (inLieuError) {
-            console.error('Error checking for existing in-lieu record:', inLieuError);
-          } else if (!existingInLieu) {
-            // Calculate leave days added (2/3 day credit per day worked in lieu)
-            const leaveAdded = 0.667; // Standard rate for 1 day
-            
-            // Create a new in-lieu record
-            const { error: insertError } = await supabase
-              .from('in_lieu_records')
-              .insert({
-                employee_id: authUser,
-                start_date: date,
-                end_date: date,
-                days_count: 1, // Single day
-                leave_days_added: leaveAdded
-              });
-              
-            if (insertError) {
-              console.error('Error creating in-lieu record:', insertError);
-            } else {
-              console.log(`Created in-lieu record for ${date}`);
-              // Invalidate leave-related queries
-              queryClient.invalidateQueries({ queryKey: ['in-lieu'] });
-              queryClient.invalidateQueries({ queryKey: ['leaveBalance'] });
-            }
-          }
-        } catch (inLieuError) {
-          console.error('Exception when handling in-lieu record:', inLieuError);
-          // Don't fail the whole operation if in-lieu record creation fails
-        }
+        console.log(`[Update Shift] Successfully created override for ${date}`);
       }
       
       return result;
@@ -859,6 +711,87 @@ export function useSchedule({
     }
     
     updateScheduleTypeMutation.mutate(type);
+  };
+  
+  // Helper function to recalculate salary overtime for a given month
+  const recalculateSalaryOvertime = async (date: string, employeeId: string) => {
+    const monthStart = new Date(date);
+    monthStart.setDate(1);
+    const monthKey = monthStart.toISOString().substring(0, 7) + '-01';
+    
+    console.log(`[Recalc Salary] Recalculating overtime for ${monthKey}`);
+
+    try {
+      // Get all overtime entries for the month
+      const { data: overtimeEntries, error: overtimeError } = await supabase
+        .from('overtime')
+        .select('hours')
+        .eq('employee_id', employeeId)
+        .gte('date', monthKey)
+        .lt('date', new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 1).toISOString().substring(0, 10));
+        
+      if (overtimeError) {
+        throw new Error(`[Recalc Salary] Error fetching overtime entries: ${overtimeError.message}`);
+      }
+
+      // Calculate total overtime hours
+      const totalOvertimeHours = overtimeEntries?.reduce((total, entry) => total + (entry.hours || 0), 0) || 0;
+      console.log(`[Recalc Salary] Total overtime hours for ${monthKey}: ${totalOvertimeHours}`);
+
+      // Get current salary record to calculate pay AND check existence
+      const { data: currentSalary, error: fetchError } = await supabase
+        .from('salaries')
+        .select('id, basic_salary, cost_of_living') // Select id to check existence
+        .eq('employee_id', employeeId)
+        .eq('month', monthKey)
+        .maybeSingle();
+
+      if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116 = No row found
+        throw new Error(`[Recalc Salary] Error fetching salary record: ${fetchError.message}`);
+      }
+
+      // If no salary record exists for this month, we can't update it.
+      if (!currentSalary) {
+        console.log(`[Recalc Salary] No existing salary record found for ${monthKey}. Skipping update.`);
+        // Optionally, notify user or handle differently if needed.
+        return; 
+      }
+
+      // Calculate overtime pay using the fetched salary data
+      const basicSalary = currentSalary.basic_salary || 0;
+      const costOfLiving = currentSalary.cost_of_living || 0;
+      const hourlyRate = (basicSalary + costOfLiving) / 210;
+      const overtimePay = hourlyRate * totalOvertimeHours;
+
+      console.log(`[Recalc Salary] Calculated overtime pay for ${monthKey}: ${overtimePay}`);
+
+      // *Update* the existing salary record with recalculated values (DO NOT UPSERT)
+      const { error: updateError } = await supabase
+        .from('salaries')
+        .update({ // Use update instead of upsert
+          overtime_hours: totalOvertimeHours,
+          overtime_pay: overtimePay
+        })
+        .eq('employee_id', employeeId) // Match existing record
+        .eq('month', monthKey);
+
+      if (updateError) {
+        throw new Error(`[Recalc Salary] Failed to update salary overtime: ${updateError.message}`);
+      } else {
+        console.log(`[Recalc Salary] Salary overtime updated successfully for ${monthKey}: ${totalOvertimeHours} hours, ${overtimePay} pay`);
+        // Force refresh of related queries to update UI
+        queryClient.invalidateQueries({ queryKey: ['salaries'] });
+        queryClient.invalidateQueries({ queryKey: ['overtime'] });
+        // Delay refetch slightly to allow DB changes to propagate
+        setTimeout(() => {
+           queryClient.refetchQueries({ queryKey: ['salaries'] });
+           queryClient.refetchQueries({ queryKey: ['overtime'] });
+        }, 100);
+      }
+    } catch (error) {
+      console.error('[Recalc Salary] Error recalculating salary overtime:', error);
+      toast.error(`Error updating salary: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   };
   
   // Return all needed data and functions
