@@ -313,19 +313,19 @@ export default function Salary() {
           basicSalary: existingRecord.basic_salary,
           costOfLiving: existingRecord.cost_of_living,
           shiftAllowance: existingRecord.shift_allowance,
-          otherEarnings: existingRecord.other_earnings || 0,
-          overtimeHours: scheduleHours + manualHours, // Total overtime is sum of both
-          manualOvertimeHours: manualHours,
+          otherEarnings: existingRecord.other_earnings || 0, // Added other earnings with fallback
+          overtimeHours: existingRecord.overtime_hours,
+          manualOvertimeHours: 0,
+          dayOvertimeHours: existingRecord.day_overtime_hours || 0,
+          nightOvertimeHours: existingRecord.night_overtime_hours || 0,
+          holidayOvertimeHours: existingRecord.holiday_overtime_hours || 0,
+          effectiveOvertimeHours: existingRecord.effective_overtime_hours || existingRecord.overtime_hours || 0,
           overtimePay: existingRecord.overtime_pay,
           variablePay: existingRecord.variable_pay || 0,
           deduction: existingRecord.deduction,
           totalSalary: existingRecord.total_salary,
-          exchangeRate: exchangeRate, // Use current exchange rate from state
-          rateRatio: exchangeRate / 30.8,
-          dayOvertimeHours: existingRecord.day_overtime_hours || 0,
-          nightOvertimeHours: existingRecord.night_overtime_hours || 0,
-          holidayOvertimeHours: existingRecord.holiday_overtime_hours || 0,
-          effectiveOvertimeHours: existingRecord.effective_overtime_hours || 0
+          exchangeRate: existingRecord.exchange_rate || 31.50,
+          rateRatio: existingRecord.exchange_rate ? existingRecord.exchange_rate / 30.8 : 0, // Calculate rate ratio
         });
         toast.success(`Loaded salary record for ${new Date(existingRecord.month).toLocaleDateString('en-US', {month: 'long', year: 'numeric'})}`);
       }
@@ -413,6 +413,7 @@ export default function Salary() {
     if (user) {
       fetchOvertimeHours();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // This separate useEffect ensures localStorage values are applied AFTER 
@@ -476,7 +477,19 @@ export default function Salary() {
 
   const saveSalary = async () => {
     if (!employee || !exchangeRate) {
-      alert('Missing employee information or exchange rate');
+      toast.error('Missing employee information or exchange rate');
+      return;
+    }
+    
+    // Validate basic salary
+    if (typeof salaryCalc.basicSalary !== 'number' || salaryCalc.basicSalary <= 0) {
+      toast.error('Basic salary must be greater than zero');
+      return;
+    }
+    
+    // Validate month format
+    if (!month || !/^\d{4}-\d{2}$/.test(month)) {
+      toast.error('Invalid month format. Must be YYYY-MM');
       return;
     }
     
@@ -490,6 +503,22 @@ export default function Salary() {
         throw new Error('Authentication error. Please sign in again.');
       }
       
+      // Check if the employee still exists and can be accessed
+      const { data: employeeCheck, error: employeeError } = await supabase
+        .from('employees')
+        .select('id')
+        .eq('id', employee.id)
+        .single();
+        
+      if (employeeError || !employeeCheck) {
+        throw new Error('Employee information could not be verified');
+      }
+      
+      // Check if the exchange rate is valid
+      if (exchangeRate <= 0 || exchangeRate > 100) {
+        throw new Error('Exchange rate seems invalid. Please update the rate');
+      }
+      
       console.log('Saving salary for month:', month);
       
       const salaryData = {
@@ -498,13 +527,26 @@ export default function Salary() {
         basic_salary: salaryCalc.basicSalary || 0,
         cost_of_living: salaryCalc.costOfLiving || 0,
         shift_allowance: salaryCalc.shiftAllowance || 0,
+        other_earnings: salaryCalc.otherEarnings || 0,
         overtime_hours: (scheduleOvertimeHours || 0) + (manualOvertimeHours || 0),
+        day_overtime_hours: salaryCalc.dayOvertimeHours || 0,
+        night_overtime_hours: salaryCalc.nightOvertimeHours || 0,
+        holiday_overtime_hours: salaryCalc.holidayOvertimeHours || 0,
+        effective_overtime_hours: salaryCalc.effectiveOvertimeHours || salaryCalc.overtimeHours || 0,
         overtime_pay: salaryCalc.overtimePay || 0,
         variable_pay: salaryCalc.variablePay || 0,
         deduction: salaryCalc.deduction || 0,
         total_salary: salaryCalc.totalSalary || 0,
-        exchange_rate: exchangeRate
+        exchange_rate: exchangeRate,
+        manual_overtime_hours: manualOvertimeHours || 0
       };
+      
+      // Verify no NaN or invalid values in the data
+      for (const [key, value] of Object.entries(salaryData)) {
+        if (typeof value === 'number' && (isNaN(value) || !isFinite(value))) {
+          throw new Error(`Invalid value for ${key}. Please check your inputs.`);
+        }
+      }
       
       console.log('Saving salary record:', salaryData);
       
@@ -520,28 +562,65 @@ export default function Salary() {
         throw new Error(`Error checking for existing records: ${existingError.message}`);
       }
       
-      // Upsert the record
-      const { data, error } = await supabase
-        .from('salaries')
-        .upsert(salaryData, {
-          onConflict: 'employee_id,month',
-          ignoreDuplicates: false
-        })
-        .select();
+      // Try saving with a retry mechanism
+      let retryCount = 0;
+      let saveSuccessful = false;
+      let lastError = null;
       
-      if (error) throw error;
+      while (retryCount < 3 && !saveSuccessful) {
+        try {
+          // Upsert the record
+          const { data, error } = await supabase
+            .from('salaries')
+            .upsert(salaryData, {
+              onConflict: 'employee_id,month',
+              ignoreDuplicates: false
+            })
+            .select();
+            
+          if (error) throw error;
+          
+          saveSuccessful = true;
+          
+          // Force a schema cache refresh
+          await supabase.rpc('refresh_schema_cache');
+          
+          toast.success(existingData?.length ? 'Salary updated successfully!' : 'Salary saved successfully!');
+          
+          // Refresh salary history
+          await fetchSalaryHistory();
+        } catch (error) {
+          lastError = error;
+          retryCount++;
+          
+          if (retryCount < 3) {
+            console.warn(`Retry attempt ${retryCount} after save failure`);
+            // Wait briefly before retry
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
+        }
+      }
       
-      // Force a schema cache refresh
-      await supabase.rpc('refresh_schema_cache');
-      
-      toast.success('Salary saved successfully!');
-      
-      // Refresh salary history
-      await fetchSalaryHistory();
+      if (!saveSuccessful && lastError) {
+        throw lastError;
+      }
       
     } catch (error: any) {
       console.error('Error saving salary:', error);
-      toast.error(`Error saving salary: ${error.message}`);
+      let errorMessage = 'Error saving salary';
+      
+      // More informative error messages
+      if (error.code === '23505') {
+        errorMessage = 'A record for this month already exists';
+      } else if (error.code === '23503') {
+        errorMessage = 'Referenced employee does not exist';
+      } else if (error.code === '42P01') {
+        errorMessage = 'Database table not found. Please contact support';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      toast.error(errorMessage);
     } finally {
       setCalculationLoading(false);
     }
@@ -597,6 +676,10 @@ export default function Salary() {
             otherEarnings: existingRecord.other_earnings || 0, // Added other earnings with fallback
             overtimeHours: existingRecord.overtime_hours,
             manualOvertimeHours: 0,
+            dayOvertimeHours: existingRecord.day_overtime_hours || 0,
+            nightOvertimeHours: existingRecord.night_overtime_hours || 0,
+            holidayOvertimeHours: existingRecord.holiday_overtime_hours || 0,
+            effectiveOvertimeHours: existingRecord.effective_overtime_hours || existingRecord.overtime_hours || 0,
             overtimePay: existingRecord.overtime_pay,
             variablePay: existingRecord.variable_pay || 0,
             deduction: existingRecord.deduction,
@@ -792,6 +875,10 @@ export default function Salary() {
           otherEarnings: calcData.other_earnings || 0, // Added other earnings with fallback
           overtimeHours: calcData.overtime_hours,
           manualOvertimeHours: calcData.manual_overtime_hours,
+          dayOvertimeHours: calcData.day_overtime_hours || 0,
+          nightOvertimeHours: calcData.night_overtime_hours || 0,
+          holidayOvertimeHours: calcData.holiday_overtime_hours || 0,
+          effectiveOvertimeHours: calcData.effective_overtime_hours || calcData.overtime_hours || 0,
           overtimePay: calcData.overtime_pay,
           variablePay: calcData.variable_pay || 0,
           deduction: calcData.deduction,
@@ -819,6 +906,10 @@ export default function Salary() {
             otherEarnings: salaryData.other_earnings || 0, // Added other earnings with fallback
             overtimeHours: salaryData.overtime_hours,
             manualOvertimeHours: 0,
+            dayOvertimeHours: salaryData.day_overtime_hours || 0,
+            nightOvertimeHours: salaryData.night_overtime_hours || 0,
+            holidayOvertimeHours: salaryData.holiday_overtime_hours || 0,
+            effectiveOvertimeHours: salaryData.effective_overtime_hours || salaryData.overtime_hours || 0,
             overtimePay: salaryData.overtime_pay,
             variablePay: salaryData.variable_pay || 0,
             deduction: salaryData.deduction,
@@ -866,52 +957,143 @@ export default function Salary() {
     fetchLastUpdate();
   }, []);
 
-  const downloadPDF = async (salary: any) => {
-    try {
-      // Use the utility function to convert employee to simplified format
-      const simplifiedEmployee = toSimplifiedEmployee(employee);
-      
-      const MyDocument = () => (
-        <Document>
-          <SalaryPDF 
-            salary={{
-              basicSalary: salary?.basic_salary || 0,
-              costOfLiving: salary?.cost_of_living || 0,
-              shiftAllowance: salary?.shift_allowance || 0,
-              otherEarnings: salary?.other_earnings || 0, // Added other earnings
-              overtimeHours: salary?.overtime_hours || 0,
-              overtimePay: salary?.overtime_pay || 0,
-              variablePay: salary?.variable_pay || 0,
-              deduction: salary?.deduction || 0,
-              totalSalary: salary?.total_salary || 0,
-              exchangeRate: salary?.exchange_rate || exchangeRate,
-              manualOvertimeHours: salary?.overtime_hours || 0,
-              rateRatio: (salary?.exchange_rate || exchangeRate) / 30.8 // Added rate ratio
-            }}
-            employee={simplifiedEmployee}
-            month={salary.month}
-            exchangeRate={salary.exchange_rate || exchangeRate}
-          />
-        </Document>
-      );
+  // Memoize the PDF document to prevent unnecessary re-renders
+  const createPdfDocument = React.useCallback((salary: any, emp: typeof employee) => {
+    if (!emp) return null;
+    
+    return (
+      <Document>
+        <SalaryPDF 
+          salary={{
+            basicSalary: salary?.basic_salary || 0,
+            costOfLiving: salary?.cost_of_living || 0,
+            shiftAllowance: salary?.shift_allowance || 0,
+            otherEarnings: salary?.other_earnings || 0,
+            overtimeHours: salary?.overtime_hours || 0,
+            overtimePay: salary?.overtime_pay || 0,
+            variablePay: salary?.variable_pay || 0,
+            deduction: salary?.deduction || 0,
+            totalSalary: salary?.total_salary || 0,
+            exchangeRate: salary?.exchange_rate || exchangeRate,
+            manualOvertimeHours: salary?.overtime_hours || 0,
+            dayOvertimeHours: salary?.day_overtime_hours || 0,
+            nightOvertimeHours: salary?.night_overtime_hours || 0,
+            holidayOvertimeHours: salary?.holiday_overtime_hours || 0,
+            effectiveOvertimeHours: salary?.effective_overtime_hours || salary?.overtime_hours || 0,
+            rateRatio: (salary?.exchange_rate || exchangeRate) / 30.8
+          }}
+          employee={emp}
+          month={salary.month}
+          exchangeRate={salary.exchange_rate || exchangeRate}
+        />
+      </Document>
+    );
+  }, [exchangeRate]);
+  
+  // Keep track of generated PDFs to avoid regenerating the same document
+  const [pdfCache, setPdfCache] = useState<{[key: string]: Blob}>({});
+  const [pdfGenerating, setPdfGenerating] = useState(false);
 
+  const downloadPDF = async (salary: any) => {
+    if (pdfGenerating) {
+      toast.error('PDF generation already in progress');
+      return;
+    }
+    
+    try {
+      setPdfGenerating(true);
+      
+      // Don't proceed if employee is null
+      if (!employee) {
+        throw new Error('Employee data not available');
+      }
+      
+      // Create a cache key based on the salary data
+      const cacheKey = `${employee.id}_${salary.month}_${salary.total_salary}`;
+      
+      // Check if we have a cached version
+      if (pdfCache[cacheKey]) {
+        console.log('Using cached PDF');
+        
+        // Create download link from cached blob
+        const url = URL.createObjectURL(pdfCache[cacheKey]);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${employee.name}_salary_${new Date(salary.month).toISOString().substring(0, 7)}.pdf`;
+        link.click();
+        
+        // Clean up
+        setTimeout(() => URL.revokeObjectURL(url), 100);
+        return;
+      }
+      
+      // Show loading notification
+      const loadingToast = toast.loading('Generating PDF...');
+      
+      // Create the document
+      const MyDocument = createPdfDocument(salary, employee);
+      
+      if (!MyDocument) {
+        throw new Error('Could not create PDF document');
+      }
+
+      // Generate PDF with timeout to avoid hanging browser
+      const pdfPromise = new Promise<Blob>((resolve, reject) => {
+        const timeoutId = setTimeout(() => {
+          reject(new Error('PDF generation timed out'));
+        }, 10000); // 10 second timeout
+        
+        pdf(MyDocument).toBlob()
+          .then(blob => {
+            clearTimeout(timeoutId);
+            resolve(blob);
+          })
+          .catch(error => {
+            clearTimeout(timeoutId);
+            reject(error);
+          });
+      });
+      
       // Generate PDF
-      const pdfBlob = await pdf(<MyDocument />).toBlob();
+      const pdfBlob = await pdfPromise;
+      
+      // Cache the blob for future use
+      setPdfCache(prev => ({
+        ...prev,
+        [cacheKey]: pdfBlob
+      }));
+      
+      // Clear loading toast
+      toast.dismiss(loadingToast);
+      toast.success('PDF generated successfully');
       
       // Create download link
       const url = URL.createObjectURL(pdfBlob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `${employee?.name}_salary_${new Date(salary.month).toISOString().substring(0, 7)}.pdf`;
+      link.download = `${employee.name}_salary_${new Date(salary.month).toISOString().substring(0, 7)}.pdf`;
       
       // Trigger download
       link.click();
       
       // Clean up
-      setTimeout(() => URL.revokeObjectURL(url), 100);
+      setTimeout(() => {
+        URL.revokeObjectURL(url);
+        // Limit cache size to avoid memory issues
+        if (Object.keys(pdfCache).length > 10) {
+          // Keep only the 5 most recent PDFs
+          const cacheKeys = Object.keys(pdfCache);
+          const keysToRemove = cacheKeys.slice(0, cacheKeys.length - 5);
+          const newCache = { ...pdfCache };
+          keysToRemove.forEach(key => delete newCache[key]);
+          setPdfCache(newCache);
+        }
+      }, 100);
     } catch (error) {
       console.error('PDF generation error:', error);
       toast.error(`Error generating PDF: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setPdfGenerating(false);
     }
   };
 
@@ -1002,58 +1184,97 @@ export default function Salary() {
         rateRatio: currentRateRatio
       };
     });
-  }, [exchangeRate]);
+  }, [exchangeRate, manualOvertimeHours]);
 
   // Calculate salary using the new formula: [(X+Y+Z+E+O)*(Rate/30.8)]-F
   const calculateSalary = async () => {
     setCalculationLoading(true);
     
-    // Extract values from state - all in EGP
-    const basicSalary = salaryCalc.basicSalary || 0;
-    const costOfLiving = salaryCalc.costOfLiving || 0;
-    const shiftAllowance = salaryCalc.shiftAllowance || 0;
-    const otherEarnings = salaryCalc.otherEarnings || 0; // Added other earnings
-    const overtimeHours = salaryCalc.overtimeHours || 0;
-    const deduction = salaryCalc.deduction || 0;
-    
-    // Calculate overtime pay using formula: ((Basic Salary + Cost of living)/210) * overtime total hrs
-    const overtimePay = calculateOvertimePay(basicSalary, costOfLiving, overtimeHours);
-    
-    // Calculate the rate ratio (Exchange Rate/30.8)
-    const currentRateRatio = exchangeRate / 30.8;
-    
-    // Calculate total salary using the new formula: [(X+Y+Z+E+O)*(Rate/30.8)]-F
-    
-    // Calculate total salary using the correct formula: [(X+Y+Z+E+O)*(Rate/30.8)]-F
-    const totalSalary = calculateTotalSalary(
-      basicSalary,
-      costOfLiving,
-      shiftAllowance,
-      otherEarnings,
-      overtimePay,
-      exchangeRate,
-      deduction
-    );
-    
-    const newCalc = {
-      ...salaryCalc,
-      otherEarnings,
-      overtimePay,
-      variablePay: 0, // No longer used in new formula
-      totalSalary,
-      exchangeRate,
-      rateRatio: currentRateRatio,
-    };
-    
-    setSalaryCalc(newCalc);
-    setRateRatio(currentRateRatio);
-    
-    // Save inputs to localStorage whenever calculation happens
-    if (employee?.id) {
-      saveInputsToLocalStorage(newCalc, employee.id);
+    try {
+      // Input validation
+      if (!employee) {
+        throw new Error('Employee information is missing');
+      }
+      
+      // Validate required inputs
+      if (typeof salaryCalc.basicSalary !== 'number' || salaryCalc.basicSalary <= 0) {
+        throw new Error('Basic salary must be greater than zero');
+      }
+
+      if (typeof exchangeRate !== 'number' || exchangeRate <= 0) {
+        throw new Error('Exchange rate must be greater than zero');
+      }
+      
+      // Extract values from state - all in EGP
+      const basicSalary = salaryCalc.basicSalary || 0;
+      const costOfLiving = salaryCalc.costOfLiving || 0;
+      const shiftAllowance = salaryCalc.shiftAllowance || 0;
+      const otherEarnings = salaryCalc.otherEarnings || 0; // Added other earnings
+      const overtimeHours = salaryCalc.overtimeHours || 0;
+      const deduction = salaryCalc.deduction || 0;
+      
+      // Check for suspicious values (data sanitization)
+      if (basicSalary > 1000000) {
+        throw new Error('Basic salary value seems too high');
+      }
+      
+      if (deduction < 0) {
+        throw new Error('Deductions cannot be negative');
+      }
+      
+      // Calculate overtime pay using formula: ((Basic Salary + Cost of living)/210) * overtime total hrs
+      const overtimePay = calculateOvertimePay(basicSalary, costOfLiving, overtimeHours);
+      
+      // Calculate the rate ratio (Exchange Rate/30.8)
+      const currentRateRatio = exchangeRate / 30.8;
+      
+      // Calculate total salary using the correct formula: [(X+Y+Z+E+O)*(Rate/30.8)]-F
+      const totalSalary = calculateTotalSalary(
+        basicSalary,
+        costOfLiving,
+        shiftAllowance,
+        otherEarnings,
+        overtimePay,
+        exchangeRate,
+        deduction
+      );
+      
+      // Verify the calculated result is valid
+      if (isNaN(totalSalary) || !isFinite(totalSalary)) {
+        throw new Error('Calculation resulted in an invalid value. Please check your inputs.');
+      }
+      
+      const newCalc = {
+        ...salaryCalc,
+        otherEarnings,
+        overtimePay,
+        variablePay: 0, // No longer used in new formula
+        totalSalary,
+        exchangeRate,
+        rateRatio: currentRateRatio,
+      };
+      
+      setSalaryCalc(newCalc);
+      setRateRatio(currentRateRatio);
+      
+      // Save inputs to localStorage whenever calculation happens
+      if (employee?.id) {
+        saveInputsToLocalStorage(newCalc, employee.id);
+      }
+      
+      toast.success('Salary calculated successfully!');
+    } catch (error) {
+      console.error('Salary calculation error:', error);
+      
+      // Show user-friendly error message
+      if (error instanceof Error) {
+        toast.error(`Calculation error: ${error.message}`);
+      } else {
+        toast.error('An unknown error occurred during calculation');
+      }
+    } finally {
+      setCalculationLoading(false);
     }
-    
-    setCalculationLoading(false);
   };
 
   // Update the clear function to handle React events
@@ -1108,7 +1329,15 @@ export default function Salary() {
         rateRatio: rate.rate
       };
 
-      const totalSalary = calculateTotalSalary(salaryData);
+      const totalSalary = calculateTotalSalary(
+        salaryData.basicSalary,
+        salaryData.costOfLiving,
+        salaryData.shiftAllowance,
+        salaryData.otherEarnings,
+        calculateOvertimePay(salaryData.basicSalary, salaryData.costOfLiving, salaryData.effectiveOvertimeHours || salaryData.overtimeHours),
+        rate.rate,
+        salaryData.deduction
+      );
 
       return { month, totalSalary, rate: rate.rate };
     });

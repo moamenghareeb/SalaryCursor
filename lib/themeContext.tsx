@@ -108,7 +108,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     return () => {
       observer.disconnect();
     };
-  }, []);
+  }, [isDarkMode]);
 
   useEffect(() => {
     const html = document.documentElement;
