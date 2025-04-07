@@ -15,10 +15,12 @@ import { getUserFriendlyErrorMessage } from '../lib/errorHandler';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
+import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persister';
 import { getPersistedOptions } from '../lib/queryPersistence';
 // PWA support
 import Head from 'next/head';
 import { useRouter } from 'next/router';
+import { registerServiceWorker } from '../public/serviceWorkerRegistration';
 
 // Simple error boundary component since react-error-boundary might not be installed
 interface ErrorBoundaryProps {
@@ -124,16 +126,8 @@ function MyApp({ Component, pageProps }: AppProps) {
 
   useEffect(() => {
     // Register Service Worker
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/service-worker.js')
-          .then((registration) => {
-            console.log('ServiceWorker registration successful');
-          })
-          .catch((err) => {
-            console.log('ServiceWorker registration failed: ', err);
-          });
-      });
+    if (typeof window !== 'undefined') {
+      registerServiceWorker();
     }
 
     // Handle network changes
