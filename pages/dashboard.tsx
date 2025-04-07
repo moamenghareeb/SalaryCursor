@@ -5,7 +5,7 @@ import { useRouter } from 'next/router';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Link from 'next/link';
 import { FiCalendar, FiDollarSign, FiArrowRight, FiPieChart, FiChevronLeft, FiChevronRight, FiDownload, FiClock } from 'react-icons/fi';
-import { pdf } from '@react-pdf/renderer';
+import { pdf, Font } from '@react-pdf/renderer';
 import YearlySalaryPDF from '../components/YearlySalaryPDF';
 import toast from 'react-hot-toast';
 import StatsPanel from '../components/dashboard/StatsPanel';
@@ -14,6 +14,17 @@ import { ShiftType } from '../lib/types/schedule';
 import { supabase } from '../lib/supabase';
 import { useTheme } from '../lib/themeContext';
 import { useQuery } from '@tanstack/react-query';
+
+// Register Roboto Font (assuming files are in public/fonts)
+// You MUST ensure these TTF files exist in public/fonts/
+Font.register({
+  family: 'Roboto',
+  fonts: [
+    { src: '/fonts/Roboto-Regular.ttf', fontWeight: 'normal' },
+    { src: '/fonts/Roboto-Bold.ttf', fontWeight: 'bold' },
+    // Add other weights/styles like Italic if needed
+  ]
+});
 
 // Import skeleton components
 import { 

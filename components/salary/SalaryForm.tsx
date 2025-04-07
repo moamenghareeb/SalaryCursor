@@ -298,6 +298,8 @@ export function SalaryForm({
             <div className="flex items-center">
               <input
                 type="number"
+                id="scheduleOvertimeHours"
+                name="scheduleOvertimeHours"
                 value={scheduleOvertimeHours}
                 className="w-full px-4 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
                 readOnly
@@ -310,6 +312,8 @@ export function SalaryForm({
             <div className="flex items-center">
               <input
                 type="number"
+                id="manualOvertimeHours"
+                name="manualOvertimeHours"
                 value={manualOvertimeHoursState}
                 onChange={(e) => handleManualOvertimeChange(Number(e.target.value))}
                 onBlur={() => handleBlur('manualOvertimeHours')}
@@ -327,6 +331,8 @@ export function SalaryForm({
             <div className="flex items-center">
               <input
                 type="number"
+                id="totalOvertimeHoursDisplay"
+                name="totalOvertimeHoursDisplay"
                 value={scheduleOvertimeHours + manualOvertimeHoursState}
                 className="w-full px-4 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
                 readOnly
