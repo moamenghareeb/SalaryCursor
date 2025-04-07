@@ -37,6 +37,7 @@ const ShiftEditModal: React.FC<ShiftEditModalProps> = ({
   // Form state
   const [selectedShift, setSelectedShift] = useState<ShiftType>('Off');
   const [notes, setNotes] = useState<string>('');
+  const [formProcessing, setFormProcessing] = useState(false);
   
   // Initialize form when day changes
   useEffect(() => {
@@ -48,7 +49,7 @@ const ShiftEditModal: React.FC<ShiftEditModalProps> = ({
   
   // Handle close
   const handleClose = () => {
-    if (!isLoading) {
+    if (!formProcessing && !isLoading) {
       onClose();
     }
   };
@@ -58,6 +59,8 @@ const ShiftEditModal: React.FC<ShiftEditModalProps> = ({
     e.preventDefault();
     
     if (day && !isLoading && user) {
+      setFormProcessing(true);
+      
       // Track whether we had a change to/from overtime
       const wasOvertime = day.personalShift.type === 'Overtime';
       const nowOvertime = selectedShift === 'Overtime';
@@ -81,6 +84,9 @@ const ShiftEditModal: React.FC<ShiftEditModalProps> = ({
             queryClient.invalidateQueries({ queryKey: ['overtime'] });
             queryClient.refetchQueries({ queryKey: ['salaries'] });
             queryClient.refetchQueries({ queryKey: ['overtime'] });
+            
+            // Clear form processing
+            setFormProcessing(false);
           });
       } 
       // If changing from Overtime to another shift type, update to remove overtime
@@ -94,39 +100,43 @@ const ShiftEditModal: React.FC<ShiftEditModalProps> = ({
           .delete()
           .eq('employee_id', user.id)
           .eq('date', day.date)
-          .then(async ({ error: deleteError }) => {
-            if (deleteError) {
-              console.error('Failed to delete overtime record:', deleteError);
+          .then(({ error }) => {
+            if (error) {
+              console.error('Failed to delete overtime record:', error);
               toast.error('Failed to update overtime. Please try again.');
-              return;
-            }
-            
-            console.log('Successfully deleted overtime record, recalculating salary...');
-            // After deleting, refetch to update overtime calculations
-            const monthStart = new Date(day.date);
-            monthStart.setDate(1);
-            
-            try {
+            } else {
+              console.log('Successfully deleted overtime record, recalculating salary...');
+              
+              // After deleting, refetch to update overtime calculations
+              const monthStart = new Date(day.date);
+              monthStart.setDate(1);
+              
               // Force recalculation of overtime totals in the salary
-              await updateUserOvertime(day.date, 0, user.id, true);
-              
-              // Invalidate and refetch salary and overtime data
-              queryClient.invalidateQueries({ queryKey: ['salaries'] });
-              queryClient.invalidateQueries({ queryKey: ['overtime'] });
-              
-              // Force immediate refetch to ensure UI updates correctly
-              await Promise.all([
-                queryClient.refetchQueries({ queryKey: ['salaries'] }),
-                queryClient.refetchQueries({ queryKey: ['overtime'] })
-              ]);
-              
-              console.log('Overtime data successfully updated');
-              toast.success('Schedule updated and overtime recalculated');
-            } catch (error) {
-              console.error('Error recalculating overtime:', error);
-              toast.error('Failed to recalculate overtime. Please refresh the page.');
+              updateUserOvertime(day.date, 0, user.id, true)
+                .then(() => {
+                  // Invalidate and refetch ALL queries
+                  queryClient.invalidateQueries();
+                  setTimeout(() => {
+                    queryClient.refetchQueries();
+                    
+                    // Done processing
+                    setFormProcessing(false);
+                    toast.success('Overtime removed successfully');
+                  }, 500);
+                })
+                .catch((error: Error) => {
+                  console.error('Error recalculating overtime:', error);
+                  setFormProcessing(false);
+                });
             }
+          })
+          .catch(err => {
+            console.error('Error removing overtime:', err);
+            setFormProcessing(false);
           });
+      } else {
+        // Other changes don't need special handling
+        setFormProcessing(false);
       }
     }
   };
@@ -214,7 +224,7 @@ const ShiftEditModal: React.FC<ShiftEditModalProps> = ({
               id="shift-type"
               value={selectedShift}
               onChange={(e) => setSelectedShift(e.target.value as ShiftType)}
-              disabled={isLoading}
+              disabled={isLoading || formProcessing}
               className="w-full px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 
                 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200
                 focus:outline-none focus:ring-2 focus:ring-gray-500"
@@ -234,21 +244,13 @@ const ShiftEditModal: React.FC<ShiftEditModalProps> = ({
               id="notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              disabled={isLoading}
+              disabled={isLoading || formProcessing}
               placeholder="Add any notes or reason for the override"
               className="w-full px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 
                 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200
                 focus:outline-none focus:ring-2 focus:ring-gray-500"
               rows={3}
             ></textarea>
-            <button
-              type="button"
-              onClick={() => setNotes('')}
-              disabled={isLoading}
-              className="px-4 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-red-600 hover:bg-red-700 text-white focus:outline-none focus:ring-2 focus:ring-red-500"
-            >
-              Clear Notes
-            </button>
           </div>
           
           {/* Holiday indicator */}
@@ -285,7 +287,7 @@ const ShiftEditModal: React.FC<ShiftEditModalProps> = ({
                 <button
                   type="button"
                   onClick={handleReset}
-                  disabled={isLoading}
+                  disabled={isLoading || formProcessing}
                   className="px-3 py-1 text-sm rounded-md text-red-600 hover:text-red-700
                     border border-red-200 hover:border-red-300
                     dark:text-red-400 dark:hover:text-red-300
@@ -296,27 +298,26 @@ const ShiftEditModal: React.FC<ShiftEditModalProps> = ({
                 </button>
               )}
             </div>
-            
             <div className="flex space-x-2">
               <button
                 type="button"
                 onClick={handleClose}
-                disabled={isLoading}
+                disabled={isLoading || formProcessing}
                 className="px-4 py-2 rounded-md border border-gray-300 dark:border-gray-600
                   bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300
-                  hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                  hover:bg-gray-50 dark:hover:bg-gray-700
+                  focus:outline-none focus:ring-2 focus:ring-gray-500"
               >
                 Cancel
               </button>
-              
               <button
                 type="submit"
-                disabled={isLoading}
+                disabled={isLoading || formProcessing}
                 className="px-4 py-2 rounded-md bg-blue-600 hover:bg-blue-700
                   text-white focus:outline-none focus:ring-2 focus:ring-blue-500
                   flex items-center space-x-1"
               >
-                {isLoading ? (
+                {isLoading || formProcessing ? (
                   <>
                     <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -325,7 +326,7 @@ const ShiftEditModal: React.FC<ShiftEditModalProps> = ({
                     <span>Saving...</span>
                   </>
                 ) : (
-                  <span>Save Changes</span>
+                  <span>Save</span>
                 )}
               </button>
             </div>
