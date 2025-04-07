@@ -5,6 +5,7 @@ import { Employee } from '../types';
 import { PDFDownloadLink, Document, Page, Text, View, StyleSheet, BlobProvider, PDFViewer, pdf } from '@react-pdf/renderer';
 import { Font } from '@react-pdf/renderer';
 import SalaryPDF from '../components/SalaryPDF';
+import { toSimplifiedEmployee } from '@/lib/utils/employeeUtils';
 import { User } from '@supabase/supabase-js';
 import Head from 'next/head';
 import { useTheme } from '../lib/themeContext';
@@ -17,10 +18,12 @@ import {
   BasicSalaryCalculation,
   defaultSalaryCalc,
   calculateOvertimePay,
-  calculateVariablePay,
   calculateTotalSalary,
+  calculateEffectiveOvertimeHours,
   testCalculation
 } from '@/lib/calculations/salary';
+import { getOvertimeSummary, OvertimeType } from '@/lib/services/overtimeService';
+import { getMonthlyExchangeRate, getCurrentMonthExchangeRate } from '@/lib/services/exchangeRates';
 import {
   saveInputsToLocalStorage,
   loadInputsFromLocalStorage,
@@ -58,14 +61,17 @@ const useDebounce = (func: (...args: any[]) => void, delay: number) => {
 
 export default function Salary() {
   const { isDarkMode } = useTheme();
-  const { user } = useAuth();
+  const auth = useAuth();
+  const user = auth.data?.user;
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [loading, setLoading] = useState(true);
   const [calculationLoading, setCalculationLoading] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [exchangeRate, setExchangeRate] = useState(31.50); // Default fallback
+  const [rateRatio, setRateRatio] = useState(0); // Rate/30.8 ratio
   const [rateLastUpdated, setRateLastUpdated] = useState('');
-  
+  const [lastRateUpdate, setLastRateUpdate] = useState<string>('');
+
   // Date selection state
   const currentDate = new Date();
   const currentYear = currentDate.getFullYear();
@@ -80,12 +86,34 @@ export default function Salary() {
   const [authError, setAuthError] = useState<string | null>(null);
   const [pdfModalOpen, setPdfModalOpen] = useState(false);
   const [calculationResults, setCalculationResults] = useState<BasicSalaryCalculation | null>(null);
+  const [showSalarySummary, setShowSalarySummary] = useState(false);
 
   const [salaryCalc, setSalaryCalc] = useState<BasicSalaryCalculation>(defaultSalaryCalc);
 
   // Add state for overtime data
   const [scheduleOvertimeHours, setScheduleOvertimeHours] = useState(0);
   const [manualOvertimeHours, setManualOvertimeHours] = useState(0);
+  const [overtimeSummary, setOvertimeSummary] = useState<{ 
+    dayHours: number; 
+    nightHours: number; 
+    holidayHours: number; 
+    effectiveHours: number;
+    totalHours: number;
+  }>({ 
+    dayHours: 0, 
+    nightHours: 0, 
+    holidayHours: 0, 
+    effectiveHours: 0,
+    totalHours: 0
+  });
+
+  // Add state for storing monthly salary calculations
+  const [monthlyCalculations, setMonthlyCalculations] = useState<Array<{
+    month: string;
+    totalSalary?: number;
+    rate?: number;
+    error?: string;
+  }>>([]);
 
   // Create a debounced version of the save function with 1 second delay
   const debouncedSaveToLocalStorage = useDebounce((data: BasicSalaryCalculation) => {
@@ -183,26 +211,24 @@ export default function Salary() {
         const exchangeRate = prev.exchangeRate || 31.50;
         const deduction = prev.deduction || 0;
 
-        // Calculate overtime pay
+        // Calculate overtime pay using the formula: ((Basic Salary + Cost of living)/210) * overtime total hrs
         const hourlyRate = (basicSalary + costOfLiving) / 210;
         const overtimePay = hourlyRate * totalOvertimeHours;
 
-        // Calculate variable pay
-        const variablePay = calculateVariablePay(
-          basicSalary,
-          costOfLiving,
-          shiftAllowance,
-          overtimePay,
-          exchangeRate
-        );
+        // Calculate the rate ratio (Exchange Rate/30.8)
+        const currentRateRatio = exchangeRate / 30.8;
 
-        // Calculate total salary
+        // Get other earnings value (or default to 0)
+        const otherEarnings = prev.otherEarnings || 0;
+
+        // Calculate total salary using the new formula: [(X+Y+Z+E+O)*(Rate/30.8)]-F
         const totalSalary = calculateTotalSalary(
           basicSalary,
           costOfLiving,
           shiftAllowance,
+          otherEarnings,
           overtimePay,
-          variablePay,
+          exchangeRate,
           deduction
         );
 
@@ -210,8 +236,9 @@ export default function Salary() {
           ...prev,
           overtimeHours: totalOvertimeHours,
           overtimePay,
-          variablePay,
-          totalSalary
+          variablePay: 0, // No longer used in new formula
+          totalSalary,
+          rateRatio: currentRateRatio
         };
       });
 
@@ -220,15 +247,52 @@ export default function Salary() {
     }
   };
 
-  // Update the handleDateChange function to fetch overtime data
-  const handleDateChange = (year: number, month: number) => {
+  // Update the handleDateChange function to fetch overtime data and exchange rates
+  const handleDateChange = async (year: number, month: number) => {
     setSelectedYear(year);
     setSelectedMonth(month);
-    setMonth(`${year}-${String(month).padStart(2, '0')}`);
+    
+    // Format month string for database queries
+    const formattedMonth = `${year}-${String(month).padStart(2, '0')}`;
+    const fullDateStr = `${formattedMonth}-01`; // YYYY-MM-DD format required by database
+    setMonth(formattedMonth);
+    
+    try {
+      // Show loading indicator
+      setCalculationLoading(true);
+      
+      // Fetch the exchange rate for this specific month from the database
+      const { data: rateData, error: rateError } = await supabase
+        .from('monthly_exchange_rates')
+        .select('average_rate, updated_at')
+        .eq('month', fullDateStr)
+        .single();
+      
+      if (rateError && rateError.code !== 'PGRST116') { // PGRST116 = not found
+        console.error('Error fetching exchange rate:', rateError);
+        toast.error(`Failed to fetch exchange rate for ${formattedMonth}`);
+      } else if (rateData) {
+        // Update the exchange rate in the UI
+        const monthRate = rateData.average_rate;
+        setExchangeRate(monthRate);
+        setRateRatio(monthRate / 30.8);
+        setRateLastUpdated(new Date(rateData.updated_at).toLocaleString());
+        console.log(`Loaded exchange rate for ${formattedMonth}: ${monthRate.toFixed(4)}`);
+      } else {
+        // No rate found for this month, use default
+        console.warn(`No exchange rate found for ${formattedMonth}, using default rate`);
+        toast(`Using default exchange rate (31.50) for ${formattedMonth}`);
+        setExchangeRate(31.50);
+        setRateRatio(31.50 / 30.8);
+      }
+    } catch (err) {
+      console.error('Error in exchange rate fetch:', err);
+    } finally {
+      setCalculationLoading(false);
+    }
     
     // Look for existing salary record for this month/year
     if (salaryHistory && salaryHistory.length > 0) {
-      const formattedMonth = `${year}-${String(month).padStart(2, '0')}`;
       const existingRecord = salaryHistory.find(salary => {
         const salaryDate = new Date(salary.month);
         const salaryYear = salaryDate.getFullYear();
@@ -244,19 +308,26 @@ export default function Salary() {
         setScheduleOvertimeHours(scheduleHours);
         setManualOvertimeHours(manualHours);
         
+        // Use the newly fetched exchange rate instead of the record's rate
         setSalaryCalc({
           basicSalary: existingRecord.basic_salary,
           costOfLiving: existingRecord.cost_of_living,
           shiftAllowance: existingRecord.shift_allowance,
+          otherEarnings: existingRecord.other_earnings || 0,
           overtimeHours: scheduleHours + manualHours, // Total overtime is sum of both
           manualOvertimeHours: manualHours,
           overtimePay: existingRecord.overtime_pay,
-          variablePay: existingRecord.variable_pay,
+          variablePay: existingRecord.variable_pay || 0,
           deduction: existingRecord.deduction,
           totalSalary: existingRecord.total_salary,
-          exchangeRate: existingRecord.exchange_rate,
+          exchangeRate: exchangeRate, // Use current exchange rate from state
+          rateRatio: exchangeRate / 30.8,
+          dayOvertimeHours: existingRecord.day_overtime_hours || 0,
+          nightOvertimeHours: existingRecord.night_overtime_hours || 0,
+          holidayOvertimeHours: existingRecord.holiday_overtime_hours || 0,
+          effectiveOvertimeHours: existingRecord.effective_overtime_hours || 0
         });
-        toast.success(`Loaded existing salary record for ${new Date(existingRecord.month).toLocaleDateString('en-US', {month: 'long', year: 'numeric'})}`);
+        toast.success(`Loaded salary record for ${new Date(existingRecord.month).toLocaleDateString('en-US', {month: 'long', year: 'numeric'})}`);
       }
     }
 
@@ -274,8 +345,12 @@ export default function Salary() {
 
       // For manualOvertimeHours, we need to update the total overtime hours
       if (field === 'manualOvertimeHours') {
-        const totalOvertimeHours = (prev.overtimeHours || 0) + value;
-        updatedCalc.overtimeHours = totalOvertimeHours;
+        // Use the schedule hours (from shifts) + new manual hours value
+        // This prevents double-counting when manual hours are changed
+        const scheduleHours = scheduleOvertimeHours || 0;
+        updatedCalc.overtimeHours = scheduleHours + value;
+        updatedCalc.manualOvertimeHours = value; // Ensure manual hours are set correctly
+        // Update overtime hours based on schedule and manual inputs
       }
 
       // Recalculate total salary
@@ -285,34 +360,40 @@ export default function Salary() {
       const exchangeRate = updatedCalc.exchangeRate || 31.50;
       const deduction = updatedCalc.deduction || 0;
 
-      // Calculate overtime pay
+      // Calculate overtime pay using formula: ((Basic Salary + Cost of living)/210) * overtime total hrs
       const hourlyRate = (basicSalary + costOfLiving) / 210;
-      const overtimePay = hourlyRate * (updatedCalc.overtimeHours || 0);
+      const totalOvertimeHours = updatedCalc.overtimeHours || 0;
+      const overtimePay = hourlyRate * totalOvertimeHours;
+      
+      // Get other earnings value
+      const otherEarnings = updatedCalc.otherEarnings || 0;
+      const rateRatio = exchangeRate / 30.8;
+      
+      // Calculate the base amount to be multiplied by the rate ratio
+      const inputBaseAmount = basicSalary + costOfLiving + shiftAllowance + otherEarnings + overtimePay;
+      
 
-      // Calculate variable pay
-      const variablePay = calculateVariablePay(
-        basicSalary,
-        costOfLiving,
-        shiftAllowance,
-        overtimePay,
-        exchangeRate
-      );
 
-      // Calculate total salary
-      const totalSalary = calculateTotalSalary(
-        basicSalary,
-        costOfLiving,
-        shiftAllowance,
-        overtimePay,
-        variablePay,
-        deduction
-      );
+      // Calculate the rate ratio (Exchange Rate/30.8)
+      const currentRateRatio = exchangeRate / 30.8;
+
+      // Calculate total salary: [(Basic + COL + Shift + Other + Overtime) * (Rate/30.8)] - Deduction
+      const grossAmount = inputBaseAmount * currentRateRatio;
+      const totalSalary = grossAmount - deduction;
+      
+
 
       return {
         ...updatedCalc,
         overtimePay,
-        variablePay,
-        totalSalary
+        variablePay: 0, // No longer used in new formula
+        totalSalary,
+        rateRatio: currentRateRatio,
+        // Ensure all required fields from BasicSalaryCalculation interface are included
+        dayOvertimeHours: updatedCalc.dayOvertimeHours || 0,
+        nightOvertimeHours: updatedCalc.nightOvertimeHours || 0,
+        holidayOvertimeHours: updatedCalc.holidayOvertimeHours || 0,
+        effectiveOvertimeHours: updatedCalc.effectiveOvertimeHours || totalOvertimeHours // Default to total if not set
       };
     });
 
@@ -328,8 +409,11 @@ export default function Salary() {
   // Modified useEffects to guarantee localStorage priority
   useEffect(() => {
     fetchData();
-    fetchOvertimeHours();
-  }, [fetchData, fetchOvertimeHours, user]);
+    // Fetch overtime hours when component mounts
+    if (user) {
+      fetchOvertimeHours();
+    }
+  }, []);
 
   // This separate useEffect ensures localStorage values are applied AFTER 
   // the employee data has been set and database data has loaded
@@ -504,17 +588,21 @@ export default function Salary() {
         if (existingRecord) {
           console.log(`Auto-loading record for ${selectedYear}-${selectedMonth}`);
           // Auto-load the record for the selected month
+          const exchangeRate = existingRecord.exchange_rate || 31.50;
+          
           setSalaryCalc({
             basicSalary: existingRecord.basic_salary,
             costOfLiving: existingRecord.cost_of_living,
             shiftAllowance: existingRecord.shift_allowance,
+            otherEarnings: existingRecord.other_earnings || 0, // Added other earnings with fallback
             overtimeHours: existingRecord.overtime_hours,
             manualOvertimeHours: 0,
             overtimePay: existingRecord.overtime_pay,
-            variablePay: existingRecord.variable_pay,
+            variablePay: existingRecord.variable_pay || 0,
             deduction: existingRecord.deduction,
             totalSalary: existingRecord.total_salary,
-            exchangeRate: existingRecord.exchange_rate,
+            exchangeRate: exchangeRate,
+            rateRatio: exchangeRate / 30.8, // Calculate rate ratio
           });
         }
       }
@@ -695,17 +783,21 @@ export default function Salary() {
         .single();
 
       if (!calcError && calcData) {
+        const exchangeRate = calcData.exchange_rate || 31.50;
+        
         setSalaryCalc({
           basicSalary: calcData.basic_salary,
           costOfLiving: calcData.cost_of_living,
           shiftAllowance: calcData.shift_allowance,
+          otherEarnings: calcData.other_earnings || 0, // Added other earnings with fallback
           overtimeHours: calcData.overtime_hours,
           manualOvertimeHours: calcData.manual_overtime_hours,
           overtimePay: calcData.overtime_pay,
-          variablePay: calcData.variable_pay,
+          variablePay: calcData.variable_pay || 0,
           deduction: calcData.deduction,
           totalSalary: calcData.total_salary,
-          exchangeRate: calcData.exchange_rate,
+          exchangeRate: exchangeRate,
+          rateRatio: exchangeRate / 30.8, // Calculate rate ratio
         });
       } else {
         // If no calculation found, try to get from salaries table
@@ -718,17 +810,21 @@ export default function Salary() {
           .single();
 
         if (!salaryError && salaryData) {
+          const exchangeRate = salaryData.exchange_rate || 31.50;
+          
           setSalaryCalc({
             basicSalary: salaryData.basic_salary,
             costOfLiving: salaryData.cost_of_living,
             shiftAllowance: salaryData.shift_allowance,
+            otherEarnings: salaryData.other_earnings || 0, // Added other earnings with fallback
             overtimeHours: salaryData.overtime_hours,
             manualOvertimeHours: 0,
             overtimePay: salaryData.overtime_pay,
-            variablePay: salaryData.variable_pay,
+            variablePay: salaryData.variable_pay || 0,
             deduction: salaryData.deduction,
             totalSalary: salaryData.total_salary,
-            exchangeRate: salaryData.exchange_rate,
+            exchangeRate: exchangeRate,
+            rateRatio: exchangeRate / 30.8, // Calculate rate ratio
           });
         }
       }
@@ -755,8 +851,26 @@ export default function Salary() {
     }
   };
 
+  useEffect(() => {
+    const fetchLastUpdate = async () => {
+      const { data } = await supabase
+        .from('monthly_exchange_rates')
+        .select('updated_at')
+        .order('updated_at', { ascending: false })
+        .limit(1);
+      
+      if (data?.[0]?.updated_at) {
+        setLastRateUpdate(new Date(data[0].updated_at).toLocaleString());
+      }
+    };
+    fetchLastUpdate();
+  }, []);
+
   const downloadPDF = async (salary: any) => {
     try {
+      // Use the utility function to convert employee to simplified format
+      const simplifiedEmployee = toSimplifiedEmployee(employee);
+      
       const MyDocument = () => (
         <Document>
           <SalaryPDF 
@@ -764,15 +878,17 @@ export default function Salary() {
               basicSalary: salary?.basic_salary || 0,
               costOfLiving: salary?.cost_of_living || 0,
               shiftAllowance: salary?.shift_allowance || 0,
+              otherEarnings: salary?.other_earnings || 0, // Added other earnings
               overtimeHours: salary?.overtime_hours || 0,
               overtimePay: salary?.overtime_pay || 0,
               variablePay: salary?.variable_pay || 0,
               deduction: salary?.deduction || 0,
               totalSalary: salary?.total_salary || 0,
               exchangeRate: salary?.exchange_rate || exchangeRate,
-              manualOvertimeHours: salary?.overtime_hours || 0
+              manualOvertimeHours: salary?.overtime_hours || 0,
+              rateRatio: (salary?.exchange_rate || exchangeRate) / 30.8 // Added rate ratio
             }}
-            employee={employee as Employee}
+            employee={simplifiedEmployee}
             month={salary.month}
             exchangeRate={salary.exchange_rate || exchangeRate}
           />
@@ -807,9 +923,44 @@ export default function Salary() {
 
   // Add useEffect to watch for changes in manual overtime hours
   useEffect(() => {
-    if (manualOvertimeHours) {
-      calculateSalary();
-    }
+    setSalaryCalc(prev => {
+      const totalOvertimeHours = (prev.overtimeHours || 0) + manualOvertimeHours;
+      const basicSalary = prev.basicSalary || 0;
+      const costOfLiving = prev.costOfLiving || 0;
+      const shiftAllowance = prev.shiftAllowance || 0;
+      const exchangeRate = prev.exchangeRate || 31.50;
+      const deduction = prev.deduction || 0;
+
+      // Calculate overtime pay
+      const hourlyRate = (basicSalary + costOfLiving) / 210;
+      const overtimePay = hourlyRate * totalOvertimeHours;
+
+      // Calculate the rate ratio (Exchange Rate/30.8)
+      const currentRateRatio = exchangeRate / 30.8;
+      
+      // Get other earnings value (or default to 0)
+      const otherEarnings = prev.otherEarnings || 0;
+
+      // Calculate total salary using the new formula: [(X+Y+Z+E+O)*(Rate/30.8)]-F
+      const totalSalary = calculateTotalSalary(
+        basicSalary,
+        costOfLiving,
+        shiftAllowance,
+        otherEarnings,
+        overtimePay,
+        exchangeRate,
+        deduction
+      );
+
+      return {
+        ...prev,
+        overtimeHours: totalOvertimeHours,
+        overtimePay,
+        variablePay: 0, // No longer used in new formula
+        totalSalary,
+        rateRatio: currentRateRatio
+      };
+    });
   }, [manualOvertimeHours]);
 
   // Add useEffect to watch for changes in exchange rate
@@ -825,36 +976,35 @@ export default function Salary() {
       const hourlyRate = (basicSalary + costOfLiving) / 210;
       const overtimePay = hourlyRate * totalOvertimeHours;
 
-      // Calculate variable pay
-      const variablePay = calculateVariablePay(
-        basicSalary,
-        costOfLiving,
-        shiftAllowance,
-        overtimePay,
-        exchangeRate
-      );
+      // Calculate the rate ratio (Exchange Rate/30.8)
+      const currentRateRatio = exchangeRate / 30.8;
+      
+      // Get other earnings value (or default to 0)
+      const otherEarnings = prev.otherEarnings || 0;
 
-      // Calculate total salary
+      // Calculate total salary using the new formula: [(X+Y+Z+E+O)*(Rate/30.8)]-F
       const totalSalary = calculateTotalSalary(
         basicSalary,
         costOfLiving,
         shiftAllowance,
+        otherEarnings,
         overtimePay,
-        variablePay,
+        exchangeRate,
         deduction
       );
 
       return {
         ...prev,
         overtimePay,
-        variablePay,
+        variablePay: 0, // No longer used in new formula
         totalSalary,
-        exchangeRate
+        exchangeRate,
+        rateRatio: currentRateRatio
       };
     });
   }, [exchangeRate]);
 
-  // Add the calculate salary function
+  // Calculate salary using the new formula: [(X+Y+Z+E+O)*(Rate/30.8)]-F
   const calculateSalary = async () => {
     setCalculationLoading(true);
     
@@ -862,40 +1012,41 @@ export default function Salary() {
     const basicSalary = salaryCalc.basicSalary || 0;
     const costOfLiving = salaryCalc.costOfLiving || 0;
     const shiftAllowance = salaryCalc.shiftAllowance || 0;
+    const otherEarnings = salaryCalc.otherEarnings || 0; // Added other earnings
     const overtimeHours = salaryCalc.overtimeHours || 0;
     const deduction = salaryCalc.deduction || 0;
     
-    // Calculate overtime pay
+    // Calculate overtime pay using formula: ((Basic Salary + Cost of living)/210) * overtime total hrs
     const overtimePay = calculateOvertimePay(basicSalary, costOfLiving, overtimeHours);
     
-    // Calculate variable pay
-    const variablePay = calculateVariablePay(
-      basicSalary,
-      costOfLiving,
-      shiftAllowance,
-      overtimePay,
-      exchangeRate
-    );
+    // Calculate the rate ratio (Exchange Rate/30.8)
+    const currentRateRatio = exchangeRate / 30.8;
     
-    // Calculate total salary
+    // Calculate total salary using the new formula: [(X+Y+Z+E+O)*(Rate/30.8)]-F
+    
+    // Calculate total salary using the correct formula: [(X+Y+Z+E+O)*(Rate/30.8)]-F
     const totalSalary = calculateTotalSalary(
       basicSalary,
       costOfLiving,
       shiftAllowance,
+      otherEarnings,
       overtimePay,
-      variablePay,
+      exchangeRate,
       deduction
     );
     
     const newCalc = {
       ...salaryCalc,
+      otherEarnings,
       overtimePay,
-      variablePay,
+      variablePay: 0, // No longer used in new formula
       totalSalary,
       exchangeRate,
+      rateRatio: currentRateRatio,
     };
     
     setSalaryCalc(newCalc);
+    setRateRatio(currentRateRatio);
     
     // Save inputs to localStorage whenever calculation happens
     if (employee?.id) {
@@ -917,6 +1068,62 @@ export default function Salary() {
       }
     } else {
       alert('Cannot clear saved data: Employee information not available');
+    }
+  };
+
+  const fetchExchangeRatesForMonths = async (months: string[]) => {
+    const { data, error } = await supabase
+      .from('monthly_exchange_rates')
+      .select('*')
+      .in('month', months);
+
+    if (error) {
+      console.error('Error fetching exchange rates:', error);
+      return null;
+    }
+
+    return data;
+  };
+
+  const calculateSalariesForMonths = async (months: string[]) => {
+    const rates = await fetchExchangeRatesForMonths(months);
+    if (!rates) return null;
+
+    return months.map(month => {
+      const rate = rates.find(r => r.month === month);
+      if (!rate) return { month, error: 'Rate not found' };
+
+      // Get current salary values from state
+      const salaryData = {
+        basicSalary: salaryCalc.basicSalary || 0,
+        costOfLiving: salaryCalc.costOfLiving || 0,
+        shiftAllowance: salaryCalc.shiftAllowance || 0,
+        otherEarnings: salaryCalc.otherEarnings || 0,
+        deduction: salaryCalc.deduction || 0,
+        overtimeHours: salaryCalc.overtimeHours || 0,
+        dayOvertimeHours: 0, // Default values
+        nightOvertimeHours: 0,
+        holidayOvertimeHours: 0,
+        effectiveOvertimeHours: 0,
+        rateRatio: rate.rate
+      };
+
+      const totalSalary = calculateTotalSalary(salaryData);
+
+      return { month, totalSalary, rate: rate.rate };
+    });
+  };
+
+  const handleCalculateSpecificMonths = async () => {
+    const results = await calculateSalariesForMonths([
+      'january-2024', 
+      'april-2024', 
+      'december-2024', 
+      'march-2025', 
+      'april-2025'
+    ]);
+    if (results) {
+      setMonthlyCalculations(results);
     }
   };
 
@@ -954,7 +1161,7 @@ export default function Salary() {
           <div className="px-4 sm:px-6 py-5">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <SalaryForm
-                employee={employee}
+                employee={toSimplifiedEmployee(employee)}
                 salaryCalc={salaryCalc}
                 setSalaryCalc={setSalaryCalc}
                 scheduleOvertimeHours={scheduleOvertimeHours}
@@ -965,11 +1172,39 @@ export default function Salary() {
                 selectedYear={selectedYear}
                 onDateChange={handleDateChange}
                 onInputChange={handleInputChange}
-                onManualUpdateRate={manuallyUpdateRate}
                 exchangeRate={exchangeRate}
               />
               
-              <div className="flex justify-between items-center">
+              {/* Salary Summary Section with Toggle */}
+              <div className="mt-6 mb-2">
+                <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 pb-2 mb-4">
+                  <h3 className="text-base font-medium text-gray-700 dark:text-gray-300">Salary Breakdown</h3>
+                  <button 
+                    onClick={() => setShowSalarySummary(!showSalarySummary)}
+                    className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 focus:outline-none"
+                  >
+                    {showSalarySummary ? 'Hide Details' : 'Show Details'}
+                  </button>
+                </div>
+                
+                {showSalarySummary && (
+                  <SalarySummary 
+                    employee={employee ? { id: employee.id, name: employee.name } : undefined}
+                    salaryCalc={salaryCalc}
+                    scheduleOvertimeHours={scheduleOvertimeHours}
+                    manualOvertimeHours={manualOvertimeHours || 0}
+                    exchangeRate={exchangeRate}
+                    onDownloadPDF={() => downloadPDF({
+                      id: 'current',
+                      month: `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-01`,
+                      basic_salary: salaryCalc.basicSalary,
+                      total_salary: salaryCalc.totalSalary
+                    })}
+                  />
+                )}
+              </div>
+
+              <div className="flex justify-between items-center mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
                 <div className="text-lg font-semibold">
                   Total Salary: EGP {salaryCalc.totalSalary.toLocaleString()}
                 </div>
@@ -1069,6 +1304,9 @@ export default function Salary() {
               </div>
             </div>
           </div>
+        </div>
+        <div className="text-sm text-gray-500 mt-2">
+          Exchange rates last updated: {lastRateUpdate || 'Loading...'}
         </div>
       </div>
     </Layout>

@@ -1,21 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import { FiSave } from 'react-icons/fi';
+import { SimplifiedEmployee } from '@/lib/utils/employeeUtils';
 
 interface SalaryFormProps {
-  employee?: {
-    id: string;
-    name: string;
-  };
+  employee?: SimplifiedEmployee;
   salaryCalc: {
     basicSalary: number;
     costOfLiving: number;
     shiftAllowance: number;
+    otherEarnings: number; // Added other earnings
     overtimeHours: number;
     overtimePay: number;
     deduction: number;
+    rateRatio?: number; // Added exchange rate ratio
+    totalSalary?: number;
+    exchangeRate?: number;
+    variablePay?: number;
+    manualOvertimeHours?: number;
   };
+  setSalaryCalc?: React.Dispatch<React.SetStateAction<any>>;
   scheduleOvertimeHours?: number;
   manualOvertimeHours?: number;
+  setManualOvertimeHours?: React.Dispatch<React.SetStateAction<number>>;
+  setScheduleOvertimeHours?: React.Dispatch<React.SetStateAction<number>>;
   selectedMonth?: number;
   selectedYear?: number;
   onDateChange?: (year: number, month: number) => void;
@@ -33,7 +40,6 @@ export function SalaryForm({
   selectedYear = new Date().getFullYear(),
   onDateChange = () => {},
   onInputChange = () => {},
-  onManualUpdateRate = () => {},
   exchangeRate = 31.50
 }: SalaryFormProps) {
   const [formData, setFormData] = useState(salaryCalc);
@@ -104,10 +110,10 @@ export function SalaryForm({
         </div>
       </div>
 
-      <div className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Basic Salary (EGP)
+            Basic Salary (X) (EGP)
           </label>
           <input
             type="number"
@@ -120,7 +126,7 @@ export function SalaryForm({
 
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Cost of Living (EGP)
+            Cost of Living (Y) (EGP)
           </label>
           <input
             type="number"
@@ -133,13 +139,26 @@ export function SalaryForm({
 
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Shift Allowance (EGP)
+            Shift Allowance (Z) (EGP)
           </label>
           <input
             type="number"
             value={formData.shiftAllowance || ''}
             onChange={handleChange}
             name="shiftAllowance"
+            className="w-full px-4 py-2 rounded-md border border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 bg-white dark:bg-gray-800"
+          />
+        </div>
+        
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Other Earnings (E) (EGP)
+          </label>
+          <input
+            type="number"
+            value={formData.otherEarnings || ''}
+            onChange={handleChange}
+            name="otherEarnings"
             className="w-full px-4 py-2 rounded-md border border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 bg-white dark:bg-gray-800"
           />
         </div>
@@ -183,7 +202,7 @@ export function SalaryForm({
                 readOnly
               />
               <span className="ml-2 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                Total Overtime
+                Total Overtime (O)
               </span>
             </div>
           </div>
@@ -191,7 +210,7 @@ export function SalaryForm({
 
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Deductions (EGP)
+            Deductions (F) (EGP)
           </label>
           <input
             type="number"
@@ -203,9 +222,20 @@ export function SalaryForm({
         </div>
       </div>
 
-      <div className="flex justify-end">
-        <div className="text-sm text-gray-600 dark:text-gray-300">
-          {exchangeRate}
+
+
+      <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+        <div className="flex justify-between items-center">
+          <div>
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Exchange Rate (EGP/USD):</span>
+            <span className="ml-2 text-sm font-bold text-gray-900 dark:text-gray-100">{exchangeRate.toFixed(2)}</span>
+          </div>
+          <div>
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Rate/30.8 Ratio:</span>
+            <span className="ml-2 text-sm font-bold text-blue-600 dark:text-blue-400">
+              {(salaryCalc.rateRatio || (exchangeRate / 30.8)).toFixed(4)}
+            </span>
+          </div>
         </div>
       </div>
     </div>
