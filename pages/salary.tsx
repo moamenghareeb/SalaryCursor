@@ -29,6 +29,7 @@ import {
   loadInputsFromLocalStorage,
   clearSavedInputs
 } from '@/lib/storage/salary';
+import { updateUserOvertime } from '@/lib/overtime';
 
 // Register fonts - use system fonts
 Font.register({
@@ -56,6 +57,22 @@ const useDebounce = (func: (...args: any[]) => void, delay: number) => {
     timeoutRef.current = setTimeout(() => {
       func(...args);
     }, delay);
+  };
+};
+
+// Helper function to get the date range for a month
+const getDateRangeForMonth = (year: number, month: number) => {
+  // Create start date (first day of month)
+  const startDate = new Date(year, month, 1);
+  startDate.setHours(0, 0, 0, 0);
+  
+  // Create end date (last day of month)
+  const endDate = new Date(year, month + 1, 0);
+  endDate.setHours(23, 59, 59, 999);
+  
+  return {
+    startDate: startDate.toISOString(),
+    endDate: endDate.toISOString()
   };
 };
 
@@ -124,35 +141,28 @@ export default function Salary() {
 
   // Fetch overtime hours for the selected month
   const fetchOvertimeHours = async () => {
-    if (!employee) {
-      console.log('No employee data, skipping overtime fetch');
-      return;
-    }
-
     try {
-      // Calculate start and end dates for the selected month
-      const startDate = new Date(selectedYear, selectedMonth - 1, 1);
-      startDate.setHours(0, 0, 0, 0);  // Set to beginning of day
+      if (!employee) {
+        console.log('No employee data, skipping overtime fetch');
+        return;
+      }
       
-      const endDate = new Date(selectedYear, selectedMonth, 0); // Last day of the month
-      endDate.setHours(23, 59, 59, 999);  // Set to end of day
+      // Format date range for the month
+      const today = new Date();
+      const year = selectedYear || today.getFullYear();
+      const month = selectedMonth ? selectedMonth - 1 : today.getMonth();
       
-      console.log('Date range calculation (with time):', {
-        startDate: startDate.toISOString(),
-        endDate: endDate.toISOString(),
-        startDateString: startDate.toISOString().split('T')[0],
-        endDateString: endDate.toISOString().split('T')[0],
-        year: selectedYear,
-        month: selectedMonth
-      });
-
-      // FIRST: Query the overtime table directly as the source of truth
+      // Start date is first day of month, end date is last day of month
+      const { startDate, endDate } = getDateRangeForMonth(year, month);
+      console.log('Date range calculation (with time):', { startDate, endDate, startDateString: startDate.substring(0, 10), endDateString: endDate.substring(0, 10), year, month: month + 1 });
+      
+      // Query the overtime table for entries in this month
       const { data: overtimeEntries, error: overtimeError } = await supabase
         .from('overtime')
-        .select('date, hours')
+        .select('*')
         .eq('employee_id', employee.id)
-        .gte('date', startDate.toISOString().split('T')[0])
-        .lte('date', endDate.toISOString().split('T')[0]);
+        .gte('date', startDate.substring(0, 10))
+        .lte('date', endDate.substring(0, 10));
         
       if (overtimeError) {
         console.error('Error fetching overtime entries:', overtimeError);
@@ -201,118 +211,14 @@ export default function Salary() {
             ...prev,
             overtimeHours: totalOvertimeHours,
             overtimePay,
-            variablePay: 0, // No longer used in new formula
             totalSalary,
             rateRatio: currentRateRatio
           };
         });
-        
-        // Early return since we have the overtime data
-        return;
       }
-
-      // FALLBACK: If overtime table query fails, try the shift_overrides approach
-      // Fetch all shifts for the month
-      const { data: shifts, error: shiftsError } = await supabase
-        .from('shift_overrides')
-        .select('*')
-        .eq('employee_id', employee.id)
-        .gte('date', startDate.toISOString().split('T')[0])
-        .lte('date', endDate.toISOString().split('T')[0])
-        .order('date', { ascending: true });
-
-      if (shiftsError) {
-        console.error('Error fetching shifts:', shiftsError);
-        return;
-      }
-
-      console.log('Fetching shifts with params:', {
-        employee_id: employee.id,
-        start_date: startDate.toISOString().split('T')[0],
-        end_date: endDate.toISOString().split('T')[0],
-        query: 'gte start_date AND lte end_date'
-      });
-      
-      console.log('All shifts found:', shifts?.length);
-      console.log('Raw shifts data:', shifts);
-
-      // Log detailed shift information
-      console.log('Detailed shift information:', shifts?.map(s => ({
-        date: s.date,
-        type: s.shift_type,
-        notes: s.notes
-      })));
-
-      // Get unique shift types
-      const shiftTypes = Array.from(new Set(shifts?.map(s => s.shift_type) || []));
-      console.log('Shift types found:', shiftTypes);
-
-      // Log all shifts with their types for debugging
-      console.log('Shifts by type:', shifts?.reduce((acc, shift) => {
-        const type = shift.shift_type || 'unknown';
-        acc[type] = (acc[type] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>));
-
-      // Filter overtime shifts - count both 'Overtime' and 'OT' types
-      const overtimeShifts = shifts?.filter(s => {
-        const type = (s.shift_type || '').toLowerCase().trim();
-        console.log('Checking shift type:', { original: s.shift_type, normalized: type });
-        return type === 'overtime' || type === 'ot';
-      }) || [];
-      
-      console.log('Overtime shifts details:', overtimeShifts);
-      console.log('Total overtime shifts found:', overtimeShifts.length);
-
-      // Calculate total overtime hours (24 hours per shift)
-      const scheduleOvertimeHours = overtimeShifts.length * 24;
-      console.log('Calculated schedule overtime hours:', scheduleOvertimeHours);
-      
-      // Update the schedule overtime hours
-      setScheduleOvertimeHours(scheduleOvertimeHours);
-
-      // Update the salary calculation with new overtime hours
-      setSalaryCalc(prev => {
-        const totalOvertimeHours = scheduleOvertimeHours + (manualOvertimeHours || 0);
-        const basicSalary = prev.basicSalary || 0;
-        const costOfLiving = prev.costOfLiving || 0;
-        const shiftAllowance = prev.shiftAllowance || 0;
-        const exchangeRate = prev.exchangeRate || 31.50;
-        const deduction = prev.deduction || 0;
-
-        // Calculate overtime pay using the formula: ((Basic Salary + Cost of living)/210) * overtime total hrs
-        const hourlyRate = (basicSalary + costOfLiving) / 210;
-        const overtimePay = hourlyRate * totalOvertimeHours;
-
-        // Calculate the rate ratio (Exchange Rate/30.8)
-        const currentRateRatio = exchangeRate / 30.8;
-
-        // Get other earnings value (or default to 0)
-        const otherEarnings = prev.otherEarnings || 0;
-
-        // Calculate total salary using the new formula: [(X+Y+Z+E+O)*(Rate/30.8)]-F
-        const totalSalary = calculateTotalSalary(
-          basicSalary,
-          costOfLiving,
-          shiftAllowance,
-          otherEarnings,
-          overtimePay,
-          exchangeRate,
-          deduction
-        );
-
-        return {
-          ...prev,
-          overtimeHours: totalOvertimeHours,
-          overtimePay,
-          variablePay: 0, // No longer used in new formula
-          totalSalary,
-          rateRatio: currentRateRatio
-        };
-      });
-
     } catch (error) {
       console.error('Error in fetchOvertimeHours:', error);
+      setScheduleOvertimeHours(0); // Set to 0 on error to avoid stale data
     }
   };
 
@@ -1429,6 +1335,106 @@ export default function Salary() {
     }
   };
 
+  // Add function to clean up overtime entries
+  const cleanupOvertimeEntries = async () => {
+    if (!employee?.id) {
+      toast.error('No employee information available');
+      return;
+    }
+    
+    try {
+      // Set loading state
+      setCalculationLoading(true);
+      
+      // Format date range for the month
+      const today = new Date();
+      const year = selectedYear || today.getFullYear();
+      const month = selectedMonth ? selectedMonth - 1 : today.getMonth();
+      
+      // Get date range for the month
+      const { startDate, endDate } = getDateRangeForMonth(year, month);
+      
+      // First, fetch all overtime entries for this month
+      const { data: overtimeEntries, error: overtimeError } = await supabase
+        .from('overtime')
+        .select('*')
+        .eq('employee_id', employee.id)
+        .gte('date', startDate.substring(0, 10))
+        .lte('date', endDate.substring(0, 10));
+        
+      if (overtimeError) {
+        toast.error('Error fetching overtime entries');
+        console.error('Error fetching overtime entries:', overtimeError);
+        return;
+      }
+      
+      console.log(`Found ${overtimeEntries?.length || 0} overtime entries for cleanup check`);
+      
+      // If no entries, nothing to clean up
+      if (!overtimeEntries?.length) {
+        toast.success('No overtime entries to clean up');
+        return;
+      }
+      
+      // For each overtime entry, check if there's a corresponding shift override
+      const entriesToDelete: string[] = [];
+      
+      for (const entry of overtimeEntries) {
+        // Check for shift override with type 'Overtime'
+        const { data: shiftOverride, error: shiftError } = await supabase
+          .from('shift_overrides')
+          .select('id')
+          .eq('employee_id', employee.id)
+          .eq('date', entry.date)
+          .eq('shift_type', 'Overtime')
+          .maybeSingle();
+          
+        if (shiftError) {
+          console.error(`Error checking shift override for date ${entry.date}:`, shiftError);
+          continue;
+        }
+        
+        // If no corresponding override found, mark for deletion
+        if (!shiftOverride) {
+          entriesToDelete.push(entry.date);
+        }
+      }
+      
+      console.log(`Found ${entriesToDelete.length} orphaned overtime entries to delete`);
+      
+      // Delete orphaned entries
+      if (entriesToDelete.length > 0) {
+        for (const date of entriesToDelete) {
+          const { error: deleteError } = await supabase
+            .from('overtime')
+            .delete()
+            .eq('employee_id', employee.id)
+            .eq('date', date);
+            
+          if (deleteError) {
+            console.error(`Error deleting overtime entry for date ${date}:`, deleteError);
+          }
+        }
+        
+        // Force recalculate overtime totals
+        await updateUserOvertime(entriesToDelete[0], 0, employee.id, true);
+        
+        toast.success(`Cleaned up ${entriesToDelete.length} orphaned overtime entries`);
+        
+        // Refresh data
+        await fetchOvertimeHours();
+        await fetchSalaryHistory();
+      } else {
+        toast.success('No orphaned overtime entries found');
+      }
+    } catch (error) {
+      console.error('Error cleaning up overtime entries:', error);
+      toast.error('Error cleaning up overtime entries');
+    } finally {
+      setCalculationLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <Layout>
@@ -1504,12 +1510,36 @@ export default function Salary() {
                 <div className="text-lg font-semibold">
                   Total Salary: EGP {salaryCalc.totalSalary.toLocaleString()}
                 </div>
-                <button
-                  onClick={saveSalary}
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                >
-                  Save Salary
-                </button>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={saveSalary}
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  >
+                    Save Salary
+                  </button>
+                  <button 
+                    onClick={() => {
+                      fetchOvertimeHours();
+                      fetchSalaryHistory();
+                      toast.success("Data refreshed");
+                    }}
+                    className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-gray-700 bg-gray-200 hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Refresh
+                  </button>
+                  <button 
+                    onClick={cleanupOvertimeEntries}
+                    className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    Clean Overtime
+                  </button>
+                </div>
               </div>
             </div>
           </div>
