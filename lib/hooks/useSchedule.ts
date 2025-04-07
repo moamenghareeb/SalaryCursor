@@ -444,28 +444,47 @@ export function useSchedule({
             .maybeSingle();
 
           if (!fetchError || fetchError.code === 'PGRST116') {
-            // Subtract 24 hours from overtime
-            const currentHours = currentSalary?.overtime_hours || 0;
-            const newHours = Math.max(0, currentHours - 24);
-            
-            // Recalculate overtime pay
-            const basicSalary = currentSalary?.basic_salary || 0;
-            const costOfLiving = currentSalary?.cost_of_living || 0;
-            const hourlyRate = (basicSalary + costOfLiving) / 210;
-            const overtimePay = hourlyRate * newHours;
-
-            // Update salary record
-            const { error: updateError } = await supabase
-              .from('salaries')
-              .update({
-                overtime_hours: newHours,
-                overtime_pay: overtimePay
-              })
+            // Fetch all remaining overtime entries for this month
+            const { data: overtimeEntries, error: overtimeError } = await supabase
+              .from('overtime')
+              .select('hours')
               .eq('employee_id', authUser)
-              .eq('month', monthKey);
+              .gte('date', monthStart.toISOString().substring(0, 7) + '-01')
+              .lt('date', new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 1).toISOString().substring(0, 10));
+              
+            if (overtimeError) {
+              console.error('Error fetching overtime entries:', overtimeError);
+            } else {
+              // Calculate total overtime hours from remaining entries
+              const totalOvertimeHours = overtimeEntries?.reduce((total, entry) => total + (entry.hours || 0), 0) || 0;
+              console.log(`Recalculated overtime hours for ${monthKey}: ${totalOvertimeHours}`);
+              
+              // Recalculate overtime pay
+              const basicSalary = currentSalary?.basic_salary || 0;
+              const costOfLiving = currentSalary?.cost_of_living || 0;
+              const hourlyRate = (basicSalary + costOfLiving) / 210;
+              const overtimePay = hourlyRate * totalOvertimeHours;
 
-            if (updateError) {
-              console.error('Failed to update overtime:', updateError);
+              // Update salary record with new totals
+              const { error: updateError } = await supabase
+                .from('salaries')
+                .update({
+                  overtime_hours: totalOvertimeHours,
+                  overtime_pay: overtimePay
+                })
+                .eq('employee_id', authUser)
+                .eq('month', monthKey);
+
+              if (updateError) {
+                console.error('Failed to update overtime:', updateError);
+              } else {
+                // Force refresh of related queries to update UI
+                queryClient.invalidateQueries({ queryKey: ['salaries'] });
+                queryClient.invalidateQueries({ queryKey: ['overtime'] });
+                // Force immediate refetch
+                queryClient.refetchQueries({ queryKey: ['salaries'] });
+                queryClient.refetchQueries({ queryKey: ['overtime'] });
+              }
             }
           }
         } catch (error) {

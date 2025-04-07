@@ -29,7 +29,6 @@ import {
   loadInputsFromLocalStorage,
   clearSavedInputs
 } from '@/lib/storage/salary';
-import { updateUserOvertime } from '@/lib/overtime';
 
 // Register fonts - use system fonts
 Font.register({
@@ -1335,106 +1334,6 @@ export default function Salary() {
     }
   };
 
-  // Add function to clean up overtime entries
-  const cleanupOvertimeEntries = async () => {
-    if (!employee?.id) {
-      toast.error('No employee information available');
-      return;
-    }
-    
-    try {
-      // Set loading state
-      setCalculationLoading(true);
-      
-      // Format date range for the month
-      const today = new Date();
-      const year = selectedYear || today.getFullYear();
-      const month = selectedMonth ? selectedMonth - 1 : today.getMonth();
-      
-      // Get date range for the month
-      const { startDate, endDate } = getDateRangeForMonth(year, month);
-      
-      // First, fetch all overtime entries for this month
-      const { data: overtimeEntries, error: overtimeError } = await supabase
-        .from('overtime')
-        .select('*')
-        .eq('employee_id', employee.id)
-        .gte('date', startDate.substring(0, 10))
-        .lte('date', endDate.substring(0, 10));
-        
-      if (overtimeError) {
-        toast.error('Error fetching overtime entries');
-        console.error('Error fetching overtime entries:', overtimeError);
-        return;
-      }
-      
-      console.log(`Found ${overtimeEntries?.length || 0} overtime entries for cleanup check`);
-      
-      // If no entries, nothing to clean up
-      if (!overtimeEntries?.length) {
-        toast.success('No overtime entries to clean up');
-        return;
-      }
-      
-      // For each overtime entry, check if there's a corresponding shift override
-      const entriesToDelete: string[] = [];
-      
-      for (const entry of overtimeEntries) {
-        // Check for shift override with type 'Overtime'
-        const { data: shiftOverride, error: shiftError } = await supabase
-          .from('shift_overrides')
-          .select('id')
-          .eq('employee_id', employee.id)
-          .eq('date', entry.date)
-          .eq('shift_type', 'Overtime')
-          .maybeSingle();
-          
-        if (shiftError) {
-          console.error(`Error checking shift override for date ${entry.date}:`, shiftError);
-          continue;
-        }
-        
-        // If no corresponding override found, mark for deletion
-        if (!shiftOverride) {
-          entriesToDelete.push(entry.date);
-        }
-      }
-      
-      console.log(`Found ${entriesToDelete.length} orphaned overtime entries to delete`);
-      
-      // Delete orphaned entries
-      if (entriesToDelete.length > 0) {
-        for (const date of entriesToDelete) {
-          const { error: deleteError } = await supabase
-            .from('overtime')
-            .delete()
-            .eq('employee_id', employee.id)
-            .eq('date', date);
-            
-          if (deleteError) {
-            console.error(`Error deleting overtime entry for date ${date}:`, deleteError);
-          }
-        }
-        
-        // Force recalculate overtime totals
-        await updateUserOvertime(entriesToDelete[0], 0, employee.id, true);
-        
-        toast.success(`Cleaned up ${entriesToDelete.length} orphaned overtime entries`);
-        
-        // Refresh data
-        await fetchOvertimeHours();
-        await fetchSalaryHistory();
-      } else {
-        toast.success('No orphaned overtime entries found');
-      }
-    } catch (error) {
-      console.error('Error cleaning up overtime entries:', error);
-      toast.error('Error cleaning up overtime entries');
-    } finally {
-      setCalculationLoading(false);
-    }
-  };
-
   if (loading) {
     return (
       <Layout>
@@ -1510,36 +1409,12 @@ export default function Salary() {
                 <div className="text-lg font-semibold">
                   Total Salary: EGP {salaryCalc.totalSalary.toLocaleString()}
                 </div>
-                <div className="flex space-x-2">
-                  <button
-                    onClick={saveSalary}
-                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                  >
-                    Save Salary
-                  </button>
-                  <button 
-                    onClick={() => {
-                      fetchOvertimeHours();
-                      fetchSalaryHistory();
-                      toast.success("Data refreshed");
-                    }}
-                    className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-gray-700 bg-gray-200 hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
-                    Refresh
-                  </button>
-                  <button 
-                    onClick={cleanupOvertimeEntries}
-                    className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                    Clean Overtime
-                  </button>
-                </div>
+                <button
+                  onClick={saveSalary}
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  Save Salary
+                </button>
               </div>
             </div>
           </div>

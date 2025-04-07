@@ -27,6 +27,20 @@ export const updateUserOvertime = async (date: string, hours: number, employeeId
       }
     }
 
+    // If force recalculating due to removal of overtime, make sure the entry is deleted
+    if (forceRecalculate && hours === 0) {
+      // Delete the overtime record if it exists
+      const { error: deleteError } = await supabase
+        .from('overtime')
+        .delete()
+        .eq('employee_id', employeeId)
+        .eq('date', date);
+
+      if (deleteError) {
+        console.error('Error deleting overtime record:', deleteError);
+      }
+    }
+
     // Now fetch all overtime entries for this month to calculate the total
     const { data: overtimeEntries, error: fetchError } = await supabase
       .from('overtime')
@@ -81,6 +95,25 @@ export const updateUserOvertime = async (date: string, hours: number, employeeId
         
       if (updatePayError) {
         console.error('Error updating overtime pay:', updatePayError);
+      }
+
+      // If there are no overtime entries and we're force recalculating,
+      // make sure overtime values are explicitly set to zero
+      if (forceRecalculate && overtimeEntries?.length === 0) {
+        const { error: zeroUpdateError } = await supabase
+          .from('salaries')
+          .update({ 
+            overtime_hours: 0,
+            overtime_pay: 0 
+          })
+          .eq('employee_id', employeeId)
+          .eq('month', monthKey);
+          
+        if (zeroUpdateError) {
+          console.error('Error setting overtime to zero:', zeroUpdateError);
+        } else {
+          console.log('Successfully set overtime to zero for month with no entries');
+        }
       }
     }
 

@@ -5,6 +5,7 @@ import { updateUserOvertime } from '../../lib/overtime';
 import { useAuth } from '../../lib/authContext';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
+import { toast } from 'react-hot-toast';
 
 interface ShiftEditModalProps {
   day: CalendarDay | null;
@@ -93,21 +94,38 @@ const ShiftEditModal: React.FC<ShiftEditModalProps> = ({
           .delete()
           .eq('employee_id', user.id)
           .eq('date', day.date)
-          .then(() => {
+          .then(async ({ error: deleteError }) => {
+            if (deleteError) {
+              console.error('Failed to delete overtime record:', deleteError);
+              toast.error('Failed to update overtime. Please try again.');
+              return;
+            }
+            
+            console.log('Successfully deleted overtime record, recalculating salary...');
             // After deleting, refetch to update overtime calculations
             const monthStart = new Date(day.date);
             monthStart.setDate(1);
-            const monthKey = monthStart.toISOString().substring(0, 7);
             
-            // Force recalculation of overtime totals in the salary
-            updateUserOvertime(day.date, 0, user.id, true)
-              .then(() => {
-                // Invalidate and refetch salary and overtime data
-                queryClient.invalidateQueries({ queryKey: ['salaries'] });
-                queryClient.invalidateQueries({ queryKey: ['overtime'] });
-                queryClient.refetchQueries({ queryKey: ['salaries'] });
-                queryClient.refetchQueries({ queryKey: ['overtime'] });
-              });
+            try {
+              // Force recalculation of overtime totals in the salary
+              await updateUserOvertime(day.date, 0, user.id, true);
+              
+              // Invalidate and refetch salary and overtime data
+              queryClient.invalidateQueries({ queryKey: ['salaries'] });
+              queryClient.invalidateQueries({ queryKey: ['overtime'] });
+              
+              // Force immediate refetch to ensure UI updates correctly
+              await Promise.all([
+                queryClient.refetchQueries({ queryKey: ['salaries'] }),
+                queryClient.refetchQueries({ queryKey: ['overtime'] })
+              ]);
+              
+              console.log('Overtime data successfully updated');
+              toast.success('Schedule updated and overtime recalculated');
+            } catch (error) {
+              console.error('Error recalculating overtime:', error);
+              toast.error('Failed to recalculate overtime. Please refresh the page.');
+            }
           });
       }
     }
