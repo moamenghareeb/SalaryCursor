@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { CalendarDay, ShiftType } from '../../lib/types/schedule';
-import { updateUserOvertime } from '../../lib/overtime';
+import { updateUserOvertime, deleteOvertimeForDate } from '../../lib/overtime';
 import { useAuth } from '../../lib/authContext';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
@@ -93,46 +93,25 @@ const ShiftEditModal: React.FC<ShiftEditModalProps> = ({
       else if (wasOvertime && !nowOvertime) {
         // Remove overtime from the overtime table
         console.log(`Removing overtime for ${day.date}`);
+        setFormProcessing(true);
         
-        // First, delete the overtime record if it exists
-        supabase
-          .from('overtime')
-          .delete()
-          .eq('employee_id', user.id)
-          .eq('date', day.date)
-          .then(({ error }) => {
-            if (error) {
-              console.error('Failed to delete overtime record:', error);
-              toast.error('Failed to update overtime. Please try again.');
-            } else {
-              console.log('Successfully deleted overtime record, recalculating salary...');
-              
-              // After deleting, refetch to update overtime calculations
-              const monthStart = new Date(day.date);
-              monthStart.setDate(1);
-              
-              // Force recalculation of overtime totals in the salary
-              updateUserOvertime(day.date, 0, user.id, true)
-                .then(() => {
-                  // Invalidate and refetch ALL queries
-                  queryClient.invalidateQueries();
-                  setTimeout(() => {
-                    queryClient.refetchQueries();
-                    
-                    // Done processing
-                    setFormProcessing(false);
-                    toast.success('Overtime removed successfully');
-                  }, 500);
-                })
-                .catch((error: Error) => {
-                  console.error('Error recalculating overtime:', error);
-                  setFormProcessing(false);
-                });
-            }
+        // Use the dedicated function to delete overtime
+        deleteOvertimeForDate(day.date, user.id)
+          .then(result => {
+            console.log('Overtime deletion result:', result);
+            
+            // Force refresh all queries
+            queryClient.invalidateQueries();
+            setTimeout(() => {
+              queryClient.refetchQueries();
+              setFormProcessing(false);
+              toast.success('Overtime removed successfully');
+            }, 500);
           })
-          .catch(err => {
-            console.error('Error removing overtime:', err);
+          .catch(error => {
+            console.error('Failed to delete overtime:', error);
             setFormProcessing(false);
+            toast.error('Failed to remove overtime. Please try again.');
           });
       } else {
         // Other changes don't need special handling
