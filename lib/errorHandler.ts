@@ -1,6 +1,16 @@
 import { NextApiRequest, NextApiResponse } from 'next'
 import { logger } from './logger';
-import axios, { AxiosError } from 'axios';
+import axios from 'axios';
+
+// Define AxiosError type for compatibility
+interface AxiosError extends Error {
+  response?: {
+    status: number;
+    data?: any;
+  };
+  request?: any;
+  config?: any;
+}
 
 export function errorHandler(handler: (req: NextApiRequest, res: NextApiResponse) => Promise<void>) {
   return async (req: NextApiRequest, res: NextApiResponse) => {
@@ -58,9 +68,16 @@ export enum ErrorCategory {
   UNKNOWN = 'unknown',
 }
 
+// Helper function to check if an error is an Axios error
+const isAxiosError = (error: any): error is AxiosError => {
+  return error && typeof error === 'object' && 
+         (error.isAxiosError === true || // Modern axios
+          (error.response !== undefined || error.request !== undefined)); // Fallback check
+};
+
 // Get the error category based on error details
 export const getErrorCategory = (error: any): ErrorCategory => {
-  if (axios.isAxiosError(error)) {
+  if (isAxiosError(error)) {
     const axiosError = error as AxiosError;
     
     if (axiosError.response) {
@@ -89,7 +106,7 @@ export const getErrorCategory = (error: any): ErrorCategory => {
 export const getUserFriendlyErrorMessage = (error: any, fallbackMessage: string = 'An unexpected error occurred'): string => {
   const category = getErrorCategory(error);
   
-  if (axios.isAxiosError(error)) {
+  if (isAxiosError(error)) {
     const axiosError = error as AxiosError;
     
     // Try to get message from response

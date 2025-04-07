@@ -1423,12 +1423,6 @@ export default function Salary() {
                     scheduleOvertimeHours={scheduleOvertimeHours}
                     manualOvertimeHours={manualOvertimeHours || 0}
                     exchangeRate={exchangeRate}
-                    onDownloadPDF={() => downloadPDF({
-                      id: 'current',
-                      month: `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-01`,
-                      basic_salary: salaryCalc.basicSalary,
-                      total_salary: salaryCalc.totalSalary
-                    })}
                   />
                 )}
               </div>

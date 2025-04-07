@@ -86,7 +86,7 @@ export default function LeaveBalanceDebug() {
         headers: session ? { Authorization: `Bearer ${session.access_token}` } : {}
       });
 
-      setDiagnosticData(response.data);
+      setDiagnosticData(response.data as DiagnosticReport);
     } catch (err: any) {
       console.error('Error fetching leave balance diagnostic data:', err);
       setError(err.response?.data?.error || err.message || 'Failed to fetch diagnostic data');

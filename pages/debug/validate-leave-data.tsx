@@ -50,7 +50,7 @@ export default function ValidateLeaveData() {
         setLoading(true);
         setError(null);
         const response = await axios.get('/api/admin/validate-leave-data');
-        setData(response.data);
+        setData(response.data as ValidationResponse);
       } catch (err: any) {
         setError(err.response?.data?.error || err.message || 'An error occurred');
       } finally {

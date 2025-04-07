@@ -9,7 +9,6 @@ interface SalarySummaryProps {
   scheduleOvertimeHours?: number;
   manualOvertimeHours?: number;
   exchangeRate?: number;
-  onDownloadPDF?: () => void;
 }
 
 export function SalarySummary({ 
@@ -17,8 +16,7 @@ export function SalarySummary({
   salaryCalc,
   scheduleOvertimeHours = 0,
   manualOvertimeHours = 0,
-  exchangeRate = 31.50,
-  onDownloadPDF = () => {}
+  exchangeRate = 31.50
 }: SalarySummaryProps) {
   const totalOvertimeHours = scheduleOvertimeHours + (manualOvertimeHours || 0);
 
@@ -62,15 +60,6 @@ export function SalarySummary({
               EGP {salaryCalc.totalSalary.toLocaleString()}
             </span>
           </div>
-        </div>
-
-        <div className="flex justify-end space-x-2">
-          <button
-            onClick={onDownloadPDF}
-            className="px-3 py-1.5 text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-900"
-          >
-            Download PDF
-          </button>
         </div>
       </div>
     </div>

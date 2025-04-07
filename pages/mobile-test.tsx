@@ -414,7 +414,7 @@ export default function MobileTest() {
           <div className="bg-white p-4 rounded-lg shadow">
             <h3 className="text-lg font-semibold mb-2">Another Section</h3>
             <p className="text-gray-600">
-              Here's another test with &quot;escaped&quot; quotes.
+              Here&apos;s another test with &quot;escaped&quot; quotes.
             </p>
           </div>
         </div>

@@ -3,23 +3,5 @@
   "buildCommand": "npm run build",
   "outputDirectory": ".next",
   "installCommand": "npm install --no-optional",
-  "framework": "nextjs",
-  "builds": [
-    {
-      "src": "next.config.js",
-      "use": "@vercel/next"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "/$1"
-    }
-  ],
-  "env": {
-    "NEXT_PUBLIC_SUPABASE_URL": "@supabase_url",
-    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "@supabase_key",
-    "NEXT_PUBLIC_SKIP_ICON_GENERATION": "true",
-    "NODE_VERSION": "18.x"
-  }
+  "framework": "nextjs"
 }

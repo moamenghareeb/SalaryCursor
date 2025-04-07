@@ -211,8 +211,8 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           <StatsPanel
             stats={{
-              monthlyEarnings: formatCurrency(currentMonthRecord?.total || 0),
-              overtimeHours: formatHours(0)
+              monthlyEarnings: currentMonthRecord?.total || 0,
+              overtimeHours: 0
             }}
             isLoading={salaryLoading}
             error={salaryError}

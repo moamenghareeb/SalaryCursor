@@ -103,17 +103,18 @@ const LeaveTrendChart: React.FC = () => {
       const response = await axios.get('/api/leave/trends', { headers });
       
       // Verify the response format
-      if (response.data && 
-          Array.isArray(response.data.monthlyData) && 
-          Array.isArray(response.data.leaveTypeData)) {
+      const responseData = response.data as any;
+      if (responseData && 
+          Array.isArray(responseData.monthlyData) && 
+          Array.isArray(responseData.leaveTypeData)) {
         
         // Check if there's actual data or just empty entries
-        const hasData = response.data.monthlyData.some((month: MonthlyLeaveData) => 
+        const hasData = responseData.monthlyData.some((month: MonthlyLeaveData) => 
           month.annual > 0 || month.casual > 0 || month.sick > 0 || month.unpaid > 0
         );
         
-        setMonthlyData(response.data.monthlyData);
-        setLeaveTypeData(response.data.leaveTypeData);
+        setMonthlyData(responseData.monthlyData);
+        setLeaveTypeData(responseData.leaveTypeData);
         setLastUpdated(new Date());
         
         // Only show success message if not the initial load and there's actual data
@@ -137,26 +138,30 @@ const LeaveTrendChart: React.FC = () => {
           toast.error('Could not load leave trend data (invalid format)');
         }
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error fetching leave trend data:', error);
       
+      const isAxiosError = (error: any): boolean => 
+        error && typeof error === 'object' && 'response' in error && 'request' in error;
+      
       // Provide user-friendly error message
-      if (axios.isAxiosError(error)) {
-        if (error.response?.status === 401) {
+      if (isAxiosError(error)) {
+        const axiosError = error as any;
+        if (axiosError.response?.status === 401) {
           setError('Session expired. Please refresh the page.');
           if (forceRefresh) toast.error('Your session has expired. Please log in again.');
-        } else if (error.response?.status === 404) {
+        } else if (axiosError.response?.status === 404) {
           setError('Leave data not available');
           if (forceRefresh) toast.error('Leave data not found');
-        } else if (error.code === 'ECONNABORTED') {
+        } else if (axiosError.code === 'ECONNABORTED') {
           setError('Request timed out');
           if (forceRefresh) toast.error('Request timed out. Please try again later.');
         } else if (!navigator.onLine) {
           setError('You are offline');
           if (forceRefresh) toast.error('You are offline. Please check your connection.');
         } else {
-          setError(`Error: ${error.message}`);
-          if (forceRefresh) toast.error(`Could not load leave trend data: ${error.message}`);
+          setError(`Error: ${axiosError.message || 'Unknown error'}`);
+          if (forceRefresh) toast.error(`Could not load leave trend data: ${axiosError.message || 'Unknown error'}`);
         }
       } else {
         setError('Unknown error occurred');

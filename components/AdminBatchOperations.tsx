@@ -38,7 +38,7 @@ const AdminBatchOperations: React.FC = () => {
     try {
       setLoading(true);
       const response = await axios.get('/api/admin/employees');
-      setEmployees(response.data);
+      setEmployees(response.data as any[]);
     } catch (err) {
       console.error('Error fetching employees:', err);
       setError('Failed to load employees. Please check your permissions.');
@@ -139,7 +139,7 @@ const AdminBatchOperations: React.FC = () => {
           };
           // Handle direct download for exports
           const response = await axios.get(endpoint, { responseType: 'blob' });
-          const url = window.URL.createObjectURL(new Blob([response.data]));
+          const url = window.URL.createObjectURL(new Blob([response.data as BlobPart]));
           const link = document.createElement('a');
           link.href = url;
           link.setAttribute('download', `employee-data-${new Date().toISOString().split('T')[0]}.csv`);

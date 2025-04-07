@@ -1,5 +1,13 @@
-import axios, { AxiosRequestConfig } from 'axios';
+import axios from 'axios';
 import { supabase } from './supabase';
+
+// Define AxiosRequestConfig type for compatibility
+type AxiosRequestConfig = {
+  baseURL?: string;
+  timeout?: number;
+  headers?: Record<string, string>;
+  [key: string]: any;
+};
 
 // Base API configuration
 const API_CONFIG: AxiosRequestConfig = {

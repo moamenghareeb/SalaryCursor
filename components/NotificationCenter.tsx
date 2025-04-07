@@ -48,21 +48,22 @@ const NotificationCenter: React.FC = () => {
       
       // Add proper check to ensure response.data is an array or has a notifications property
       if (response.data) {
+        const responseData = response.data as any;
         // If response has notifications property (new API format)
-        if (Array.isArray(response.data.notifications)) {
-          setNotifications(response.data.notifications);
-          setUnreadCount(response.data.unreadCount || 0);
+        if (Array.isArray(responseData.notifications)) {
+          setNotifications(responseData.notifications);
+          setUnreadCount(responseData.unreadCount || 0);
         } 
         // If response is direct array (old API format)
-        else if (Array.isArray(response.data)) {
-          setNotifications(response.data);
+        else if (Array.isArray(responseData)) {
+          setNotifications(responseData);
           // Calculate unread count
-          const unread = response.data.filter((notification: Notification) => !notification.isRead).length;
+          const unread = responseData.filter((notification: Notification) => !notification.isRead).length;
           setUnreadCount(unread);
         }
         // If neither format is valid, set empty array
         else {
-          console.log('Unexpected notification data format', response.data);
+          console.log('Unexpected notification data format', responseData);
           setNotifications([]);
           setUnreadCount(0);
         }

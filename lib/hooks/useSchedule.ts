@@ -346,6 +346,40 @@ export function useSchedule({
       if (!authUser) {
         throw new Error('User not authenticated');
       }
+
+      // If removing a leave (changing from Leave to something else)
+      if (shiftType !== 'Leave') {
+        try {
+          // Find and delete the leave record for this date
+          const { data: leaveRecord, error: findError } = await supabase
+            .from('leaves')
+            .select('id, days_taken')
+            .eq('employee_id', authUser)
+            .lte('start_date', date)
+            .gte('end_date', date)
+            .maybeSingle();
+            
+          if (findError) {
+            console.error('Error finding leave record:', findError);
+          } else if (leaveRecord) {
+            // Delete the leave record
+            const { error: deleteError } = await supabase
+              .from('leaves')
+              .delete()
+              .eq('id', leaveRecord.id);
+              
+            if (deleteError) {
+              console.error('Error deleting leave record:', deleteError);
+            } else {
+              // Invalidate relevant queries
+              queryClient.invalidateQueries({ queryKey: ['leaves'] });
+              queryClient.invalidateQueries({ queryKey: ['leaveBalance'] });
+            }
+          }
+        } catch (error) {
+          console.error('Error handling leave record deletion:', error);
+        }
+      }
       
       // Check if there's an existing override for this date
       const { data: existing, error: fetchError } = await supabase
@@ -526,75 +560,66 @@ export function useSchedule({
         }
       }
       
-      // Handle overtime calculation
-      if (shiftType === 'Overtime') {
+      // If removing an overtime shift (changing from Overtime to something else)
+      if (shiftType !== 'Overtime') {
         try {
-          // Add 24 hours of overtime
+          // Get the month start date
+          const monthStart = new Date(date);
+          monthStart.setDate(1);
+          const monthKey = monthStart.toISOString().substring(0, 7) + '-01';
+
+          // Get current salary record
           const { data: currentSalary, error: fetchError } = await supabase
             .from('salaries')
-            .select('overtime_hours')
+            .select('overtime_hours, basic_salary, cost_of_living')
             .eq('employee_id', authUser)
-            .eq('month', new Date(date).toISOString().substring(0, 7) + '-01')
+            .eq('month', monthKey)
             .maybeSingle();
 
           if (fetchError && fetchError.code !== 'PGRST116') {
-            console.error('Failed to fetch current overtime:', fetchError);
-          }
+            console.error('Failed to fetch current salary:', fetchError);
+          } else if (currentSalary) {
+            // Subtract 24 hours from overtime
+            const newHours = Math.max(0, (currentSalary.overtime_hours || 0) - 24);
+            
+            // Recalculate overtime pay
+            const basicSalary = currentSalary.basic_salary || 0;
+            const costOfLiving = currentSalary.cost_of_living || 0;
+            const hourlyRate = (basicSalary + costOfLiving) / 210;
+            const overtimePay = hourlyRate * newHours;
 
-          const currentHours = currentSalary?.overtime_hours || 0;
-          const newHours = currentHours + 24;
+            // Update salary record
+            const { error: updateError } = await supabase
+              .from('salaries')
+              .update({
+                overtime_hours: newHours,
+                overtime_pay: overtimePay,
+                updated_at: new Date().toISOString()
+              })
+              .eq('employee_id', authUser)
+              .eq('month', monthKey);
 
-          const { error: overtimeError } = await supabase
-            .from('salaries')
-            .upsert({
-              employee_id: authUser,
-              month: new Date(date).toISOString().substring(0, 7) + '-01',
-              overtime_hours: newHours,
-              updated_at: new Date().toISOString()
-            }, {
-              onConflict: 'employee_id,month'
-            });
+            if (updateError) {
+              console.error('Failed to update overtime:', updateError);
+            } else {
+              // Invalidate relevant queries
+              queryClient.invalidateQueries({ queryKey: ['salaries'] });
+              queryClient.invalidateQueries({ queryKey: ['salary-calculation'] });
+            }
 
-          if (overtimeError) {
-            console.error('Failed to update overtime:', overtimeError);
-          }
-        } catch (error) {
-          console.error('Failed to update overtime:', error);
-        }
-      } else {
-        try {
-          // If changing from overtime to another shift type, get current overtime hours
-          const { data: currentSalary, error: fetchError } = await supabase
-            .from('salaries')
-            .select('overtime_hours')
-            .eq('employee_id', authUser)
-            .eq('month', new Date(date).toISOString().substring(0, 7) + '-01')
-            .maybeSingle();
+            // Delete from overtime tracking
+            const { error: deleteError } = await supabase
+              .from('overtime')
+              .delete()
+              .eq('employee_id', authUser)
+              .eq('date', date);
 
-          if (fetchError && fetchError.code !== 'PGRST116') {
-            console.error('Failed to fetch current overtime:', fetchError);
-          }
-
-          // Subtract 24 hours from current overtime (minimum 0)
-          const currentHours = currentSalary?.overtime_hours || 0;
-          const newHours = Math.max(0, currentHours - 24);
-
-          const { error: clearError } = await supabase
-            .from('salaries')
-            .upsert({
-              employee_id: authUser,
-              month: new Date(date).toISOString().substring(0, 7) + '-01',
-              overtime_hours: newHours,
-              updated_at: new Date().toISOString()
-            }, {
-              onConflict: 'employee_id,month'
-            });
-
-          if (clearError) {
-            console.error('Failed to clear overtime:', clearError);
+            if (deleteError) {
+              console.error('Failed to delete overtime tracking:', deleteError);
+            }
           }
         } catch (error) {
-          console.error('Failed to clear overtime:', error);
+          console.error('Error handling overtime removal:', error);
         }
       }
       

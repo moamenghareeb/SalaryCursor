@@ -122,11 +122,13 @@ export const prefetchData = async <T>(url: string): Promise<void> => {
   }
 };
 
-export default {
+const swrUtils = {
   useData,
   usePostMutation,
   usePutMutation,
   useDeleteMutation,
   clearCache,
   prefetchData,
-}; 
+};
+
+export default swrUtils; 

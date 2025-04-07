@@ -36,7 +36,8 @@ const SalaryTrendChart: React.FC = () => {
         const response = await axios.get('/api/salary/trends');
         
         // Transform the data if needed
-        const formattedData = response.data.map((item: any) => ({
+        const responseData = response.data as any[];
+        const formattedData = responseData.map((item: any) => ({
           month: item.month,
           totalSalary: parseFloat(item.total_salary),
           basicSalary: parseFloat(item.basic_salary),
