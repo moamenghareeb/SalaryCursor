@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useAuth } from '../lib/authContext';
 import PremiumThemeToggle from './PremiumThemeToggle';
 import NotificationCenter from './NotificationCenter';
+import RefreshButton from './RefreshButton';
 import dynamic from 'next/dynamic';
 import { isMobileDevice } from '../lib/pwaUtils';
 import { OfflineStatus } from './OfflineStatus';
@@ -181,6 +182,12 @@ export default function Layout({ children }: LayoutProps) {
               </Link>
               
               <div className="pl-4 border-l border-gray-200 dark:border-dark-border flex items-center space-x-3">
+                <RefreshButton
+                  size="sm"
+                  variant="secondary"
+                  showText={false}
+                  className="h-8 w-8 p-0"
+                />
                 <NotificationCenter />
                 <PremiumThemeToggle />
                 <span className="hidden lg:block text-sm text-apple-gray dark:text-dark-text-secondary">{user?.email}</span>
@@ -236,6 +243,9 @@ export default function Layout({ children }: LayoutProps) {
             >
               Dashboard
             </Link>
+            <div className="px-3 py-2">
+              <RefreshButton size="sm" variant="secondary" className="w-full mb-2" />
+            </div>
             <div className="px-3 py-2 text-sm text-apple-gray dark:text-dark-text-secondary">{user?.email}</div>
             <button
               onClick={() => {

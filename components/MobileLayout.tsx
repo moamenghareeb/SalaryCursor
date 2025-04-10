@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useAuth } from '../lib/authContext';
 import PremiumThemeToggle from './PremiumThemeToggle';
 import NotificationCenter from './NotificationCenter';
+import RefreshButton from './RefreshButton';
 import { motion } from 'framer-motion';
 import { FiCalendar, FiDollarSign, FiClock, FiLogOut, FiHome } from 'react-icons/fi';
 
@@ -80,6 +81,16 @@ export default function MobileLayout({ children }: MobileLayoutProps) {
           <NotificationCenter />
           <PremiumThemeToggle />
         </div>
+      </div>
+      
+      {/* Refresh button (fixed at bottom above navigation) */}
+      <div className="fixed bottom-[4.5rem] right-4 z-40">
+        <RefreshButton
+          size="sm"
+          variant="secondary"
+          showText={false}
+          className="shadow-lg h-12 w-12 p-0"
+        />
       </div>
       
       {/* Bottom navigation */}
