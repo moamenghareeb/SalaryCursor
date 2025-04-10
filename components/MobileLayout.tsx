@@ -83,7 +83,7 @@ export default function MobileLayout({ children }: MobileLayoutProps) {
       </div>
       
       {/* Bottom navigation */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-dark-surface border-t border-gray-200 dark:border-dark-border">
+      <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-dark-surface border-t border-gray-200 dark:border-dark-border ios-safe-bottom">
         <nav className="flex justify-around items-center h-16">
           <Link href="/schedule" className={`flex flex-col items-center justify-center w-1/5 ${router.pathname === '/schedule' ? 'text-blue-500' : 'text-gray-500 dark:text-gray-400'}`}>
             <FiCalendar className="text-2xl" />
@@ -101,10 +101,17 @@ export default function MobileLayout({ children }: MobileLayoutProps) {
             <FiHome className="text-2xl" />
             <span className="text-xs mt-1">Dashboard</span>
           </Link>
-          <button onClick={signOut} className="flex flex-col items-center justify-center w-1/5 text-gray-500 dark:text-gray-400">
+          <Link 
+            href="#" 
+            onClick={(e) => {
+              e.preventDefault();
+              signOut();
+            }} 
+            className={`flex flex-col items-center justify-center w-1/5 text-gray-500 dark:text-gray-400`}
+          >
             <FiLogOut className="text-2xl" />
             <span className="text-xs mt-1">Sign Out</span>
-          </button>
+          </Link>
         </nav>
       </div>
     </div>

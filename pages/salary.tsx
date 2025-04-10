@@ -1388,7 +1388,7 @@ export default function Salary() {
                   <h3 className="text-base font-medium text-gray-700 dark:text-gray-300">Salary Breakdown</h3>
                   <button 
                     onClick={() => setShowSalarySummary(!showSalarySummary)}
-                    className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 focus:outline-none"
+                    className="px-4 py-1.5 text-sm font-medium rounded-md bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400 dark:hover:bg-blue-900/50 focus:outline-none"
                   >
                     {showSalarySummary ? 'Hide Details' : 'Show Details'}
                   </button>

@@ -152,13 +152,13 @@ const NotificationCenter: React.FC = () => {
     <div className="relative" ref={dropdownRef}>
       {/* Bell icon with notification badge */}
       <button
-        className="relative p-2 rounded-full text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800/30 focus:outline-none"
+        className="relative flex items-center justify-center w-9 h-9 rounded-full text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800/30 focus:outline-none"
         onClick={() => setIsOpen(!isOpen)}
         aria-label="Notifications"
       >
-        <FiBell className="h-5 w-5" />
+        <FiBell className="w-[20px] h-[20px]" />
         {unreadCount > 0 && (
-          <span className="absolute top-0 right-0 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-white transform translate-x-1/2 -translate-y-1/2 bg-red-500 rounded-full">
+          <span className="absolute top-1 right-1 flex items-center justify-center min-w-[18px] h-[18px] text-xs font-bold leading-none text-white bg-red-500 rounded-full px-1">
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}
