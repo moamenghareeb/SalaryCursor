@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { supabase } from '../../../lib/supabase';
 import { applyRateLimit, RateLimitType } from '../../../lib/rateLimit';
 import { logger } from '../../../lib/logger';
+import { ShiftGroup } from '../../../lib/types/schedule';
 
 // Helper for input validation
 function validateInput(input: any) {
@@ -33,6 +34,12 @@ function validateInput(input: any) {
   
   if (!input.position || !validPositions.includes(input.position)) {
     errors.push('Please select a valid position');
+  }
+
+  // Validate shift group
+  const validShiftGroups: ShiftGroup[] = ['A', 'B', 'C', 'D'];
+  if (!input.shiftGroup || !validShiftGroups.includes(input.shiftGroup)) {
+    errors.push('Please select a valid shift group');
   }
   
   // Validate password
@@ -66,7 +73,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
   
   try {
-    const { name, employeeId, position, password } = req.body;
+    const { name, employeeId, position, shiftGroup, password } = req.body;
     
     // Validate inputs
     const validationErrors = validateInput(req.body);
@@ -99,7 +106,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         data: {
           name,
           employee_id: employeeId,
-          position
+          position,
+          shift_group: shiftGroup
         }
       }
     });
@@ -122,6 +130,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             name,
             employee_id: employeeId,
             position,
+            shift_group: shiftGroup,
+            schedule_type: 'shift', // Set default schedule type to 'shift'
             email: email,
             created_at: new Date()
           });
@@ -146,7 +156,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Log successful signup
     logger.info('User registered successfully', {
       userId: data.user?.id,
-      employeeId
+      employeeId,
+      shiftGroup
     });
     
     return res.status(201).json({
@@ -154,7 +165,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       user: {
         id: data.user?.id,
         email: data.user?.email,
-        employeeId
+        employeeId,
+        shiftGroup
       }
     });
   } catch (error: any) {

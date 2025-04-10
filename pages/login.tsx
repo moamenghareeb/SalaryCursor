@@ -24,11 +24,10 @@ export default function Login() {
     if (authLoading) return;
 
     if (user && session) {
-      console.log('User authenticated, redirecting to dashboard');
+      console.log('User authenticated, redirecting to schedule');
       // Use a slight delay to avoid race conditions
       const timer = setTimeout(() => {
-        const returnUrl = router.query.returnUrl as string;
-        window.location.href = returnUrl || '/dashboard';
+        router.push('/schedule');
       }, 100);
       
       return () => clearTimeout(timer);

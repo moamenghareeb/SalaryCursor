@@ -198,6 +198,8 @@ export function SalaryForm({
           </label>
           <input
             type="number"
+            inputMode="numeric"
+            pattern="[0-9]*"
             value={formData.basicSalary || ''}
             onChange={handleChange}
             onBlur={() => handleBlur('basicSalary')}
@@ -222,6 +224,8 @@ export function SalaryForm({
           </label>
           <input
             type="number"
+            inputMode="numeric"
+            pattern="[0-9]*"
             value={formData.costOfLiving || ''}
             onChange={handleChange}
             onBlur={() => handleBlur('costOfLiving')}
@@ -246,6 +250,8 @@ export function SalaryForm({
           </label>
           <input
             type="number"
+            inputMode="numeric"
+            pattern="[0-9]*"
             value={formData.shiftAllowance || ''}
             onChange={handleChange}
             onBlur={() => handleBlur('shiftAllowance')}
@@ -270,6 +276,8 @@ export function SalaryForm({
           </label>
           <input
             type="number"
+            inputMode="numeric"
+            pattern="[0-9]*"
             value={formData.otherEarnings || ''}
             onChange={handleChange}
             onBlur={() => handleBlur('otherEarnings')}
@@ -298,6 +306,8 @@ export function SalaryForm({
             <div className="flex items-center">
               <input
                 type="number"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 id="scheduleOvertimeHours"
                 name="scheduleOvertimeHours"
                 value={scheduleOvertimeHours}
@@ -312,6 +322,8 @@ export function SalaryForm({
             <div className="flex items-center">
               <input
                 type="number"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 id="manualOvertimeHours"
                 name="manualOvertimeHours"
                 value={manualOvertimeHoursState}
@@ -331,6 +343,8 @@ export function SalaryForm({
             <div className="flex items-center">
               <input
                 type="number"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 id="totalOvertimeHoursDisplay"
                 name="totalOvertimeHoursDisplay"
                 value={scheduleOvertimeHours + manualOvertimeHoursState}
@@ -356,6 +370,8 @@ export function SalaryForm({
           </label>
           <input
             type="number"
+            inputMode="numeric"
+            pattern="[0-9]*"
             value={formData.deduction || ''}
             onChange={handleChange}
             name="deduction"

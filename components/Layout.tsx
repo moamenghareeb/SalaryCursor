@@ -2,7 +2,7 @@ import { ReactNode, useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { useAuth } from '../lib/authContext';
-import DarkModeToggle from './DarkModeToggle';
+import PremiumThemeToggle from './PremiumThemeToggle';
 import NotificationCenter from './NotificationCenter';
 import dynamic from 'next/dynamic';
 import { isMobileDevice } from '../lib/pwaUtils';
@@ -125,7 +125,7 @@ export default function Layout({ children }: LayoutProps) {
             
             {/* Mobile menu button */}
             <div className="flex items-center sm:hidden">
-              <DarkModeToggle />
+              <PremiumThemeToggle />
               <NotificationCenter />
               <button
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -181,7 +181,7 @@ export default function Layout({ children }: LayoutProps) {
               
               <div className="pl-4 border-l border-gray-200 dark:border-dark-border flex items-center space-x-3">
                 <NotificationCenter />
-                <DarkModeToggle />
+                <PremiumThemeToggle />
                 <span className="hidden lg:block text-sm text-apple-gray dark:text-dark-text-secondary">{user?.email}</span>
                 <button
                   onClick={() => {

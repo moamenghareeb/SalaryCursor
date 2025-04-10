@@ -7,6 +7,7 @@ import { captureAuthError } from '../lib/errorTracking';
 import { useAuth } from '../lib/authContext';
 import { useTheme } from '../lib/themeContext';
 import toast from 'react-hot-toast';
+import { ShiftGroup } from '../lib/types/schedule';
 
 // Define positions as a constant array
 const POSITIONS = [
@@ -21,11 +22,20 @@ const POSITIONS = [
   'Field Supervisor'
 ];
 
+// Define shift groups
+const SHIFT_GROUPS: { value: ShiftGroup; label: string }[] = [
+  { value: 'A', label: 'Group A' },
+  { value: 'B', label: 'Group B' },
+  { value: 'C', label: 'Group C' },
+  { value: 'D', label: 'Group D' }
+];
+
 export default function Signup() {
   const router = useRouter();
   const [name, setName] = useState('');
   const [employeeId, setEmployeeId] = useState('');
   const [position, setPosition] = useState('');
+  const [shiftGroup, setShiftGroup] = useState<ShiftGroup>('A');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -57,6 +67,12 @@ export default function Signup() {
     // Validate position
     if (!POSITIONS.includes(position)) {
       setError('Please select a valid position');
+      return false;
+    }
+
+    // Validate shift group
+    if (!SHIFT_GROUPS.map(g => g.value).includes(shiftGroup)) {
+      setError('Please select a valid shift group');
       return false;
     }
 
@@ -96,6 +112,7 @@ export default function Signup() {
           name,
           employeeId,
           position,
+          shiftGroup,
           password
         }),
       });
@@ -206,6 +223,28 @@ export default function Signup() {
                   {POSITIONS.map((pos) => (
                     <option key={pos} value={pos}>
                       {pos}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Shift Group Dropdown */}
+              <div>
+                <label htmlFor="shift-group" className="sr-only">
+                  Shift Group
+                </label>
+                <select
+                  id="shift-group"
+                  name="shiftGroup"
+                  required
+                  className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 dark:border-dark-border text-gray-900 dark:text-dark-text-primary dark:bg-dark-surface focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
+                  value={shiftGroup}
+                  onChange={(e) => setShiftGroup(e.target.value as ShiftGroup)}
+                >
+                  <option value="">Select Shift Group</option>
+                  {SHIFT_GROUPS.map((group) => (
+                    <option key={group.value} value={group.value}>
+                      {group.label}
                     </option>
                   ))}
                 </select>

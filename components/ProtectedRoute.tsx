@@ -14,16 +14,17 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     // If we have both user and session, mark as authorized
     if (user && session) {
       setIsAuthorized(true);
+      
+      // If on login page, redirect to schedule
+      if (router.pathname === '/login') {
+        router.push('/schedule');
+      }
       return;
     }
 
     // If auth check is complete and we don't have user/session, redirect to login
     const redirectToLogin = () => {
-      const currentPath = router.pathname;
-      router.push({
-        pathname: '/login',
-        query: { returnUrl: currentPath }
-      });
+      router.push('/login');
     };
 
     // Use a small delay to prevent immediate redirect during initial load

@@ -65,10 +65,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         loading: false,
       });
       
-      // Use router for navigation within the app
-      if (router.pathname !== '/login') {
-        router.push('/login');
-      }
+      // Always redirect to login after sign out
+      router.push('/login');
     } catch (error) {
       console.error('Error signing out:', error);
       setAuthState(prev => ({ ...prev, loading: false }));
@@ -89,6 +87,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             session,
             loading: false,
           });
+          
+          // If we have a session and we're on the login page, redirect to schedule
+          if (session && router.pathname === '/login') {
+            router.push('/schedule');
+          }
         }
       } catch (error) {
         console.error('Error initializing auth:', error);
@@ -114,10 +117,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             loading: false,
           });
           
-          // Navigate to schedule page on sign in
-          if (router.pathname === '/login') {
-            router.push('/schedule');
-          }
+          // Always navigate to schedule page on sign in
+          router.push('/schedule');
         } else if (event === 'SIGNED_OUT') {
           setAuthState({
             user: null,
@@ -126,9 +127,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           });
           
           // Navigate to login on sign out
-          if (router.pathname !== '/login') {
-            router.push('/login');
-          }
+          router.push('/login');
         } else if (event === 'TOKEN_REFRESHED') {
           setAuthState(prev => ({
             ...prev,
