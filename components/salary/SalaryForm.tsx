@@ -191,10 +191,10 @@ export function SalaryForm({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Basic Salary (X) (EGP)
+            Basic Salary
           </label>
           <input
             type="number"
@@ -220,7 +220,7 @@ export function SalaryForm({
 
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Cost of Living (Y) (EGP)
+            Cost of Living
           </label>
           <input
             type="number"
@@ -246,7 +246,7 @@ export function SalaryForm({
 
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Shift Allowance (Z) (EGP)
+            Shift Allowance
           </label>
           <input
             type="number"
@@ -272,7 +272,7 @@ export function SalaryForm({
         
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Other Earnings (E) (EGP)
+            Other Earnings
           </label>
           <input
             type="number"
@@ -302,7 +302,7 @@ export function SalaryForm({
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             Overtime Hours
           </label>
-          <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-4">
             <div className="flex items-center">
               <input
                 type="number"
@@ -340,7 +340,7 @@ export function SalaryForm({
               </span>
             </div>
             
-            <div className="flex items-center">
+            <div className="flex items-center col-span-2">
               <input
                 type="number"
                 inputMode="numeric"
@@ -352,7 +352,7 @@ export function SalaryForm({
                 readOnly
               />
               <span className="ml-2 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                Total Overtime (O)
+                Total Overtime
               </span>
             </div>
           </div>
@@ -366,7 +366,7 @@ export function SalaryForm({
 
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Deductions (F) (EGP)
+            Deductions
           </label>
           <input
             type="number"

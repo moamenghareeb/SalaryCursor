@@ -1399,7 +1399,7 @@ export default function Leave() {
                       <span className="text-lg font-semibold text-apple-gray-dark dark:text-dark-text-primary">{yearsOfService}</span>
                       <button 
                         onClick={() => setIsEditingYears(true)}
-                        className="ml-2 text-apple-blue dark:text-blue-400 hover:text-apple-blue-hover"
+                        className="ml-2 flex items-center justify-center w-7 h-7 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-500 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-800/30"
                       >
                         <FiEdit size={14} />
                       </button>
