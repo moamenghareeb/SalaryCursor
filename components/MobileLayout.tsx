@@ -70,94 +70,43 @@ export default function MobileLayout({ children }: MobileLayoutProps) {
       </main>
       
       {/* Fixed header with theme toggle */}
-      <div className="fixed top-0 left-0 right-0 h-12 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md z-50 border-b border-gray-200 dark:border-gray-700 flex items-center justify-end px-4">
-        <PremiumThemeToggle />
+      <div className="fixed top-0 left-0 right-0 h-14 bg-white/90 dark:bg-dark-surface/90 backdrop-blur-md z-50 border-b border-gray-200 dark:border-dark-border flex items-center px-4">
+        <div className="flex-1">
+          <Link href="/salary" className="text-lg font-semibold text-apple-gray-dark dark:text-white">
+            SalaryCursor
+          </Link>
+        </div>
+        <div className="flex items-center gap-3">
+          <NotificationCenter />
+          <PremiumThemeToggle />
+        </div>
       </div>
       
-      {/* Mobile bottom navigation bar with prominent icons */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 shadow-lg border-t border-gray-200 dark:border-gray-700 z-40 ios-safe-bottom sc-mobile-nav">
-        {/* Bottom navigation bar */}
-        <div className="flex justify-around items-center h-16" data-testid="mobile-bottom-nav">
-          <Link 
-            href="/schedule" 
-            className={`relative flex flex-col items-center justify-center py-3 px-4 flex-1 transition-all duration-200 ${router.pathname === '/schedule' 
-              ? 'text-apple-blue' 
-              : 'text-gray-500 dark:text-gray-400'}`}
-          >
-            {/* Active indicator dot */}
-            {router.pathname === '/schedule' && (
-              <span className="absolute top-0 w-10 h-1 rounded-full bg-apple-blue" />
-            )}
-            
-            <div className={`p-1.5 rounded-full ${router.pathname === '/schedule' ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}>
-              <FiCalendar className="w-7 h-7" />
-            </div>
-            <span className={`text-xs mt-1 ${router.pathname === '/schedule' ? 'font-medium' : ''}`}>Schedule</span>
+      {/* Bottom navigation */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-dark-surface border-t border-gray-200 dark:border-dark-border">
+        <nav className="flex justify-around items-center h-16">
+          <Link href="/schedule" className={`flex flex-col items-center justify-center w-1/5 ${router.pathname === '/schedule' ? 'text-blue-500' : 'text-gray-500 dark:text-gray-400'}`}>
+            <FiCalendar className="text-2xl" />
+            <span className="text-xs mt-1">Schedule</span>
           </Link>
-
-          <Link 
-            href="/dashboard" 
-            className={`relative flex flex-col items-center justify-center py-3 px-4 flex-1 transition-all duration-200 ${router.pathname === '/dashboard' 
-              ? 'text-apple-blue' 
-              : 'text-gray-500 dark:text-gray-400'}`}
-          >
-            {/* Active indicator dot */}
-            {router.pathname === '/dashboard' && (
-              <span className="absolute top-0 w-10 h-1 rounded-full bg-apple-blue" />
-            )}
-            
-            <div className={`p-1.5 rounded-full ${router.pathname === '/dashboard' ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}>
-              <FiHome className="w-7 h-7" />
-            </div>
-            <span className={`text-xs mt-1 ${router.pathname === '/dashboard' ? 'font-medium' : ''}`}>Dashboard</span>
+          <Link href="/salary" className={`flex flex-col items-center justify-center w-1/5 ${router.pathname === '/salary' ? 'text-blue-500' : 'text-gray-500 dark:text-gray-400'}`}>
+            <FiDollarSign className="text-2xl" />
+            <span className="text-xs mt-1">Salary</span>
           </Link>
-
-          <Link 
-            href="/salary" 
-            className={`relative flex flex-col items-center justify-center py-3 px-4 flex-1 transition-all duration-200 ${router.pathname === '/salary' 
-              ? 'text-apple-blue' 
-              : 'text-gray-500 dark:text-gray-400'}`}
-          >
-            {/* Active indicator dot */}
-            {router.pathname === '/salary' && (
-              <span className="absolute top-0 w-10 h-1 rounded-full bg-apple-blue" />
-            )}
-            
-            <div className={`p-1.5 rounded-full ${router.pathname === '/salary' ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}>
-              <FiDollarSign className="w-7 h-7" />
-            </div>
-            <span className={`text-xs mt-1 ${router.pathname === '/salary' ? 'font-medium' : ''}`}>Salary</span>
+          <Link href="/leave" className={`flex flex-col items-center justify-center w-1/5 ${router.pathname === '/leave' ? 'text-blue-500' : 'text-gray-500 dark:text-gray-400'}`}>
+            <FiClock className="text-2xl" />
+            <span className="text-xs mt-1">Leave</span>
           </Link>
-          
-          <Link 
-            href="/leave" 
-            className={`relative flex flex-col items-center justify-center py-3 px-4 flex-1 transition-all duration-200 ${router.pathname === '/leave' 
-              ? 'text-apple-blue' 
-              : 'text-gray-500 dark:text-gray-400'}`}
-          >
-            {/* Active indicator dot */}
-            {router.pathname === '/leave' && (
-              <span className="absolute top-0 w-10 h-1 rounded-full bg-apple-blue" />
-            )}
-            
-            <div className={`p-1.5 rounded-full ${router.pathname === '/leave' ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}>
-              <FiClock className="w-7 h-7" />
-            </div>
-            <span className={`text-xs mt-1 ${router.pathname === '/leave' ? 'font-medium' : ''}`}>Leave</span>
+          <Link href="/dashboard" className={`flex flex-col items-center justify-center w-1/5 ${router.pathname === '/dashboard' ? 'text-blue-500' : 'text-gray-500 dark:text-gray-400'}`}>
+            <FiHome className="text-2xl" />
+            <span className="text-xs mt-1">Dashboard</span>
           </Link>
-          
-          <button
-            onClick={() => {
-              setIsMenuOpen(false);
-              signOut();
-            }}
-            className="flex flex-col items-center justify-center py-3 px-4 flex-1 transition-all duration-200 text-red-600 dark:text-red-400"
-          >
-            <FiLogOut className="w-7 h-7" />
+          <button onClick={signOut} className="flex flex-col items-center justify-center w-1/5 text-gray-500 dark:text-gray-400">
+            <FiLogOut className="text-2xl" />
             <span className="text-xs mt-1">Sign Out</span>
           </button>
-        </div>
-      </nav>
+        </nav>
+      </div>
     </div>
   );
 }
