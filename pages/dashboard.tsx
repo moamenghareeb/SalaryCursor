@@ -142,6 +142,12 @@ export default function Dashboard() {
     return salaryData.monthlySalaries.filter(month => month.month > 0);
   }, [salaryData?.monthlySalaries]);
 
+  // Calculate year total salary
+  const yearTotalSalary = useMemo(() => {
+    if (!currentYearRecords.length) return 0;
+    return currentYearRecords.reduce((sum, month) => sum + month.total, 0);
+  }, [currentYearRecords]);
+
   // Handler for changing the selected year
   const handleYearChange = (year: number) => {
     setSelectedYear(year);
@@ -253,6 +259,52 @@ export default function Dashboard() {
       </Head>
       
       <div className="container mx-auto px-4 py-8">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold mb-2">Dashboard</h1>
+          <p className="text-gray-600 dark:text-gray-300">
+            Welcome back, {employee?.name || 'User'}!
+          </p>
+        </div>
+
+        {/* Year Selection and Total Salary Display */}
+        <div className={`p-4 rounded-lg shadow-md ${isDarkMode ? 'bg-gray-800' : 'bg-white'} mb-6`}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center mb-2">
+              <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center mr-2">
+                <FiDollarSign className={`w-5 h-5 ${isDarkMode ? 'text-blue-400' : 'text-blue-500'}`} />
+              </div>
+              <span className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                Total Salary for {selectedYear}
+              </span>
+            </div>
+            <div className="flex items-center space-x-4">
+              <button 
+                onClick={() => handleYearChange(selectedYear - 1)}
+                className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
+                aria-label="Previous Year"
+              >
+                <FiChevronLeft className="text-gray-600 dark:text-gray-300" />
+              </button>
+              
+              <div className="flex items-center space-x-2">
+                <FiCalendar className="text-indigo-600 dark:text-indigo-400" />
+                <span className="text-lg font-semibold">{selectedYear}</span>
+              </div>
+              
+              <button 
+                onClick={() => handleYearChange(selectedYear + 1)}
+                className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
+                aria-label="Next Year"
+              >
+                <FiChevronRight className="text-gray-600 dark:text-gray-300" />
+              </button>
+            </div>
+          </div>
+          <div className={`text-3xl font-bold ${isDarkMode ? 'text-blue-400' : 'text-blue-500'} mt-2`}>
+            {formatCurrency(yearTotalSalary)}
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           <StatsPanel
             stats={{

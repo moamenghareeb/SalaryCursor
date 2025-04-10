@@ -19,6 +19,7 @@ import { getPersistedOptions } from '../lib/queryPersistence';
 // PWA support
 import Head from 'next/head';
 import { useRouter } from 'next/router';
+import { CustomToast, toastStyles } from '../components/CustomToast';
 
 // Simple error boundary component since react-error-boundary might not be installed
 interface ErrorBoundaryProps {
@@ -81,34 +82,13 @@ function ErrorFallback({error, resetErrorBoundary}: {error: Error, resetErrorBou
 }
 
 function ToastWrapper() {
-  const { isDarkMode } = useTheme();
-  
-  return (
-    <Toaster
-      position="top-right"
-      toastOptions={{
-        duration: 4000,
-        style: {
-          background: isDarkMode ? '#1e1e1e' : '#fff',
-          color: isDarkMode ? '#fff' : '#1d1d1f',
-          border: `1px solid ${isDarkMode ? '#2a2a2a' : '#e5e5e5'}`,
-        },
-        success: {
-          iconTheme: {
-            primary: '#10B981',
-            secondary: 'white',
-          },
-        },
-        error: {
-          iconTheme: {
-            primary: '#EF4444',
-            secondary: 'white',
-          },
-        },
-      }}
-    />
-  );
+  return <CustomToast position="top-center" />;
 }
+
+// Add styles for toast animations
+const ToastStyles = () => {
+  return <style jsx global>{toastStyles}</style>;
+};
 
 function MyApp({ Component, pageProps }: AppProps) {
   const router = useRouter();
@@ -187,6 +167,7 @@ function MyApp({ Component, pageProps }: AppProps) {
               )}
               <Component {...pageProps} />
               <ToastWrapper />
+              <ToastStyles />
               {/* PWA install prompt - will show if app can be installed */}
               <div id="pwa-install-prompt" className="hidden fixed bottom-4 left-0 right-0 mx-auto w-5/6 max-w-sm bg-white dark:bg-dark-surface p-4 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700">
                 <div className="flex items-center justify-between">
