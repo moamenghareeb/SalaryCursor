@@ -147,16 +147,16 @@ export function SalaryForm({
   };
 
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-2 gap-4">
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-2">
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-0.5">
             Month
           </label>
           <select 
             value={selectedMonth}
             onChange={(e) => onDateChange(selectedYear, parseInt(e.target.value))}
-            className="w-full px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
+            className="w-full px-3 py-1.5 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
           >
             <option value={1}>January</option>
             <option value={2}>February</option>
@@ -174,13 +174,13 @@ export function SalaryForm({
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-0.5">
             Year
           </label>
           <select 
             value={selectedYear}
             onChange={(e) => onDateChange(parseInt(e.target.value), selectedMonth)}
-            className="w-full px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
+            className="w-full px-3 py-1.5 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
           >
             {Array.from({ length: selectedYear - 2020 + 2 }, (_, i) => (
               <option key={2020 + i} value={2020 + i}>
@@ -191,9 +191,9 @@ export function SalaryForm({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-2">
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-0.5">
             Basic Salary
           </label>
           <input
@@ -204,22 +204,22 @@ export function SalaryForm({
             onChange={handleChange}
             onBlur={() => handleBlur('basicSalary')}
             name="basicSalary"
-            className={`w-full px-4 py-2 rounded-md border ${
+            className={`w-full px-3 py-1.5 rounded-md border ${
               errors.basicSalary && touched.basicSalary 
                 ? 'border-red-500 dark:border-red-400' 
                 : 'border-gray-300 dark:border-gray-600'
             } focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 bg-white dark:bg-gray-800`}
           />
           {errors.basicSalary && touched.basicSalary && (
-            <p className="mt-1 text-sm text-red-500 dark:text-red-400 flex items-center">
-              <FiAlertCircle className="mr-1" />
+            <p className="mt-0.5 text-xs text-red-500 dark:text-red-400 flex items-center">
+              <FiAlertCircle className="mr-1" size={10} />
               {errors.basicSalary}
             </p>
           )}
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-0.5">
             Cost of Living
           </label>
           <input
@@ -230,22 +230,22 @@ export function SalaryForm({
             onChange={handleChange}
             onBlur={() => handleBlur('costOfLiving')}
             name="costOfLiving"
-            className={`w-full px-4 py-2 rounded-md border ${
+            className={`w-full px-3 py-1.5 rounded-md border ${
               errors.costOfLiving && touched.costOfLiving 
                 ? 'border-red-500 dark:border-red-400' 
                 : 'border-gray-300 dark:border-gray-600'
             } focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 bg-white dark:bg-gray-800`}
           />
           {errors.costOfLiving && touched.costOfLiving && (
-            <p className="mt-1 text-sm text-red-500 dark:text-red-400 flex items-center">
-              <FiAlertCircle className="mr-1" />
+            <p className="mt-0.5 text-xs text-red-500 dark:text-red-400 flex items-center">
+              <FiAlertCircle className="mr-1" size={10} />
               {errors.costOfLiving}
             </p>
           )}
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-0.5">
             Shift Allowance
           </label>
           <input
@@ -256,22 +256,22 @@ export function SalaryForm({
             onChange={handleChange}
             onBlur={() => handleBlur('shiftAllowance')}
             name="shiftAllowance"
-            className={`w-full px-4 py-2 rounded-md border ${
+            className={`w-full px-3 py-1.5 rounded-md border ${
               errors.shiftAllowance && touched.shiftAllowance 
                 ? 'border-red-500 dark:border-red-400' 
                 : 'border-gray-300 dark:border-gray-600'
             } focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 bg-white dark:bg-gray-800`}
           />
           {errors.shiftAllowance && touched.shiftAllowance && (
-            <p className="mt-1 text-sm text-red-500 dark:text-red-400 flex items-center">
-              <FiAlertCircle className="mr-1" />
+            <p className="mt-0.5 text-xs text-red-500 dark:text-red-400 flex items-center">
+              <FiAlertCircle className="mr-1" size={10} />
               {errors.shiftAllowance}
             </p>
           )}
         </div>
         
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-0.5">
             Other Earnings
           </label>
           <input
@@ -282,27 +282,27 @@ export function SalaryForm({
             onChange={handleChange}
             onBlur={() => handleBlur('otherEarnings')}
             name="otherEarnings"
-            className={`w-full px-4 py-2 rounded-md border ${
+            className={`w-full px-3 py-1.5 rounded-md border ${
               errors.otherEarnings && touched.otherEarnings 
                 ? 'border-red-500 dark:border-red-400' 
                 : 'border-gray-300 dark:border-gray-600'
             } focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 bg-white dark:bg-gray-800`}
           />
           {errors.otherEarnings && touched.otherEarnings && (
-            <p className="mt-1 text-sm text-red-500 dark:text-red-400 flex items-center">
-              <FiAlertCircle className="mr-1" />
+            <p className="mt-0.5 text-xs text-red-500 dark:text-red-400 flex items-center">
+              <FiAlertCircle className="mr-1" size={10} />
               {errors.otherEarnings}
             </p>
           )}
         </div>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-2">
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-0.5">
             Overtime Hours
           </label>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-2">
             <div className="flex items-center">
               <input
                 type="number"
@@ -311,11 +311,11 @@ export function SalaryForm({
                 id="scheduleOvertimeHours"
                 name="scheduleOvertimeHours"
                 value={scheduleOvertimeHours}
-                className="w-full px-4 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
+                className="w-full px-3 py-1.5 rounded-md border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
                 readOnly
               />
-              <span className="ml-2 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                From Schedule
+              <span className="ml-1 text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                Schedule
               </span>
             </div>
             
@@ -329,14 +329,14 @@ export function SalaryForm({
                 value={manualOvertimeHoursState}
                 onChange={(e) => handleManualOvertimeChange(Number(e.target.value))}
                 onBlur={() => handleBlur('manualOvertimeHours')}
-                className={`w-full px-4 py-2 rounded-md border ${
+                className={`w-full px-3 py-1.5 rounded-md border ${
                   errors.manualOvertimeHours && touched.manualOvertimeHours 
                     ? 'border-red-500 dark:border-red-400' 
                     : 'border-gray-300 dark:border-gray-600'
                 } focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 bg-white dark:bg-gray-800`}
               />
-              <span className="ml-2 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                Additional
+              <span className="ml-1 text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                Add'l
               </span>
             </div>
             
@@ -348,24 +348,24 @@ export function SalaryForm({
                 id="totalOvertimeHoursDisplay"
                 name="totalOvertimeHoursDisplay"
                 value={scheduleOvertimeHours + manualOvertimeHoursState}
-                className="w-full px-4 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
+                className="w-full px-3 py-1.5 rounded-md border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
                 readOnly
               />
-              <span className="ml-2 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                Total Overtime
+              <span className="ml-1 text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                Total OT
               </span>
             </div>
           </div>
           {errors.manualOvertimeHours && touched.manualOvertimeHours && (
-            <p className="mt-1 text-sm text-red-500 dark:text-red-400 flex items-center">
-              <FiAlertCircle className="mr-1" />
+            <p className="mt-0.5 text-xs text-red-500 dark:text-red-400 flex items-center">
+              <FiAlertCircle className="mr-1" size={10} />
               {errors.manualOvertimeHours}
             </p>
           )}
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-0.5">
             Deductions
           </label>
           <input
@@ -375,20 +375,20 @@ export function SalaryForm({
             value={formData.deduction || ''}
             onChange={handleChange}
             name="deduction"
-            className="w-full px-4 py-2 rounded-md border border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 bg-white dark:bg-gray-800"
+            className="w-full px-3 py-1.5 rounded-md border border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 bg-white dark:bg-gray-800"
           />
         </div>
       </div>
 
-      <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+      <div className="mt-1 p-1.5 bg-gray-50 dark:bg-gray-700 rounded-lg">
         <div className="flex justify-between items-center">
           <div>
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Exchange Rate (EGP/USD):</span>
-            <span className="ml-2 text-sm font-bold text-gray-900 dark:text-gray-100">{exchangeRate.toFixed(2)}</span>
+            <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Rate (EGP/USD):</span>
+            <span className="ml-1 text-xs font-bold text-gray-900 dark:text-gray-100">{exchangeRate.toFixed(2)}</span>
           </div>
           <div>
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Rate/30.8 Ratio:</span>
-            <span className="ml-2 text-sm font-bold text-blue-600 dark:text-blue-400">
+            <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Ratio:</span>
+            <span className="ml-1 text-xs font-bold text-blue-600 dark:text-blue-400">
               {(salaryCalc.rateRatio || (exchangeRate / 30.8)).toFixed(4)}
             </span>
           </div>

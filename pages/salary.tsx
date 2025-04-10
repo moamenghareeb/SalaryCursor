@@ -1363,10 +1363,10 @@ export default function Salary() {
         <meta name="description" content="Manage and calculate salary information" />
       </Head>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 py-2">
         <div className="bg-white dark:bg-dark-surface rounded-apple shadow-sm">
-          <div className="px-4 sm:px-6 py-5">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="px-3 sm:px-4 py-3">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
               <SalaryForm
                 employee={toSimplifiedEmployee(employee)}
                 salaryCalc={salaryCalc}
@@ -1383,12 +1383,12 @@ export default function Salary() {
               />
               
               {/* Salary Summary Section with Toggle */}
-              <div className="mt-6 mb-2">
-                <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 pb-2 mb-4">
-                  <h3 className="text-base font-medium text-gray-700 dark:text-gray-300">Salary Breakdown</h3>
+              <div className="mt-3 mb-1">
+                <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 pb-1 mb-2">
+                  <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Salary Breakdown</h3>
                   <button 
                     onClick={() => setShowSalarySummary(!showSalarySummary)}
-                    className="px-4 py-1.5 text-sm font-medium rounded-md bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400 dark:hover:bg-blue-900/50 focus:outline-none"
+                    className="px-3 py-1 text-xs font-medium rounded-md bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400 dark:hover:bg-blue-900/50 focus:outline-none"
                   >
                     {showSalarySummary ? 'Hide Details' : 'Show Details'}
                   </button>
@@ -1405,13 +1405,13 @@ export default function Salary() {
                 )}
               </div>
 
-              <div className="flex justify-between items-center mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
-                <div className="text-lg font-semibold">
-                  Total Salary: EGP {salaryCalc.totalSalary.toLocaleString()}
+              <div className="flex justify-between items-center mt-3 pt-2 border-t border-gray-200 dark:border-gray-700">
+                <div className="text-base font-semibold">
+                  Total: EGP {salaryCalc.totalSalary.toLocaleString()}
                 </div>
                 <button
                   onClick={saveSalary}
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                 >
                   Save Salary
                 </button>
@@ -1420,12 +1420,12 @@ export default function Salary() {
           </div>
         </div>
 
-        <div className="mt-6">
-          <h2 className="text-lg font-medium text-apple-gray-dark dark:text-dark-text-primary mb-4">
+        <div className="mt-3">
+          <h2 className="text-sm font-medium text-apple-gray-dark dark:text-dark-text-primary mb-1">
             Salary History
           </h2>
           <div className="bg-white dark:bg-dark-surface rounded-apple shadow-sm">
-            <div className="px-4 sm:px-6 py-5">
+            <div className="px-3 sm:px-4 py-2">
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                   <thead>
