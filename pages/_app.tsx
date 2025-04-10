@@ -14,8 +14,9 @@ import { getUserFriendlyErrorMessage } from '../lib/errorHandler';
 // React Query imports
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
-import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
-import { getPersistedOptions } from '../lib/queryPersistence';
+import { PersistQueryClientProvider, PersistedClient } from '@tanstack/react-query-persist-client';
+import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persister';
+import { offlineStorage } from '../lib/offlineStorage';
 // PWA support
 import Head from 'next/head';
 import { useRouter } from 'next/router';
@@ -90,17 +91,66 @@ const ToastStyles = () => {
   return <style jsx global>{toastStyles}</style>;
 };
 
+// Configure query client with offline support
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      gcTime: 24 * 60 * 60 * 1000, // 24 hours
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      retry: 3,
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+      networkMode: 'offlineFirst'
+    },
+    mutations: {
+      networkMode: 'offlineFirst',
+      onError: (error) => {
+        logger.error('Mutation error:', error);
+      }
+    }
+  }
+});
+
+// Configure offline persistence
+const persister = {
+  async persistClient(client: PersistedClient) {
+    try {
+      await offlineStorage.set('SALARYCURSOR_QUERY_CACHE', JSON.stringify(client));
+    } catch (error) {
+      logger.error('Error persisting query client:', error);
+    }
+  },
+  async restoreClient(): Promise<PersistedClient | undefined> {
+    try {
+      const data = await offlineStorage.get('SALARYCURSOR_QUERY_CACHE');
+      return data ? JSON.parse(data) : undefined;
+    } catch (error) {
+      logger.error('Error restoring query client:', error);
+      return undefined;
+    }
+  },
+  async removeClient() {
+    try {
+      await offlineStorage.set('SALARYCURSOR_QUERY_CACHE', null);
+    } catch (error) {
+      logger.error('Error removing query client:', error);
+    }
+  }
+};
+
+const persistOptions = {
+  key: 'SALARYCURSOR_QUERY_CACHE',
+  persister,
+  maxAge: 24 * 60 * 60 * 1000, // 24 hours
+  buster: process.env.BUILD_ID,
+  retry: {
+    maxRetries: 3,
+    retryDelay: (attemptIndex: number) => Math.min(1000 * 2 ** attemptIndex, 30000)
+  }
+};
+
 function MyApp({ Component, pageProps }: AppProps) {
   const router = useRouter();
-  const [queryClient] = useState(() => new QueryClient());
   const [isOnline, setIsOnline] = useState(true);
-  const [persistOptions, setPersistOptions] = useState<any>(null);
-
-  useEffect(() => {
-    // Get persisted options after component mounts (client-side only)
-    const options = getPersistedOptions();
-    setPersistOptions(options);
-  }, []);
 
   useEffect(() => {
     // Register Service Worker
@@ -135,11 +185,6 @@ function MyApp({ Component, pageProps }: AppProps) {
       window.removeEventListener('offline', handleNetworkChange);
     };
   }, []);
-
-  // Show loading state until we have persisted options
-  if (!persistOptions) {
-    return null;
-  }
 
   return (
     <QueryClientProvider client={queryClient}>

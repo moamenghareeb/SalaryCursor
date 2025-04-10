@@ -6,6 +6,7 @@ import PremiumThemeToggle from './PremiumThemeToggle';
 import NotificationCenter from './NotificationCenter';
 import dynamic from 'next/dynamic';
 import { isMobileDevice } from '../lib/pwaUtils';
+import { OfflineStatus } from './OfflineStatus';
 
 // Dynamically import MobileLayout to avoid SSR issues
 const MobileLayout = dynamic(() => import('./MobileLayout'), { ssr: false });
@@ -248,6 +249,7 @@ export default function Layout({ children }: LayoutProps) {
           </div>
         </div>
       </nav>
+      <OfflineStatus className="fixed bottom-4 right-4 z-50 bg-white dark:bg-dark-surface shadow-lg rounded-lg p-2" />
       <main className={`pt-16 ${isMobile && isSchedulePage ? 'pb-2 px-0' : 'pb-8 px-4 sm:px-6 lg:px-8'} max-w-7xl mx-auto animate-fadeIn`}>
         {children}
       </main>
