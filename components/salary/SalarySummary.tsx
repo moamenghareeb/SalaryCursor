@@ -53,6 +53,20 @@ export function SalarySummary({
           <span className="text-xs font-medium text-red-600">EGP {salaryCalc.deduction.toLocaleString()}</span>
         </div>
 
+        <div className="flex justify-between">
+          <span className="text-xs text-gray-600 dark:text-gray-300">Variable Pay (Info Only):</span>
+          <span className="text-xs font-medium text-blue-600">
+            EGP {(
+              (salaryCalc.basicSalary + 
+               salaryCalc.costOfLiving + 
+               salaryCalc.shiftAllowance + 
+               (salaryCalc.otherEarnings || 0) + 
+               salaryCalc.overtimePay) * 
+              ((exchangeRate / 30.8) - 1)
+            ).toLocaleString()}
+          </span>
+        </div>
+
         <div className="border-t border-gray-200 dark:border-gray-700 pt-1 mt-1">
           <div className="flex justify-between">
             <span className="text-sm font-semibold">Total Salary:</span>

@@ -364,6 +364,24 @@ export function SalaryForm({
           )}
         </div>
 
+        <div className="mt-2">
+          <div className="flex justify-between items-center bg-gray-50 dark:bg-gray-700/50 p-2 rounded-md mb-2">
+            <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+              Variable Pay (Info Only):
+            </span>
+            <span className="text-xs font-medium text-blue-600 dark:text-blue-400">
+              EGP {(
+                (formData.basicSalary + 
+                 formData.costOfLiving + 
+                 formData.shiftAllowance + 
+                 (formData.otherEarnings || 0) + 
+                 formData.overtimePay) * 
+                ((exchangeRate / 30.8) - 1)
+              ).toLocaleString()}
+            </span>
+          </div>
+        </div>
+
         <div>
           <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-0.5">
             Deductions
