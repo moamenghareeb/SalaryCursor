@@ -336,7 +336,7 @@ export function SalaryForm({
                 } focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 bg-white dark:bg-gray-800`}
               />
               <span className="ml-1 text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                Add'l
+                Add&apos;l
               </span>
             </div>
             
